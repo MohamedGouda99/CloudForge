@@ -79,3 +79,4 @@ generated_terraform/
 temp/
 tmp/
 .claude/
+drawio/
