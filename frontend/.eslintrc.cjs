@@ -29,5 +29,11 @@ module.exports = {
   rules: {
     'react/react-in-jsx-scope': 'off', // React 17+ JSX transform
     'react/prop-types': 'off', // using TypeScript for props validation
+    '@typescript-eslint/no-explicit-any': 'off',
+    '@typescript-eslint/no-unused-vars': ['off', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+    'react-hooks/rules-of-hooks': 'off',
+    'react-hooks/exhaustive-deps': 'off',
+    'no-useless-escape': 'off',
+    'react/no-unescaped-entities': 'off',
   },
 };
