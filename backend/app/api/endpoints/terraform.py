@@ -60,6 +60,8 @@ def build_terraform_env(
         env['AWS_ACCESS_KEY_ID'] = credentials.aws_access_key_id  # type: ignore[arg-type]
         env['AWS_SECRET_ACCESS_KEY'] = credentials.aws_secret_access_key  # type: ignore[arg-type]
         env['TF_VAR_aws_region'] = credentials.aws_region  # type: ignore[arg-type]
+        env['TF_VAR_aws_access_key'] = credentials.aws_access_key_id  # type: ignore[arg-type]
+        env['TF_VAR_aws_secret_key'] = credentials.aws_secret_access_key  # type: ignore[arg-type]
 
     elif project.cloud_provider == CloudProvider.AZURE:
         required_fields = [
@@ -627,6 +629,132 @@ def plan_infrastructure(
         cleanup_temp_files(cleanup)
 
 
+@router.get("/plan/stream/{project_id}")
+async def plan_infrastructure_stream(
+    project_id: int,
+    aws_region: Optional[str] = None,
+    aws_access_key_id: Optional[str] = None,
+    aws_secret_access_key: Optional[str] = None,
+    azure_subscription_id: Optional[str] = None,
+    azure_tenant_id: Optional[str] = None,
+    azure_client_id: Optional[str] = None,
+    azure_client_secret: Optional[str] = None,
+    azure_location: Optional[str] = None,
+    gcp_project_id: Optional[str] = None,
+    gcp_region: Optional[str] = None,
+    gcp_credentials_json: Optional[str] = None,
+    token: str = '',
+    db: Session = Depends(get_db)
+):
+    """Stream terraform plan output using Server-Sent Events."""
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication token required"
+        )
+
+    current_user = get_current_user(token=token, db=db)
+
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == current_user.id
+    ).first()
+
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found"
+        )
+
+    project_dir = ensure_terraform_files(project, project_id, db)
+
+    credentials = TerraformCredentials(
+        aws_region=aws_region,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        azure_subscription_id=azure_subscription_id,
+        azure_tenant_id=azure_tenant_id,
+        azure_client_id=azure_client_id,
+        azure_client_secret=azure_client_secret,
+        azure_location=azure_location,
+        gcp_project_id=gcp_project_id,
+        gcp_region=gcp_region,
+        gcp_credentials_json=gcp_credentials_json,
+    )
+
+    async def event_stream():
+        cleanup: List[str] = []
+        try:
+            try:
+                env, cleanup = build_terraform_env(project, credentials, project_dir)
+            except HTTPException as exc:
+                yield f"data: ERROR: {exc.detail}\n\n"
+                yield "data: PLAN_RESULT:error|changes=false\n\n"
+                yield "data: [DONE]\n\n"
+                return
+
+            yield "data: Starting terraform plan...\n\n"
+            yield "data: === Running terraform init ===\n\n"
+
+            init_process = subprocess.Popen(
+                ['terraform', 'init', '-backend=false'],
+                cwd=project_dir,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1
+            )
+
+            async for line in stream_terraform_output(init_process):
+                yield line
+
+            if init_process.returncode != 0:
+                yield "data: ERROR: terraform init failed\n\n"
+                yield "data: PLAN_RESULT:error|changes=false\n\n"
+                yield "data: [DONE]\n\n"
+                return
+
+            yield "data: \n=== Running terraform plan ===\n\n"
+            plan_process = subprocess.Popen(
+                ['terraform', 'plan', '-detailed-exitcode'],
+                cwd=project_dir,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1
+            )
+
+            async for line in stream_terraform_output(plan_process):
+                yield line
+
+            if plan_process.returncode == 0:
+                yield "data: PLAN_RESULT:success|changes=false\n\n"
+            elif plan_process.returncode == 2:
+                yield "data: PLAN_RESULT:success|changes=true\n\n"
+            else:
+                yield "data: PLAN_RESULT:error|changes=false\n\n"
+
+            yield "data: [DONE]\n\n"
+        except Exception as exc:
+            yield f"data: ERROR: {str(exc)}\n\n"
+            yield "data: PLAN_RESULT:error|changes=false\n\n"
+            yield "data: [DONE]\n\n"
+        finally:
+            cleanup_temp_files(cleanup)
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+
 async def stream_terraform_output(process: subprocess.Popen) -> AsyncGenerator[str, None]:
     """Stream terraform output line by line"""
     try:
@@ -647,8 +775,6 @@ async def stream_terraform_output(process: subprocess.Popen) -> AsyncGenerator[s
 
     except Exception as e:
         yield f"data: ERROR: {str(e)}\n\n"
-    finally:
-        yield "data: [DONE]\n\n"
 
 
 @router.get("/deploy/stream/{project_id}")
@@ -665,10 +791,18 @@ async def deploy_infrastructure_stream(
     gcp_project_id: Optional[str] = None,
     gcp_region: Optional[str] = None,
     gcp_credentials_json: Optional[str] = None,
-    current_user: User = Depends(get_current_user),
+    token: str = '',
     db: Session = Depends(get_db)
 ):
     """Deploy infrastructure with real-time streaming output using Server-Sent Events"""
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication token required"
+        )
+
+    current_user = get_current_user(token=token, db=db)
+
     project = db.query(Project).filter(
         Project.id == project_id,
         Project.owner_id == current_user.id
@@ -888,10 +1022,17 @@ async def destroy_infrastructure_stream(
     gcp_project_id: Optional[str] = None,
     gcp_region: Optional[str] = None,
     gcp_credentials_json: Optional[str] = None,
-    current_user: User = Depends(get_current_user),
+    token: str = '',
     db: Session = Depends(get_db)
 ):
     """Destroy infrastructure with real-time streaming output using Server-Sent Events"""
+    if not token:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication token required"
+        )
+
+    current_user = get_current_user(token=token, db=db)
     project = db.query(Project).filter(
         Project.id == project_id,
         Project.owner_id == current_user.id
@@ -987,4 +1128,3 @@ async def destroy_infrastructure_stream(
             "X-Accel-Buffering": "no"
         }
     )
-

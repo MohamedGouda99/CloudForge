@@ -1,13 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Loader2, PlayCircle, Trash2, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { ansiToHtml } from '../lib/utils/ansi';
+
+type DeployStatus = 'running' | 'success' | 'error' | 'idle';
 
 interface DeploymentLogsModalProps {
-  projectId: string;
-  credentials: any;
-  cloudProvider: string;
   isOpen: boolean;
   onClose: () => void;
   mode: 'deploy' | 'destroy';
+  logs: string[];
+  status: DeployStatus;
 }
 
 const operationMeta = {
@@ -28,130 +30,31 @@ const operationMeta = {
 };
 
 export default function DeploymentLogsModal({
-  projectId,
-  credentials,
-  cloudProvider,
   isOpen,
   onClose,
   mode,
+  logs,
+  status,
 }: DeploymentLogsModalProps) {
-  const [logs, setLogs] = useState<string[]>([]);
-  const [isRunning, setIsRunning] = useState(false);
-  const [isComplete, setIsComplete] = useState(false);
-  const [hasError, setHasError] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
-
-  const meta = operationMeta[mode];
-  const Icon = meta.icon;
-
-  useEffect(() => {
-    if (isOpen && credentials) {
-      startStreaming();
-    }
-
-    return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
 
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logs]);
 
-  const startStreaming = async () => {
-    setIsRunning(true);
-    setIsComplete(false);
-    setHasError(false);
-    setLogs([]);
-
-    try {
-      const params = buildQueryParams();
-      const endpoint = mode === 'deploy' ? 'deploy' : 'destroy';
-      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const url = `${baseUrl}/api/terraform/${endpoint}/stream/${projectId}?${params}`;
-
-      const eventSource = new EventSource(url);
-      eventSourceRef.current = eventSource;
-
-      eventSource.onmessage = (event) => {
-        const data = event.data;
-
-        if (data === '[DONE]') {
-          setIsRunning(false);
-          setIsComplete(true);
-          eventSource.close();
-        } else if (data.startsWith('ERROR:')) {
-          setLogs((prev) => [...prev, data]);
-          setHasError(true);
-        } else {
-          setLogs((prev) => [...prev, data]);
-        }
-      };
-
-      eventSource.onerror = (error) => {
-        console.error('EventSource error:', error);
-        setLogs((prev) => [...prev, 'Connection error occurred']);
-        setHasError(true);
-        setIsRunning(false);
-        eventSource.close();
-      };
-    } catch (error: any) {
-      console.error('Terraform streaming error:', error);
-      setLogs((prev) => [...prev, `Error: ${error.message}`]);
-      setHasError(true);
-      setIsRunning(false);
-    }
-  };
-
-  const buildQueryParams = () => {
-    if (cloudProvider === 'aws') {
-      return new URLSearchParams({
-        aws_region: credentials.aws_region,
-        aws_access_key_id: credentials.aws_access_key_id,
-        aws_secret_access_key: credentials.aws_secret_access_key,
-      }).toString();
-    }
-
-    if (cloudProvider === 'azure') {
-      return new URLSearchParams({
-        azure_subscription_id: credentials.azure_subscription_id,
-        azure_tenant_id: credentials.azure_tenant_id,
-        azure_client_id: credentials.azure_client_id,
-        azure_client_secret: credentials.azure_client_secret,
-        azure_location: credentials.azure_location,
-      }).toString();
-    }
-
-    if (cloudProvider === 'gcp') {
-      return new URLSearchParams({
-        gcp_project_id: credentials.gcp_project_id,
-        gcp_region: credentials.gcp_region,
-        gcp_credentials_json: credentials.gcp_credentials_json,
-      }).toString();
-    }
-
-    return '';
-  };
-
-  const handleClose = () => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-    }
-    onClose();
-  };
-
   if (!isOpen) return null;
 
-  const statusMessage = useMemo(() => {
-    if (isRunning) return meta.runningLabel;
-    if (isComplete && !hasError) return meta.successLabel;
-    if (hasError) return 'Operation failed';
-    return meta.idleLabel;
-  }, [hasError, isComplete, isRunning, meta]);
+  const meta = operationMeta[mode];
+  const Icon = meta.icon;
+  const isRunning = status === 'running';
+  const hasError = status === 'error';
+  const statusMessage = isRunning
+    ? meta.runningLabel
+    : status === 'success'
+    ? meta.successLabel
+    : hasError
+    ? 'Operation failed'
+    : meta.idleLabel;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
@@ -169,9 +72,10 @@ export default function DeploymentLogsModal({
               </div>
             </div>
             <button
-              onClick={handleClose}
+              onClick={onClose}
               disabled={isRunning}
               className="text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+              aria-label="Close deployment logs"
             >
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -189,7 +93,7 @@ export default function DeploymentLogsModal({
                 <span className="text-sm font-medium">{meta.runningLabel}</span>
               </div>
             )}
-            {isComplete && !hasError && (
+            {status === 'success' && (
               <div className="flex items-center gap-2 text-green-600">
                 <CheckCircle2 className="w-5 h-5" />
                 <span className="text-sm font-medium">{meta.successLabel}</span>
@@ -207,39 +111,34 @@ export default function DeploymentLogsModal({
 
         {/* Logs Display */}
         <div className="flex-1 overflow-y-auto p-4 bg-gray-900 font-mono text-sm">
-          {logs.length === 0 && (
+          {logs.length === 0 ? (
             <div className="text-gray-500 text-center py-8">
               <p>Connecting to terraform {mode} stream...</p>
             </div>
+          ) : (
+            <>
+              {logs.map((log, index) => (
+                <div
+                  key={`${log}-${index}`}
+                  className="py-0.5 text-gray-200 whitespace-pre-wrap break-words"
+                  dangerouslySetInnerHTML={{ __html: ansiToHtml(log) }}
+                />
+              ))}
+              <div ref={logsEndRef} />
+            </>
           )}
-          {logs.map((log, index) => (
-            <div
-              key={index}
-              className={`py-0.5 ${
-                log.includes('ERROR') || log.includes('Error')
-                  ? 'text-red-400'
-                  : log.includes('===')
-                  ? 'text-yellow-400 font-bold'
-                  : log.includes('Successfully') || log.includes('complete')
-                  ? 'text-green-400'
-                  : 'text-gray-300'
-              }`}
-            >
-              {log}
-            </div>
-          ))}
-          <div ref={logsEndRef} />
         </div>
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-gray-200 flex justify-between items-center">
           <div className="text-sm text-gray-600">
             {isRunning && 'Streaming real-time output. Keep this window open...'}
-            {isComplete && !hasError && 'Operation finished successfully.'}
+            {status === 'success' && 'Operation finished successfully.'}
             {hasError && 'Terraform encountered issues. Review the logs above.'}
+            {status === 'idle' && 'Ready to start the operation.'}
           </div>
           <button
-            onClick={handleClose}
+            onClick={onClose}
             disabled={isRunning}
             className="px-6 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >

@@ -25,6 +25,7 @@ import {
   getProviderLabel,
   getProviderIcon,
 } from '../../lib/resources';
+import { buildCredentialsQuery } from '../../lib/utils/credentials';
 import { getCloudIconPath } from '../../lib/resources/cloudIconsComplete';
 import { nodeTypes } from '../../components/nodes';
 import CloudIcon from '../../components/CloudIcon';
@@ -45,6 +46,8 @@ interface Project {
 }
 
 const GRID_SIZE = 10;
+type PlanStatus = 'idle' | 'running' | 'success' | 'error';
+type DeployStatus = 'idle' | 'running' | 'success' | 'error';
 const DEFAULT_RESOURCE_SIZE = 160;
 const DEFAULT_EDGE_COLOR = '#2A8BFF';
 const DEFAULT_EDGE_STYLE = { stroke: DEFAULT_EDGE_COLOR, strokeWidth: 1.5 } as const;
@@ -161,6 +164,12 @@ export default function DesignerPageFinal() {
   const [credentialsModalOpen, setCredentialsModalOpen] = useState(false);
   const [deployLogsModalOpen, setDeployLogsModalOpen] = useState(false);
   const [planPreviewModalOpen, setPlanPreviewModalOpen] = useState(false);
+  const [planPreviewContent, setPlanPreviewContent] = useState('');
+  const [planPreviewStatus, setPlanPreviewStatus] = useState<PlanStatus>('idle');
+  const [planPreviewHasChanges, setPlanPreviewHasChanges] = useState<boolean | null>(null);
+  const [planPreviewError, setPlanPreviewError] = useState('');
+  const planEventSourceRef = useRef<EventSource | null>(null);
+  const deployEventSourceRef = useRef<EventSource | null>(null);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [deployMode, setDeployMode] = useState<'deploy' | 'destroy'>('deploy');
   const [terraformAction, setTerraformAction] = useState<'download' | 'plan' | 'apply' | 'destroy' | 'validate' | null>(null);
@@ -171,6 +180,8 @@ export default function DesignerPageFinal() {
   const [terraformLogs, setTerraformLogs] = useState<string[]>([]);
   const [logsPanelOperation, setLogsPanelOperation] = useState<'validate' | 'plan' | 'apply' | 'destroy' | null>(null);
   const [logsPanelStatus, setLogsPanelStatus] = useState<'running' | 'success' | 'error' | 'idle'>('idle');
+  const [deployLogs, setDeployLogs] = useState<string[]>([]);
+  const [deployStatus, setDeployStatus] = useState<DeployStatus>('idle');
 
   // Credentials state
   const [credentials, setCredentials] = useState<any>(null);
@@ -178,6 +189,266 @@ export default function DesignerPageFinal() {
   const hasInitialLoadRef = useRef(false);
 
   const provider = (project?.cloud_provider as CloudProvider) || 'aws';
+
+  const appendTerraformLogs = useCallback(
+    (lines: string | string[], options?: { includePreview?: boolean }) => {
+      const entries = Array.isArray(lines) ? lines : [lines];
+      const flattened = entries.flatMap((raw) => {
+        if (typeof raw !== 'string') return [];
+        return raw.split('\n').map((line) => line.replace(/\r/g, ''));
+      });
+
+      if (flattened.length === 0) {
+        return;
+      }
+
+      setTerraformLogs((prev) => [...prev, ...flattened]);
+
+      if (options?.includePreview === false) {
+        return;
+      }
+
+      const previewEligible = flattened.filter((line) => {
+        const trimmed = line.trim();
+        if (!trimmed) return false;
+        if (trimmed.startsWith('PLAN_RESULT:')) return false;
+        if (trimmed === '[DONE]') return false;
+        if (trimmed.startsWith('>')) return false;
+        if (trimmed.startsWith('[INFO]')) return false;
+        return true;
+      });
+
+      if (previewEligible.length === 0) {
+        return;
+      }
+
+      const joined = previewEligible.join('\n');
+      setPlanPreviewContent((prev) => (prev ? `${prev}\n${joined}` : joined));
+    },
+    []
+  );
+
+  const appendDeployLogs = useCallback((lines: string | string[]) => {
+    const entries = Array.isArray(lines) ? lines : [lines];
+    const flattened = entries.flatMap((raw) => {
+      if (typeof raw !== 'string') return [];
+      return raw.split('\n').map((line) => line.replace(/\r/g, ''));
+    });
+
+    if (flattened.length === 0) {
+      return;
+    }
+
+    setDeployLogs((prev) => [...prev, ...flattened]);
+  }, []);
+
+  const stopPlanStream = useCallback(() => {
+    if (planEventSourceRef.current) {
+      planEventSourceRef.current.close();
+      planEventSourceRef.current = null;
+    }
+  }, []);
+
+  const stopDeployStream = useCallback(() => {
+    if (deployEventSourceRef.current) {
+      deployEventSourceRef.current.close();
+      deployEventSourceRef.current = null;
+    }
+  }, []);
+
+  const startPlanStream = useCallback(() => {
+    if (!projectId || !project) {
+      appendTerraformLogs('[ERROR] Missing project context for terraform plan.');
+      setPlanPreviewStatus('error');
+      setPlanPreviewError('Missing project context. Please refresh and try again.');
+      setLogsPanelStatus('error');
+      return;
+    }
+
+    if (!credentials) {
+      appendTerraformLogs('[ERROR] Cloud credentials are required to run terraform plan.');
+      setPlanPreviewStatus('error');
+      setPlanPreviewError('Cloud credentials are required to run terraform plan.');
+      setLogsPanelStatus('error');
+      return;
+    }
+
+    if (!token) {
+      appendTerraformLogs('[ERROR] Authentication token missing for terraform plan.');
+      setPlanPreviewStatus('error');
+      setPlanPreviewError('Authentication token missing. Please sign in again.');
+      setLogsPanelStatus('error');
+      return;
+    }
+
+    const credsQuery = buildCredentialsQuery(project.cloud_provider as CloudProvider, credentials);
+    if (!credsQuery) {
+      appendTerraformLogs('[ERROR] Credentials are incomplete for the selected provider.');
+      setPlanPreviewStatus('error');
+      setPlanPreviewError('Incomplete credentials for the selected provider.');
+      setLogsPanelStatus('error');
+      return;
+    }
+
+    stopPlanStream();
+
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const url = `${baseUrl}/api/terraform/plan/stream/${projectId}?${credsQuery}&token=${encodeURIComponent(token)}`;
+
+    const eventSource = new EventSource(url);
+    planEventSourceRef.current = eventSource;
+
+    eventSource.onmessage = (event) => {
+      const data = event.data;
+      if (!data) {
+        return;
+      }
+
+      if (data === '[DONE]') {
+        stopPlanStream();
+        return;
+      }
+
+      if (data.startsWith('PLAN_RESULT:')) {
+        const payload = data.replace('PLAN_RESULT:', '').trim();
+        const [statusPart = '', changePart = ''] = payload.split('|');
+        const isSuccess = statusPart.includes('success');
+        const hasChangesFlag = changePart.split('=').pop() === 'true';
+
+        setPlanPreviewHasChanges(isSuccess ? hasChangesFlag : null);
+        setPlanPreviewStatus(isSuccess ? 'success' : 'error');
+        setPlanPreviewError(isSuccess ? '' : 'Terraform plan failed. Review the logs for details.');
+        setLogsPanelStatus(isSuccess ? 'success' : 'error');
+
+        appendTerraformLogs(
+          isSuccess
+            ? hasChangesFlag
+              ? '[OK] Terraform plan completed with changes.'
+              : '[OK] Terraform plan completed. No changes detected.'
+            : '[ERROR] Terraform plan failed.',
+          { includePreview: false }
+        );
+        return;
+      }
+
+      appendTerraformLogs(data);
+    };
+
+    eventSource.onerror = (error) => {
+      console.error('Terraform plan stream error:', error);
+      appendTerraformLogs('[ERROR] Connection to terraform plan stream lost.');
+      setPlanPreviewStatus('error');
+      setPlanPreviewError('Connection lost while streaming terraform plan.');
+      setLogsPanelStatus('error');
+      stopPlanStream();
+    };
+  }, [appendTerraformLogs, credentials, project, projectId, setLogsPanelStatus, stopPlanStream, token]);
+
+  const startDeployStream = useCallback(
+    (mode: 'deploy' | 'destroy') => {
+      if (!projectId || !project) {
+        appendDeployLogs('[ERROR] Missing project context for terraform apply/destroy.');
+        setDeployStatus('error');
+        setLogsPanelStatus('error');
+        return;
+      }
+
+      if (!credentials) {
+        appendDeployLogs('[ERROR] Cloud credentials are required to run terraform apply/destroy.');
+        setDeployStatus('error');
+        setLogsPanelStatus('error');
+        return;
+      }
+
+      if (!token) {
+        appendDeployLogs('[ERROR] Authentication token missing for terraform operation.');
+        setDeployStatus('error');
+        setLogsPanelStatus('error');
+        return;
+      }
+
+      const credsQuery = buildCredentialsQuery(project.cloud_provider as CloudProvider, credentials);
+      if (!credsQuery) {
+        appendDeployLogs('[ERROR] Credentials are incomplete for the selected provider.');
+        setDeployStatus('error');
+        setLogsPanelStatus('error');
+        return;
+      }
+
+      stopDeployStream();
+
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const endpoint = mode === 'deploy' ? 'deploy' : 'destroy';
+      const url = `${baseUrl}/api/terraform/${endpoint}/stream/${projectId}?${credsQuery}&token=${encodeURIComponent(token)}`;
+
+      const eventSource = new EventSource(url);
+      deployEventSourceRef.current = eventSource;
+      setLogsPanelOpen(true);
+      setLogsPanelOperation(mode === 'deploy' ? 'apply' : 'destroy');
+      setLogsPanelStatus('running');
+      setTerraformLogs([]);
+      appendTerraformLogs(
+        mode === 'deploy' ? '> Streaming terraform apply output...' : '> Streaming terraform destroy output...',
+        { includePreview: false }
+      );
+
+      let encounteredError = false;
+
+      eventSource.onmessage = (event) => {
+        const data = event.data;
+        if (!data) {
+          return;
+        }
+
+        if (data === '[DONE]') {
+          stopDeployStream();
+          const finalStatus = encounteredError ? 'error' : 'success';
+          setDeployStatus(finalStatus);
+          setLogsPanelStatus(finalStatus === 'error' ? 'error' : 'success');
+          appendTerraformLogs(
+            finalStatus === 'error'
+              ? mode === 'deploy'
+                ? '[ERROR] Terraform apply failed.'
+                : '[ERROR] Terraform destroy failed.'
+              : mode === 'deploy'
+                ? '[OK] Terraform apply completed.'
+                : '[OK] Terraform destroy completed.',
+            { includePreview: false }
+          );
+          return;
+        }
+
+        if (data.startsWith('ERROR:')) {
+          encounteredError = true;
+          setDeployStatus('error');
+          setLogsPanelStatus('error');
+        }
+
+        appendDeployLogs(data);
+        appendTerraformLogs(data, { includePreview: false });
+      };
+
+      eventSource.onerror = (error) => {
+        console.error('Terraform deploy stream error:', error);
+        appendDeployLogs('[ERROR] Connection to terraform deploy stream lost.');
+        appendTerraformLogs('[ERROR] Connection to terraform deploy stream lost.', { includePreview: false });
+        encounteredError = true;
+        setDeployStatus('error');
+        setLogsPanelStatus('error');
+        stopDeployStream();
+      };
+    },
+    [
+      appendDeployLogs,
+      appendTerraformLogs,
+      credentials,
+      project,
+      projectId,
+      setLogsPanelOpen,
+      stopDeployStream,
+      token,
+    ]
+  );
 
   // Resources
   const resources = useMemo(() => getResourcesForProvider(provider), [provider]);
@@ -584,11 +855,16 @@ export default function DesignerPageFinal() {
     };
   }, [nodes, edges, project, projectId, token, saveProject]);
 
-  useEffect(() => () => {
-    if (autoSaveTimerRef.current) {
-      clearTimeout(autoSaveTimerRef.current);
-    }
-  }, []);
+  useEffect(
+    () => () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+      stopPlanStream();
+      stopDeployStream();
+    },
+    [stopDeployStream, stopPlanStream]
+  );
   const generateAndDownloadTerraform = async () => {
     try {
       setTerraformAction('download');
@@ -636,7 +912,22 @@ export default function DesignerPageFinal() {
 
     try {
       setTerraformAction('plan');
+      setPlanPreviewModalOpen(true);
+      setPlanPreviewStatus('running');
+      setPlanPreviewHasChanges(null);
+      setPlanPreviewError('');
+      setPlanPreviewContent('');
+
+      setLogsPanelOpen(true);
+      setLogsPanelOperation('plan');
+      setLogsPanelStatus('running');
+      setTerraformLogs([]);
+
+      appendTerraformLogs('> Saving project state...', { includePreview: false });
       await saveProject({ silent: true });
+      appendTerraformLogs('[OK] Project saved.', { includePreview: false });
+      appendTerraformLogs('> Generating Terraform files...', { includePreview: false });
+      setPlanPreviewContent('Starting terraform plan...\n');
       await apiClient.post(
         `/api/terraform/generate/${projectId}`,
         {},
@@ -644,15 +935,27 @@ export default function DesignerPageFinal() {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
+      appendTerraformLogs('[OK] Terraform files generated.', { includePreview: false });
+      appendTerraformLogs('> Streaming terraform plan output...', { includePreview: false });
 
-      setPlanPreviewModalOpen(true);
+      startPlanStream();
     } catch (error: any) {
       console.error('Failed to prepare plan preview:', error);
-      alert('Failed to prepare Terraform plan: ' + (error.response?.data?.detail || error.message));
+      const detail = error.response?.data?.detail || error.message || 'Unknown error';
+      setPlanPreviewStatus('error');
+      setPlanPreviewError(`Failed to prepare Terraform plan: ${detail}`);
+      setLogsPanelStatus('error');
+      appendTerraformLogs(`[ERROR] Failed to prepare Terraform plan: ${detail}`);
+      alert('Failed to prepare Terraform plan: ' + detail);
     } finally {
       setTerraformAction(null);
     }
   };
+
+  const handlePlanPreviewClose = useCallback(() => {
+    stopPlanStream();
+    setPlanPreviewModalOpen(false);
+  }, [stopPlanStream]);
 
   const applyInfrastructure = async (options?: { skipConfirm?: boolean; skipSave?: boolean; skipGenerate?: boolean }) => {
     if (!credentials) {
@@ -684,7 +987,10 @@ export default function DesignerPageFinal() {
       }
 
       setDeployMode('deploy');
+      setDeployLogs([]);
+      setDeployStatus('running');
       setDeployLogsModalOpen(true);
+      startDeployStream('deploy');
     } catch (error: any) {
       console.error('Failed to start Terraform apply:', error);
       alert('Failed to start Terraform apply: ' + (error.response?.data?.detail || error.message));
@@ -717,7 +1023,10 @@ export default function DesignerPageFinal() {
         }
       );
       setDeployMode('destroy');
+      setDeployLogs([]);
+      setDeployStatus('running');
       setDeployLogsModalOpen(true);
+      startDeployStream('destroy');
     } catch (error: any) {
       console.error('Failed to start Terraform destroy:', error);
       alert('Failed to start Terraform destroy: ' + (error.response?.data?.detail || error.message));
@@ -1089,21 +1398,27 @@ export default function DesignerPageFinal() {
       />
 
       <DeploymentLogsModal
-        projectId={projectId!}
-        credentials={credentials}
-        cloudProvider={project.cloud_provider}
         isOpen={deployLogsModalOpen}
-        onClose={() => setDeployLogsModalOpen(false)}
+        onClose={() => {
+          stopDeployStream();
+          setDeployLogsModalOpen(false);
+          setDeployStatus('idle');
+          setDeployLogs([]);
+        }}
         mode={deployMode}
+        logs={deployLogs}
+        status={deployStatus}
       />
 
       <PlanPreviewModal
-        projectId={projectId!}
-        credentials={credentials}
         isOpen={planPreviewModalOpen}
-        onClose={() => setPlanPreviewModalOpen(false)}
+        status={planPreviewStatus}
+        hasChanges={planPreviewHasChanges}
+        error={planPreviewError}
+        content={planPreviewContent}
+        onClose={handlePlanPreviewClose}
         onConfirmDeploy={async () => {
-          setPlanPreviewModalOpen(false);
+          handlePlanPreviewClose();
           await applyInfrastructure({ skipConfirm: true, skipSave: true, skipGenerate: true });
         }}
       />

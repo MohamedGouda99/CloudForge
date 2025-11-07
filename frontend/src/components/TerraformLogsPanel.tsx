@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { X, Terminal, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { ansiToHtml } from '../lib/utils/ansi';
 
 interface TerraformLogsPanelProps {
   isOpen: boolean;
@@ -93,24 +94,27 @@ export default function TerraformLogsPanel({
           </div>
         ) : (
           <div className="space-y-1">
-            {logs.map((log, index) => (
-              <div
-                key={index}
-                className={`whitespace-pre-wrap break-words ${
-                  log.toLowerCase().includes('error') || log.toLowerCase().includes('fail')
-                    ? 'text-red-400'
-                    : log.toLowerCase().includes('success') || log.toLowerCase().includes('complete')
-                    ? 'text-green-400'
-                    : log.toLowerCase().includes('warning')
-                    ? 'text-yellow-400'
-                    : log.startsWith('>')
-                    ? 'text-blue-400 font-semibold'
-                    : 'text-gray-300'
-                }`}
-              >
-                {log}
-              </div>
-            ))}
+            {logs.map((log, index) => {
+              const normalized = log.toLowerCase();
+              const lineClass =
+                normalized.includes('error') || normalized.includes('fail')
+                  ? 'text-red-400'
+                  : normalized.includes('success') || normalized.includes('complete')
+                  ? 'text-green-400'
+                  : normalized.includes('warning')
+                  ? 'text-yellow-400'
+                  : log.startsWith('>')
+                  ? 'text-blue-400 font-semibold'
+                  : 'text-gray-300';
+
+              return (
+                <div
+                  key={index}
+                  className={`whitespace-pre-wrap break-words ${lineClass}`}
+                  dangerouslySetInnerHTML={{ __html: ansiToHtml(log) }}
+                />
+              );
+            })}
             <div ref={logsEndRef} />
           </div>
         )}

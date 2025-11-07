@@ -53,13 +53,6 @@ export default function CloudCredentialsModal({
     }
   }, [cloudProvider, initialCredentials]);
 
-  if (!isOpen) return null;
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSave(credentials);
-  };
-
   const providerInfo = useMemo(() => {
     switch (cloudProvider) {
       case 'aws':
@@ -91,6 +84,13 @@ export default function CloudCredentialsModal({
 
   const providerIcon = useMemo(() => getProviderIcon(cloudProvider), [cloudProvider]);
   const providerLabel = useMemo(() => getProviderLabel(cloudProvider), [cloudProvider]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave(credentials);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">

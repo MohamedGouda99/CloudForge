@@ -81,14 +81,14 @@ if (-not $SkipFrontend) {
     $existing = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue |
         Where-Object { $_.State -eq 'Listen' -and $_.OwningProcess -ne 0 }
     if ($existing) {
-        $pid = $existing[0].OwningProcess
+        $existingPid = $existing[0].OwningProcess
         $procName = ''
         try {
-            $procName = (Get-Process -Id $pid -ErrorAction Stop).ProcessName
+            $procName = (Get-Process -Id $existingPid -ErrorAction Stop).ProcessName
         } catch {
             $procName = 'unknown'
         }
-        Write-Host "[Frontend] Port 3000 already in use (PID $pid - $procName). Skipping new launch." -ForegroundColor Yellow
+        Write-Host "[Frontend] Port 3000 already in use (PID $existingPid - $procName). Skipping new launch." -ForegroundColor Yellow
     } else {
         Write-Host "[Frontend] Starting Vite dev server on http://localhost:3000 ..." -ForegroundColor Cyan
         $npmArgs = @('run', 'dev', '--', '--host', '0.0.0.0')

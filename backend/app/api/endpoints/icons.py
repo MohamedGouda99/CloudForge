@@ -46,12 +46,26 @@ async def get_icon(provider: str, path: str):
         raise HTTPException(status_code=404, detail=f"Unknown provider: {provider}")
 
     # For AWS, support both Architecture-Service-Icons and Architecture-Group-Icons folders
+    base_path = ICONS_BASE_PATH / provider_base[provider]
+
     if provider == 'aws':
-        # Construct full file path - the path should already include the folder name
-        full_path = ICONS_BASE_PATH / provider_base[provider] / path
+        # Many generated icon paths omit the Architecture-Service-Icons_*/Resource folders.
+        # Try the direct path first, then fall back to the well-known AWS icon packs.
+        candidates = [base_path / path]
+
+        aws_folders = [
+            'Architecture-Service-Icons_07312025',
+            'Architecture-Group-Icons_07312025',
+            'Resource-Icons_07312025',
+            'Category-Icons_07312025',
+        ]
+        for folder in aws_folders:
+            candidates.append(base_path / folder / path)
+
+        # Pick the first existing candidate
+        full_path = next((p for p in candidates if p.exists()), candidates[0])
     else:
-        # Other providers use their base path directly
-        full_path = ICONS_BASE_PATH / provider_base[provider] / path
+        full_path = base_path / path
 
     # Security check: prevent directory traversal
     try:
