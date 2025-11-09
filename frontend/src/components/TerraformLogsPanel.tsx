@@ -6,7 +6,7 @@ interface TerraformLogsPanelProps {
   isOpen: boolean;
   onClose: () => void;
   logs: string[];
-  operation: 'validate' | 'plan' | 'apply' | 'destroy' | null;
+  operation: 'validate' | 'plan' | 'apply' | 'destroy' | 'pipeline' | null;
   status: 'running' | 'success' | 'error' | 'idle';
 }
 
@@ -28,21 +28,25 @@ export default function TerraformLogsPanel({
 
   if (!isOpen) return null;
 
-  const operationTitles = {
+  type OperationType = Exclude<TerraformLogsPanelProps['operation'], null>;
+
+  const operationTitles: Record<OperationType, string> = {
     validate: 'Terraform Validate',
     plan: 'Terraform Plan',
     apply: 'Terraform Apply',
     destroy: 'Terraform Destroy',
+    pipeline: 'Pipeline Logs',
   };
 
-  const operationColors = {
-    validate: 'indigo',
-    plan: 'purple',
-    apply: 'green',
-    destroy: 'red',
+  const operationHeaderClasses: Record<OperationType, string> = {
+    validate: 'bg-indigo-600',
+    plan: 'bg-purple-600',
+    apply: 'bg-green-600',
+    destroy: 'bg-red-600',
+    pipeline: 'bg-blue-600',
   };
 
-  const currentColor = operation ? operationColors[operation] : 'gray';
+  const headerBgClass = operation ? operationHeaderClasses[operation] : 'bg-gray-800';
 
   const StatusIcon = () => {
     if (status === 'running') {
@@ -58,7 +62,7 @@ export default function TerraformLogsPanel({
   return (
     <div className="fixed right-0 top-16 bottom-0 w-[500px] bg-gray-900 border-l border-gray-700 shadow-2xl z-40 flex flex-col">
       {/* Header */}
-      <div className={`bg-${currentColor}-600 px-4 py-3 flex items-center justify-between`}>
+      <div className={`${headerBgClass} px-4 py-3 flex items-center justify-between`}>
         <div className="flex items-center gap-3">
           <StatusIcon />
           <div>

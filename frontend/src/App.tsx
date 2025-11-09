@@ -6,6 +6,7 @@ import DashboardPage from './features/dashboard/DashboardPage';
 import NewProjectPage from './features/projects/NewProjectPage';
 import DesignerPageFinal from './features/designer/DesignerPageFinal';
 import DesignerPageEnhanced from './features/designer/DesignerPageEnhanced';
+import CICDPage from './features/cicd/CICDPage';
 import Layout from './components/Layout';
 
 function App() {
@@ -34,6 +35,7 @@ function App() {
             <Route path="/projects/new" element={<NewProjectPage />} />
             <Route path="/projects/:projectId" element={<DesignerPageFinal />} />
             <Route path="/projects/:projectId/enhanced" element={<DesignerPageEnhanced />} />
+            <Route path="/projects/:id/cicd" element={<CICDPage />} />
           </>
         ) : (
           <Route path="*" element={<Navigate to="/login" />} />

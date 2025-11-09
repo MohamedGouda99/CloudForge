@@ -1289,6 +1289,13 @@ export default function DesignerPageFinal() {
               </button>
 
               <button
+                onClick={() => navigate(`/projects/${projectId}/cicd`)}
+                className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 text-sm font-medium"
+              >
+                CI/CD
+              </button>
+
+              <button
                 onClick={validateTerraform}
                 disabled={terraformAction !== null}
                 className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-sm font-medium"
