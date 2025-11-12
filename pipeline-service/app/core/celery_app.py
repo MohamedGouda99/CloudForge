@@ -5,7 +5,13 @@ celery_app = Celery(
     "pipeline_worker",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["app.tasks.orchestrator", "app.tasks.terraform", "app.tasks.security", "app.tasks.analysis"],
+    include=[
+        "app.tasks.orchestrator",
+        "app.tasks.terraform",
+        "app.tasks.security",
+        "app.tasks.analysis",
+        "app.tasks.workflow",
+    ],
 )
 
 celery_app.conf.update(

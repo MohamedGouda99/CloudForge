@@ -24,7 +24,7 @@ export default function CICDPage() {
     loadPipeline();
   }, [projectId]);
 
-  const loadPipeline = async () => {
+  const loadPipeline = async (retryCount = 0) => {
     try {
       setLoading(true);
       const data = await pipelineApi.getPipeline(projectId);
@@ -32,6 +32,14 @@ export default function CICDPage() {
       setError(null);
     } catch (err: any) {
       console.error('Failed to load pipeline:', err);
+
+      // Retry logic: if it's a network/timeout error and we haven't retried too many times
+      if (retryCount < 2 && (err.code === 'ECONNABORTED' || err.message?.includes('timeout') || err.message?.includes('Network Error'))) {
+        console.log(`Retrying pipeline connection (attempt ${retryCount + 1})...`);
+        setTimeout(() => loadPipeline(retryCount + 1), 2000);
+        return;
+      }
+
       setError(err.response?.data?.detail || 'Failed to connect to pipeline service');
     } finally {
       setLoading(false);
@@ -188,7 +196,7 @@ export default function CICDPage() {
             Make sure the pipeline-api and pipeline-worker containers are running.
           </p>
           <button
-            onClick={loadPipeline}
+            onClick={() => loadPipeline()}
             className="mt-6 w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition"
           >
             Retry Connection

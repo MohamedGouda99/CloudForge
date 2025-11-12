@@ -8,8 +8,8 @@ services:
       POSTGRES_USER: cloudforge
       POSTGRES_PASSWORD: cloudforge_dev_password
       POSTGRES_DB: cloudforge
-    ports:
-      - "5433:5432"
+    # ports:
+    #   - "55433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -21,8 +21,8 @@ services:
   redis:
     image: redis:7-alpine
     container_name: cloudforge-redis
-    ports:
-      - "6379:6379"
+    # ports:
+    #   - "16379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -83,7 +83,7 @@ services:
     environment:
       VITE_API_URL: http://localhost:8000
       VITE_WS_URL: ws://localhost:8000
-      VITE_PIPELINE_API_URL: http://pipeline-api:8001
+      VITE_PIPELINE_API_URL: http://localhost:8001
     ports:
       - "3000:3000"
     volumes:
@@ -92,13 +92,19 @@ services:
     depends_on:
       backend:
         condition: service_started
-    command: npm run dev -- --host 0.0.0.0
+      pipeline-api:
+        condition: service_started
+    command:
+      - sh
+      - -c
+      - npm install && npm run dev -- --host 0.0.0.0
 
   pipeline-api:
     build:
       context: ./pipeline-service
       dockerfile: Dockerfile
     container_name: cloudforge-pipeline-api
+    profiles: ["full"]
     environment:
       DATABASE_URL: postgresql://cloudforge:cloudforge_dev_password@postgres:5432/cloudforge
       REDIS_URL: redis://redis:6379/0
@@ -114,13 +120,14 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8001
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 
   pipeline-worker:
     build:
       context: ./pipeline-service
       dockerfile: Dockerfile
     container_name: cloudforge-pipeline-worker
+    profiles: ["full"]
     environment:
       DATABASE_URL: postgresql://cloudforge:cloudforge_dev_password@postgres:5432/cloudforge
       REDIS_URL: redis://redis:6379/0
