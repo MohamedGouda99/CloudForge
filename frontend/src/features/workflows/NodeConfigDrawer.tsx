@@ -1,57 +1,65 @@
 import React, { useState, useEffect } from 'react';
 import { Node } from 'reactflow';
 import { NodeType } from '../../lib/api/workflowClient';
+import { Eye, EyeOff } from 'lucide-react';
 
 interface NodeConfigDrawerProps {
   node: Node;
   nodeTypes: NodeType[];
   onClose: () => void;
   onSave: (nodeId: string, config: Record<string, any>, label?: string) => void;
-  onDelete: (nodeId: string) => void;
 }
 
-const NodeConfigDrawer: React.FC<NodeConfigDrawerProps> = ({
-  node,
-  nodeTypes,
-  onClose,
-  onSave,
-  onDelete,
-}) => {
+const NodeConfigDrawer: React.FC<NodeConfigDrawerProps> = ({ node, nodeTypes, onClose, onSave }) => {
   const [label, setLabel] = useState(node.data.label || '');
   const [config, setConfig] = useState<Record<string, any>>(node.data.config || {});
   const [command, setCommand] = useState<string>('');
+  const [secretVisibility, setSecretVisibility] = useState<Record<string, boolean>>({});
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const nodeTypeDef = nodeTypes.find((nt) => nt.type_id === node.data.nodeType);
 
   // Check if this is a Terraform node
-  const isTerraformNode = node.data.nodeType?.startsWith('terraform_');
+  const isTerraformNode = node.data.nodeType === 'terraform';
   const terraformCommands = ['validate', 'plan', 'apply', 'destroy'];
 
   useEffect(() => {
     setLabel(node.data.label || '');
     setConfig(node.data.config || {});
 
-    // Extract command from terraform node type
-    if (isTerraformNode) {
-      const cmd = node.data.nodeType.replace('terraform_', '');
-      setCommand(cmd);
+    // Extract command from config
+    if (isTerraformNode && node.data.config?.command) {
+      setCommand(node.data.config.command);
+    } else if (isTerraformNode) {
+      setCommand('plan'); // Default to plan
     }
+
+    // Mark as initialized after first render
+    setIsInitialized(true);
   }, [node, isTerraformNode]);
 
-  // Auto-save changes
+  // Auto-save changes (but skip initial render)
   useEffect(() => {
+    if (!isInitialized) return;
+
     const timeout = setTimeout(() => {
-      onSave(node.id, config, label);
+      // For terraform nodes, save command in config
+      const updatedConfig = isTerraformNode ? { ...config, command } : config;
+      onSave(node.id, updatedConfig, label);
     }, 500); // Debounce for 500ms
 
     return () => clearTimeout(timeout);
-  }, [label, config, node.id, onSave]);
+  }, [label, config, command, isInitialized, node.id, onSave, isTerraformNode]);
 
   const handleConfigChange = (key: string, value: any) => {
     setConfig((prev) => ({
       ...prev,
       [key]: value,
     }));
+  };
+
+  const toggleSecretVisibility = (field: string) => {
+    setSecretVisibility((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
   const renderConfigField = (key: string, schema: any) => {
@@ -71,6 +79,28 @@ const NodeConfigDrawer: React.FC<NodeConfigDrawerProps> = ({
             </option>
           ))}
         </select>
+      );
+    }
+
+    if (schema.format === 'password') {
+      const visible = !!secretVisibility[key];
+      return (
+        <div className="relative">
+          <input
+            type={visible ? 'text' : 'password'}
+            value={value}
+            onChange={(e) => handleConfigChange(key, e.target.value)}
+            className="w-full px-3 py-2 bg-white rounded border border-gray-300 focus:outline-none focus:border-blue-500 text-sm text-gray-900 pr-10"
+            placeholder={schema.description}
+          />
+          <button
+            type="button"
+            onClick={() => toggleSecretVisibility(key)}
+            className="absolute inset-y-0 right-2 flex items-center text-gray-500 hover:text-gray-700"
+          >
+            {visible ? <EyeOff size={16} /> : <Eye size={16} />}
+          </button>
+        </div>
       );
     }
 
@@ -188,11 +218,43 @@ const NodeConfigDrawer: React.FC<NodeConfigDrawerProps> = ({
           />
         </div>
 
+        {/* Execution controls */}
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs text-gray-600 mb-2">Ignore failure</label>
+            <button
+              type="button"
+              onClick={() => handleConfigChange('ignore_failure', !config.ignore_failure)}
+              className={`w-14 h-7 rounded-full flex items-center px-1 transition ${
+                config.ignore_failure ? 'bg-purple-500 justify-end text-white' : 'bg-gray-200 justify-start text-gray-600'
+              }`}
+            >
+              <span className="w-5 h-5 bg-white rounded-full shadow" />
+            </button>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-600 mb-2">Require approval</label>
+            <button
+              type="button"
+              onClick={() => handleConfigChange('require_approval', !config.require_approval)}
+              className={`w-14 h-7 rounded-full flex items-center px-1 transition ${
+                config.require_approval ? 'bg-purple-500 justify-end text-white' : 'bg-gray-200 justify-start text-gray-600'
+              }`}
+            >
+              <span className="w-5 h-5 bg-white rounded-full shadow" />
+            </button>
+          </div>
+        </div>
+
         {/* Other Configuration Fields */}
         {nodeTypeDef?.config_schema?.properties && (
           <div className="space-y-4">
             {Object.entries(nodeTypeDef.config_schema.properties)
-              .filter(([key]) => key !== 'target') // Already shown above
+              .filter(([key]) => {
+                if (key === 'target') return false; // handled above
+                if (isTerraformNode && key === 'command') return false; // custom command UI
+                return true;
+              })
               .map(([key, schema]: [string, any]) => (
                 <div key={key}>
                   <label className="block text-xs text-gray-600 mb-2">

@@ -12,6 +12,8 @@ import os
 import tempfile
 import shutil
 
+from app.core.config import settings
+
 
 class DockerExecutor:
     """
@@ -22,7 +24,8 @@ class DockerExecutor:
         try:
             self.client = docker.from_env()
         except DockerException as e:
-            raise Exception(f"Failed to connect to Docker daemon: {str(e)}")
+            self.client = None
+            self.init_error = str(e)
 
     async def run_container(
         self,
@@ -122,6 +125,8 @@ class DockerExecutor:
 
     async def _ensure_image_available(self, image: str):
         """Pull Docker image if not available locally"""
+        if not self.client:
+            return
         try:
             await asyncio.to_thread(self.client.images.get, image)
         except ImageNotFound:
@@ -130,6 +135,8 @@ class DockerExecutor:
 
     def stop_container(self, container_id: str, timeout: int = 10):
         """Stop a running container"""
+        if not self.client:
+            return
         try:
             container = self.client.containers.get(container_id)
             container.stop(timeout=timeout)
@@ -167,6 +174,7 @@ async def run_in_container(
     from app.models.node_execution import NodeExecution
     from app.core.database import SessionLocal
     from app.core.log_streaming import stream_node_log
+    from app.utils.cli_runner import run_cli_command
 
     db = SessionLocal()
     try:
@@ -178,7 +186,8 @@ async def run_in_container(
         # Prepare workspace directory
         # Mount the project's Terraform files into container
         project_id = context.get("project_id") if context else None
-        terraform_workspace = f"/app/terraform_workspaces/project_{project_id}" if project_id else "/tmp/terraform"
+        workspace_root = settings.terraform_workspace_dir
+        terraform_workspace = os.path.join(workspace_root, f"project_{project_id}") if project_id else "/tmp/terraform"
 
         # Ensure workspace exists
         os.makedirs(terraform_workspace, exist_ok=True)
@@ -205,16 +214,42 @@ async def run_in_container(
                     log_line
                 )
 
-        # Execute in container
-        result = await docker_executor.run_container(
-            image=image,
-            command=command,
-            working_dir=working_dir if working_dir != "." else "/workspace",
-            volumes=volumes,
-            environment=environment,
-            log_callback=log_callback,
-            timeout=1800  # 30 minute timeout
-        )
+        use_docker = bool(getattr(docker_executor, "client", None))
+        if use_docker:
+            result = await docker_executor.run_container(
+                image=image,
+                command=command,
+                working_dir=working_dir if working_dir != "." else "/workspace",
+                volumes=volumes,
+                environment=environment,
+                log_callback=log_callback,
+                timeout=1800  # 30 minute timeout
+            )
+        else:
+            # Fallback to executing the CLI directly inside the worker
+            normalized_dir = working_dir or "."
+            if normalized_dir.startswith("/workspace"):
+                normalized_dir = normalized_dir[len("/workspace") :]
+            normalized_dir = normalized_dir.lstrip("./")
+            host_working_dir = (
+                os.path.join(terraform_workspace, normalized_dir)
+                if normalized_dir
+                else terraform_workspace
+            )
+
+            cli_result = await asyncio.to_thread(
+                run_cli_command,
+                command,
+                host_working_dir,
+                environment,
+                log_callback,
+            )
+            result = {
+                "exit_code": cli_result.returncode,
+                "stdout": cli_result.stdout,
+                "stderr": cli_result.stderr,
+                "container_id": None,
+            }
 
         # Update container ID
         node_exec.container_id = result.get('container_id')

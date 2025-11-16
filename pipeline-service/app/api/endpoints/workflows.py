@@ -15,6 +15,7 @@ from app.models import (
     WorkflowEdge,
     WorkflowRun,
     WorkflowRunStatus,
+    NodeType,
 )
 from app.schemas import (
     WorkflowCreate,
@@ -23,7 +24,7 @@ from app.schemas import (
     WorkflowRunRequest,
     WorkflowRunResponse,
 )
-from app.tasks.workflow import execute_workflow_task
+from app.tasks.workflow_orchestrator import run_workflow_orchestrator
 
 router = APIRouter()
 
@@ -42,8 +43,19 @@ def _sync_nodes_and_edges(db: Session, workflow: Workflow, nodes_payload, edges_
             node = WorkflowNode(workflow_id=workflow.id, node_id=node_id)
             db.add(node)
 
+        # Convert string node_type to NodeType enum by matching the value
+        normalized_type = (node_data.node_type or "").lower()
+        node_type_enum = None
+        for member in NodeType:
+            if member.value == normalized_type:
+                node_type_enum = member
+                break
+
+        if node_type_enum is None:
+            raise ValueError(f"Invalid node type: {node_data.node_type}")
+
         node.label = node_data.label
-        node.node_type = node_data.node_type
+        node.node_type = node_type_enum
         node.position_x = node_data.position_x
         node.position_y = node_data.position_y
         node.config = node_data.config or {}
@@ -197,24 +209,41 @@ def list_workflows(project_id: int, db: Session = Depends(get_db)):
 @router.get("/workflows/node-types")
 def list_node_types():
     """Expose registered workflow node types for the UI palette."""
-    node_types = []
-    for node_type in node_registry.list_all().values():
-        node_types.append(
-            {
-                "type_id": node_type.type_id,
-                "display_name": node_type.display_name,
-                "category": node_type.category,
-                "icon": node_type.icon,
-                "description": node_type.description,
-                "docker_image": node_type.docker_image,
-                "config_schema": node_type.config_schema,
-            }
-        )
-    return {"node_types": node_types}
+    try:
+        print(f"[LIST NODE TYPES] Getting all registered node types...")
+        all_nodes = node_registry.list_all()
+        print(f"[LIST NODE TYPES] Found {len(all_nodes)} registered node types")
+
+        node_types = []
+        for node_type in all_nodes.values():
+            try:
+                node_types.append(
+                    {
+                        "type_id": node_type.type_id,
+                        "display_name": node_type.display_name,
+                        "category": node_type.category,
+                        "icon": node_type.icon,
+                        "description": node_type.description,
+                        "docker_image": node_type.docker_image,
+                        "config_schema": node_type.config_schema,
+                    }
+                )
+            except Exception as e:
+                print(f"[LIST NODE TYPES] Error processing node type {node_type.type_id}: {e}")
+                raise
+
+        print(f"[LIST NODE TYPES] Successfully prepared {len(node_types)} node types")
+        return {"node_types": node_types}
+    except Exception as e:
+        print(f"[LIST NODE TYPES] ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to list node types: {str(e)}")
 
 
 @router.post("/workflows", response_model=WorkflowResponse)
 def create_workflow(payload: WorkflowCreate, db: Session = Depends(get_db)):
+    print(f"[CREATE WORKFLOW] project_id={payload.project_id}, name={payload.name}, nodes={len(payload.nodes)}, edges={len(payload.edges)}")
     workflow = Workflow(
         project_id=payload.project_id,
         name=payload.name,
@@ -223,10 +252,12 @@ def create_workflow(payload: WorkflowCreate, db: Session = Depends(get_db)):
     )
     db.add(workflow)
     db.flush()
+    print(f"[CREATE WORKFLOW] Created workflow with ID={workflow.id}")
 
     _sync_nodes_and_edges(db, workflow, payload.nodes, payload.edges)
     db.commit()
     db.refresh(workflow)
+    print(f"[CREATE WORKFLOW] Successfully committed workflow ID={workflow.id}")
     return workflow
 
 
@@ -240,6 +271,7 @@ def get_workflow(workflow_id: int, db: Session = Depends(get_db)):
 
 @router.patch("/workflows/{workflow_id}", response_model=WorkflowResponse)
 def update_workflow(workflow_id: int, payload: WorkflowUpdate, db: Session = Depends(get_db)):
+    print(f"[UPDATE WORKFLOW] workflow_id={workflow_id}, name={payload.name}, nodes={len(payload.nodes) if payload.nodes else 0}, edges={len(payload.edges) if payload.edges else 0}")
     workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
     if not workflow:
         raise HTTPException(status_code=404, detail="Workflow not found")
@@ -251,11 +283,13 @@ def update_workflow(workflow_id: int, payload: WorkflowUpdate, db: Session = Dep
     if payload.enabled is not None:
         workflow.enabled = payload.enabled
     if payload.nodes is not None and payload.edges is not None:
+        print(f"[UPDATE WORKFLOW] Syncing {len(payload.nodes)} nodes and {len(payload.edges)} edges")
         _sync_nodes_and_edges(db, workflow, payload.nodes, payload.edges)
 
     workflow.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(workflow)
+    print(f"[UPDATE WORKFLOW] Successfully updated workflow ID={workflow_id}")
     return workflow
 
 
@@ -317,14 +351,6 @@ def trigger_workflow_run(workflow_id: int, payload: WorkflowRunRequest, db: Sess
     db.commit()
     db.refresh(run)
 
-    execute_workflow_task.apply_async(args=[run.id])
+    run_workflow_orchestrator.apply_async(args=[run.id])
 
-    return run
-
-
-@router.get("/workflow-runs/{run_id}", response_model=WorkflowRunResponse)
-def get_workflow_run(run_id: int, db: Session = Depends(get_db)):
-    run = db.query(WorkflowRun).filter(WorkflowRun.id == run_id).first()
-    if not run:
-        raise HTTPException(status_code=404, detail="Workflow run not found")
     return run

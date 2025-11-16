@@ -38,10 +38,7 @@ class Workflow(Base):
 
 
 class NodeType(str, enum.Enum):
-    TERRAFORM_VALIDATE = "terraform_validate"
-    TERRAFORM_PLAN = "terraform_plan"
-    TERRAFORM_APPLY = "terraform_apply"
-    TERRAFORM_DESTROY = "terraform_destroy"
+    TERRAFORM = "terraform"
     INFRACOST_ESTIMATE = "infracost_estimate"
     TFSEC_SCAN = "tfsec_scan"
     TERRASCAN_SCAN = "terrascan_scan"
@@ -68,7 +65,7 @@ class WorkflowNode(Base):
     # React Flow identifier (stored globally unique for simplicity)
     node_id = Column(String, nullable=False, unique=True, index=True)
 
-    node_type = Column(Enum(NodeType), nullable=False)
+    node_type = Column(Enum(NodeType, values_callable=lambda obj: [e.value.lower() if isinstance(e.value, str) else e.value for e in obj]), nullable=False)
     label = Column(String, nullable=False)
     position_x = Column(Float, nullable=False, default=0)
     position_y = Column(Float, nullable=False, default=0)

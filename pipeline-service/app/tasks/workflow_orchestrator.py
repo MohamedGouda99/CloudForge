@@ -10,9 +10,25 @@ from app.models.node_execution import NodeExecution, NodeExecutionStatus
 from app.core.dag_engine import DAGEngine
 from app.core.node_registry import node_registry
 from app.core.log_streaming import stream_workflow_status, stream_node_status
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Set
 import asyncio
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+# Ensure node definitions are registered when Celery worker imports this module
+import app.nodes  # noqa: F401
+
+
+def cleanup_workflow_run(run_id: int):
+    """Delete workflow run and node execution records once execution is complete."""
+    db = SessionLocal()
+    try:
+        run = db.query(WorkflowRun).filter(WorkflowRun.id == run_id).first()
+        if run:
+            db.delete(run)
+            db.commit()
+    finally:
+        db.close()
 
 
 @celery_app.task(bind=True)
@@ -30,7 +46,7 @@ def run_workflow_orchestrator(self, workflow_run_id: int):
 
         # Update status
         workflow_run.status = WorkflowRunStatus.RUNNING
-        workflow_run.started_at = datetime.utcnow()
+        workflow_run.started_at = datetime.now(timezone.utc)
         db.commit()
 
         stream_workflow_status(workflow_run_id, "running", "Workflow execution started")
@@ -81,55 +97,58 @@ def run_workflow_orchestrator(self, workflow_run_id: int):
                 f"Executing level {level_idx + 1}/{len(execution_levels)} ({len(level_nodes)} nodes)"
             )
 
-            # Execute all nodes in this level in parallel
-            level_tasks = []
-            for node_id in level_nodes:
-                node_exec = node_exec_map[node_id]
-                node_data = next(n for n in nodes if n.node_id == node_id)
+            max_workers = max(1, len(level_nodes))
+            futures: Dict = {}
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                for node_id in level_nodes:
+                    node_exec = node_exec_map[node_id]
+                    node_data = next(n for n in nodes if n.node_id == node_id)
 
-                # Create async task for this node
-                task = execute_node_async.apply_async(
-                    args=[node_exec.id, node_data.node_type, node_data.config, context]
-                )
-                level_tasks.append((node_id, node_exec, task))
-                running_nodes.add(node_id)
+                    node_type_value = (
+                        node_data.node_type.value if hasattr(node_data.node_type, "value") else node_data.node_type
+                    )
+                    future = executor.submit(
+                        _run_node_execution,
+                        node_exec.id,
+                        node_type_value,
+                        node_data.config or {},
+                        context,
+                    )
+                    futures[future] = (node_id, node_exec)
+                    running_nodes.add(node_id)
 
-            # Wait for all nodes in this level to complete
-            for node_id, node_exec, task in level_tasks:
-                try:
-                    # Wait for task result
-                    result = task.get(timeout=1800)  # 30 minute timeout per node
+                for future in as_completed(futures):
+                    node_id, node_exec = futures[future]
+                    try:
+                        future.result()
+                        db.refresh(node_exec)
 
-                    # Refresh node execution from DB
-                    db.refresh(node_exec)
-
-                    if node_exec.status == NodeExecutionStatus.SUCCESS:
-                        completed_nodes.add(node_id)
-                        # Store output for downstream nodes
-                        if node_exec.output_data:
-                            context["node_outputs"][node_id] = node_exec.output_data
-                    elif node_exec.status == NodeExecutionStatus.FAILED:
+                        if node_exec.status == NodeExecutionStatus.SUCCESS:
+                            completed_nodes.add(node_id)
+                            if node_exec.output_data:
+                                context["node_outputs"][node_id] = node_exec.output_data
+                        elif node_exec.status == NodeExecutionStatus.FAILED:
+                            failed = True
+                            stream_workflow_status(
+                                workflow_run_id,
+                                "failed",
+                                f"Node {node_id} failed: {node_exec.error_message}"
+                            )
+                            break
+                    except Exception as e:
                         failed = True
+                        node_exec.status = NodeExecutionStatus.FAILED
+                        node_exec.error_message = str(e)
+                        node_exec.completed_at = datetime.now(timezone.utc)
+                        db.commit()
                         stream_workflow_status(
                             workflow_run_id,
                             "failed",
-                            f"Node {node_id} failed: {node_exec.error_message}"
+                            f"Node {node_id} exception: {str(e)}"
                         )
                         break
-                except Exception as e:
-                    failed = True
-                    node_exec.status = NodeExecutionStatus.FAILED
-                    node_exec.error_message = str(e)
-                    node_exec.completed_at = datetime.utcnow()
-                    db.commit()
-                    stream_workflow_status(
-                        workflow_run_id,
-                        "failed",
-                        f"Node {node_id} exception: {str(e)}"
-                    )
-                    break
-                finally:
-                    running_nodes.discard(node_id)
+                    finally:
+                        running_nodes.discard(node_id)
 
             # Stop execution if any node failed
             if failed:
@@ -142,7 +161,7 @@ def run_workflow_orchestrator(self, workflow_run_id: int):
         else:
             workflow_run.status = WorkflowRunStatus.SUCCESS
 
-        workflow_run.completed_at = datetime.utcnow()
+        workflow_run.completed_at = datetime.now(timezone.utc)
         db.commit()
 
         stream_workflow_status(
@@ -155,20 +174,17 @@ def run_workflow_orchestrator(self, workflow_run_id: int):
         # Handle orchestrator-level errors
         workflow_run.status = WorkflowRunStatus.FAILED
         workflow_run.error_message = f"Orchestrator error: {str(e)}"
-        workflow_run.completed_at = datetime.utcnow()
+        workflow_run.completed_at = datetime.now(timezone.utc)
         db.commit()
 
         stream_workflow_status(workflow_run_id, "failed", str(e))
 
     finally:
         db.close()
+        cleanup_workflow_run(workflow_run_id)
 
 
-@celery_app.task(bind=True)
-def execute_node_async(self, node_execution_id: int, node_type: str, config: dict, context: dict):
-    """
-    Execute a single workflow node asynchronously.
-    """
+def _run_node_execution(node_execution_id: int, node_type: str, config: dict, context: dict):
     db = SessionLocal()
     try:
         # Get node execution
@@ -178,7 +194,7 @@ def execute_node_async(self, node_execution_id: int, node_type: str, config: dic
 
         # Update status
         node_exec.status = NodeExecutionStatus.RUNNING
-        node_exec.started_at = datetime.utcnow()
+        node_exec.started_at = datetime.now(timezone.utc)
         db.commit()
 
         stream_node_status(context["run_id"], node_execution_id, "running")
@@ -207,7 +223,7 @@ def execute_node_async(self, node_execution_id: int, node_type: str, config: dic
             raise Exception(f"Node type {node_type} has no executor")
 
         # Calculate duration
-        node_exec.completed_at = datetime.utcnow()
+        node_exec.completed_at = datetime.now(timezone.utc)
         if node_exec.started_at:
             duration = (node_exec.completed_at - node_exec.started_at).total_seconds()
             node_exec.duration_seconds = duration
@@ -222,7 +238,7 @@ def execute_node_async(self, node_execution_id: int, node_type: str, config: dic
         # Handle node execution errors
         node_exec.status = NodeExecutionStatus.FAILED
         node_exec.error_message = str(e)
-        node_exec.completed_at = datetime.utcnow()
+        node_exec.completed_at = datetime.now(timezone.utc)
 
         if node_exec.started_at:
             duration = (node_exec.completed_at - node_exec.started_at).total_seconds()
@@ -236,3 +252,11 @@ def execute_node_async(self, node_execution_id: int, node_type: str, config: dic
 
     finally:
         db.close()
+
+
+@celery_app.task(bind=True)
+def execute_node_async(self, node_execution_id: int, node_type: str, config: dict, context: dict):
+    """
+    Celery wrapper to execute a single workflow node asynchronously.
+    """
+    return _run_node_execution(node_execution_id, node_type, config, context)

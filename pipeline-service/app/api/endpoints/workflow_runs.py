@@ -11,7 +11,7 @@ import asyncio
 import json
 
 from app.core.database import get_db
-from app.models.workflow_run import WorkflowRun
+from app.models.workflow import WorkflowRun, WorkflowRunStatus
 from app.models.node_execution import NodeExecution
 from app.models.node_approval import NodeApproval, NodeApprovalStatus
 from app.core.log_streaming import get_redis_pubsub
@@ -43,7 +43,6 @@ def get_workflow_run(run_id: int, db: Session = Depends(get_db)):
         "triggered_by_user_id": run.triggered_by_user_id,
         "started_at": run.started_at,
         "completed_at": run.completed_at,
-        "created_at": run.created_at,
         "error_message": run.error_message,
         "node_executions": [
             {
@@ -218,7 +217,6 @@ def cancel_workflow_run(run_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=f"Cannot cancel workflow in status: {run.status}")
 
     # Update status
-    from app.models.workflow_run import WorkflowRunStatus
     from datetime import datetime
     run.status = WorkflowRunStatus.CANCELLED
     run.completed_at = datetime.utcnow()

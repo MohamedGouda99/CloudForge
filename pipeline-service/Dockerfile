@@ -43,11 +43,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create terraform workspace directory
-RUN mkdir -p /app/terraform_workspaces
+RUN mkdir -p /app/generated_terraform
 
 # Environment variables
 ENV PYTHONUNBUFFERED=1
-ENV INFRACOST_API_KEY=ico-4xqc9bXXsEoViseD6A7kMjdns7d4LStZ
 
 # Expose API port
 EXPOSE 8001

@@ -11,6 +11,7 @@ celery_app = Celery(
         "app.tasks.security",
         "app.tasks.analysis",
         "app.tasks.workflow",
+        "app.tasks.workflow_orchestrator",
     ],
 )
 

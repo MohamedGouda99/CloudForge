@@ -1,27 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text, inspect
-import logging
 
-from app.api.endpoints import pipelines, logs, workflows, workflow_runs
+from app.api.endpoints import pipelines, logs, workflows
 from app.core.database import Base, engine
 from app.models.workflow import NodeType, WorkflowNode
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 # Import node types to auto-register them
-logger.info("Importing node modules...")
-try:
-    import app.nodes
-    from app.core.node_registry import node_registry
-    logger.info(f"Node modules imported successfully. Registered {len(node_registry.list_all())} node types")
-    for type_id in node_registry.list_all().keys():
-        logger.info(f"  - {type_id}")
-except Exception as e:
-    logger.error(f"Failed to import node modules: {e}")
-    import traceback
-    traceback.print_exc()
+import app.nodes
 
 
 def ensure_node_type_enum_values():
@@ -53,11 +39,14 @@ def ensure_node_type_enum_values():
             enum_name = lowered
 
         for value in [member.value for member in NodeType]:
+            # Note: ALTER TYPE doesn't support parameterized queries, must use string formatting
+            # Check if value already exists first to avoid errors
             exists = connection.execute(
                 text("SELECT 1 FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid WHERE t.typname = :type AND e.enumlabel = :label"),
                 {"type": enum_name, "label": value}
             ).scalar()
             if not exists:
+                # Safe to add since we validated the enum_name from database
                 connection.execute(text(f"ALTER TYPE \"{enum_name}\" ADD VALUE '{value}'"))
 
 
@@ -76,43 +65,25 @@ def migrate_legacy_node_types():
     if not inspector.has_table("workflow_nodes"):
         return
 
-    logger.info("Starting enum migration...")
-    
     with engine.begin() as connection:
         # First, temporarily change the column to text to allow any value
         try:
-            logger.info("Converting node_type column to TEXT...")
             connection.execute(text('ALTER TABLE workflow_nodes ALTER COLUMN node_type TYPE TEXT'))
-            logger.info("Successfully converted to TEXT")
-        except Exception as e:
-            logger.warning(f"Could not convert to TEXT (may already be TEXT): {e}")
+        except Exception:
+            pass
 
         # Update legacy uppercase values to new lowercase values
         legacy_map = {
-            # Short legacy names
             "infracost": "infracost_estimate",
-            "tfsec": "tfsec_scan",
-            "terrascan": "terrascan_scan",
-            "slack": "slack_notification",
-            "email": "email_notification",
-            "webhook": "webhook_notification",
-            # Uppercase legacy names
             "INFRACOST": "infracost_estimate",
+            "tfsec": "tfsec_scan",
             "TFSEC": "tfsec_scan",
+            "terrascan": "terrascan_scan",
             "TERRASCAN": "terrascan_scan",
-            "SLACK": "slack_notification",
-            "EMAIL": "email_notification",
-            "WEBHOOK": "webhook_notification",
-            # Old terraform specific commands -> single terraform node
-            "terraform_validate": "terraform",
-            "terraform_plan": "terraform",
-            "terraform_apply": "terraform",
-            "terraform_destroy": "terraform",
-            "TERRAFORM_VALIDATE": "terraform",
-            "TERRAFORM_PLAN": "terraform",
-            "TERRAFORM_APPLY": "terraform",
-            "TERRAFORM_DESTROY": "terraform",
-            # Full uppercase names
+            "TERRAFORM_VALIDATE": "terraform_validate",
+            "TERRAFORM_PLAN": "terraform_plan",
+            "TERRAFORM_APPLY": "terraform_apply",
+            "TERRAFORM_DESTROY": "terraform_destroy",
             "INFRACOST_ESTIMATE": "infracost_estimate",
             "TFSEC_SCAN": "tfsec_scan",
             "TERRASCAN_SCAN": "terrascan_scan",
@@ -126,34 +97,22 @@ def migrate_legacy_node_types():
             "HTTP_REQUEST": "http_request",
         }
 
-        logger.info("Updating node_type values from uppercase to lowercase...")
         for old_value, new_value in legacy_map.items():
-            result = connection.execute(
+            connection.execute(
                 text('UPDATE workflow_nodes SET node_type = :new WHERE node_type = :old'),
                 {"new": new_value, "old": old_value},
             )
-            if result.rowcount > 0:
-                logger.info(f"Updated {result.rowcount} rows from {old_value} to {new_value}")
 
         # Now convert back to enum with the correct lowercase values
         try:
-            logger.info("Recreating enum with lowercase values...")
             connection.execute(text('DROP TYPE IF EXISTS nodetype_old CASCADE'))
             connection.execute(text('ALTER TYPE nodetype RENAME TO nodetype_old'))
-            
             enum_values = ', '.join([f"'{member.value}'" for member in NodeType])
             connection.execute(text(f'CREATE TYPE nodetype AS ENUM ({enum_values})'))
-            logger.info("Created new enum type")
-            
             connection.execute(text('ALTER TABLE workflow_nodes ALTER COLUMN node_type TYPE nodetype USING node_type::text::nodetype'))
-            logger.info("Converted column back to enum")
-            
             connection.execute(text('DROP TYPE nodetype_old'))
-            logger.info("Dropped old enum type")
-            logger.info("Enum migration completed successfully!")
         except Exception as e:
-            logger.error(f"Enum migration failed: {e}")
-            raise
+            print(f"Enum migration warning: {e}")
 
 
 migrate_legacy_node_types()
@@ -180,7 +139,6 @@ app.add_middleware(
 app.include_router(pipelines.router, prefix="/api", tags=["pipelines"])
 app.include_router(logs.router, prefix="/api", tags=["logs"])
 app.include_router(workflows.router, prefix="/api", tags=["workflows"])
-app.include_router(workflow_runs.router, prefix="/api", tags=["workflow-runs"])
 
 
 @app.get("/health")

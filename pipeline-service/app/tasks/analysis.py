@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 import json
+import os
 
 from app.core.celery_app import celery_app
 from app.core.config import settings
@@ -17,9 +18,11 @@ def run_infracost_analysis(run_id: int) -> dict:
 
     try:
         stream_log(run_id, stage_run_id, "Running infracost breakdown...")
+        api_key = settings.infracost_api_key or os.getenv("INFRACOST_API_KEY")
+        env_vars = {"INFRACOST_API_KEY": api_key} if api_key else None
         result = run_cli_command(
             ["infracost", "breakdown", "--path", terraform_dir, "--format", "json"],
-            env={"INFRACOST_API_KEY": settings.infracost_api_key},
+            env=env_vars,
             log_callback=lambda log: stream_log(run_id, stage_run_id, log),
         )
 

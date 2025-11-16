@@ -14,6 +14,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 const TYPE_ICONS: Record<string, string> = {
+  terraform: '⚡',
   terraform_validate: '✓',
   terraform_plan: '📋',
   terraform_apply: '🚀',

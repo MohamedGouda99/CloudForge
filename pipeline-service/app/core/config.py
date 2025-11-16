@@ -10,13 +10,13 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
 
     # Infracost
-    infracost_api_key: str = "ico-4xqc9bXXsEoViseD6A7kMjdns7d4LStZ"
+    infracost_api_key: str | None = None
 
     # Main API
     main_api_url: str = "http://localhost:8000"
 
     # Terraform workspace
-    terraform_workspace_dir: str = "/app/terraform_workspaces"
+    terraform_workspace_dir: str = "/app/generated_terraform"
 
     # Environment
     environment: str = "development"
