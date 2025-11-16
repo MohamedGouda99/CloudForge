@@ -231,6 +231,7 @@ provider "google" {
             "aws_s3_bucket": lambda res: self._generate_aws_s3_bucket(res, context),
             "aws_rds_instance": lambda res: self._generate_aws_rds_instance(res, context),
             "aws_lambda_function": lambda res: self._generate_aws_lambda(res, context),
+            "aws_nat_gateway": lambda res: self._generate_aws_nat_gateway(res, context),
 
             # Azure Resources
             "azure_virtual_machine": lambda res: self._generate_azure_vm(res, context),
@@ -552,6 +553,51 @@ resource "aws_lambda_function" "{resource.resource_name}" {{
 }}
 """
 
+    def _generate_aws_nat_gateway(self, resource: Resource, _context: Dict[str, Any]) -> str:
+        config = resource.config or {}
+
+        # NAT Gateway requires an Elastic IP and a subnet
+        # Generate an EIP for the NAT Gateway
+        eip_block = f"""
+resource "aws_eip" "{resource.resource_name}_eip" {{
+  domain = "vpc"
+
+  tags = {{
+    Name = "{resource.resource_name}-eip"
+  }}
+}}
+"""
+
+        # For subnet_id, try to use configured value or reference to a subnet resource
+        # If subnet_id is provided in config, use it; otherwise reference the first available subnet or use a variable
+        subnet_id = config.get('subnet_id', '')
+
+        if subnet_id:
+            # If it looks like a Terraform reference (contains '.'), use it as-is
+            if '.' in subnet_id:
+                subnet_ref = subnet_id
+            else:
+                # Otherwise treat it as a literal value
+                subnet_ref = f'"{subnet_id}"'
+        else:
+            # Default to a variable that users can configure
+            subnet_ref = 'var.public_subnet_id'
+
+        nat_gateway_block = f"""
+resource "aws_nat_gateway" "{resource.resource_name}" {{
+  allocation_id = aws_eip.{resource.resource_name}_eip.id
+  subnet_id     = {subnet_ref}
+
+  tags = {{
+    Name = "{resource.resource_name}"
+  }}
+
+  depends_on = [aws_eip.{resource.resource_name}_eip]
+}}
+"""
+
+        return eip_block + nat_gateway_block
+
     # -------------------------------------------------------------------------
     # Azure resource generators
     # -------------------------------------------------------------------------
@@ -745,6 +791,15 @@ variable "db_password" {
   description = "Database master password"
   type        = string
   sensitive   = true
+}""")
+
+        has_nat_gateway = any(r.resource_type == "aws_nat_gateway" for r in resources)
+        if has_nat_gateway:
+            variables.append("""
+variable "public_subnet_id" {
+  description = "Public subnet ID for NAT Gateway"
+  type        = string
+  default     = "subnet-12345678"
 }""")
 
         return "\n".join(variables) if variables else "# No variables defined"

@@ -30,7 +30,7 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
 
 const palette = [
   { type: 'terraform_validate', label: 'Terraform Validate' },
-  { type: 'infracost', label: 'Cost estimation' },
+  { type: 'infracost', label: 'Infracost' },
   { type: 'tfsec', label: 'Tfsec' },
   { type: 'slack_notification', label: 'Slack Notification' },
 ];

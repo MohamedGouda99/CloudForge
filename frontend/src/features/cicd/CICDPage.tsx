@@ -299,7 +299,7 @@ export default function CICDPage() {
                     <div className="text-xs text-gray-600 mt-1 space-y-0.5">
                       <div>- Tfsec: {stageStatus('tfsec')}</div>
                       <div>- Terrascan: {stageStatus('terrascan')}</div>
-                      <div>- Cost estimation: {stageStatus('infracost')}</div>
+                      <div>- Infracost: {stageStatus('infracost')}</div>
                     </div>
                   </div>
                 </div>
@@ -352,7 +352,7 @@ export default function CICDPage() {
                 <h3 className="text-sm font-semibold text-blue-900">CI/CD Pipeline Active</h3>
                 <p className="text-sm text-blue-700 mt-1">
                   The pipeline service is running. Click "Run Pipeline" to execute Terraform validation, security scans (tfsec, Terrascan),
-                  cost analysis, and deployment with manual approval.
+                  cost analysis (Infracost), and deployment with manual approval.
                 </p>
               </div>
             </div>

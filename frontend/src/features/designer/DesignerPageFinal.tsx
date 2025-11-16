@@ -36,6 +36,7 @@ import PlanPreviewModal from '../../components/PlanPreviewModal';
 import ExportModal from '../../components/ExportModal';
 import DesignerWithCodeView from '../../components/DesignerWithCodeView';
 import TerraformLogsPanel from '../../components/TerraformLogsPanel';
+import InfracostReportPanel from './InfracostReportPanel';
 
 interface Project {
   id: number;
@@ -172,7 +173,7 @@ export default function DesignerPageFinal() {
   const deployEventSourceRef = useRef<EventSource | null>(null);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [deployMode, setDeployMode] = useState<'deploy' | 'destroy'>('deploy');
-  const [terraformAction, setTerraformAction] = useState<'download' | 'plan' | 'apply' | 'destroy' | 'validate' | null>(null);
+  const [terraformAction, setTerraformAction] = useState<'download' | 'plan' | 'apply' | 'destroy' | 'validate' | 'tfsec' | 'terrascan' | 'infracost' | null>(null);
   const [showCodePanel, setShowCodePanel] = useState(false);
 
   // Terraform logs panel state
@@ -182,6 +183,11 @@ export default function DesignerPageFinal() {
   const [logsPanelStatus, setLogsPanelStatus] = useState<'running' | 'success' | 'error' | 'idle'>('idle');
   const [deployLogs, setDeployLogs] = useState<string[]>([]);
   const [deployStatus, setDeployStatus] = useState<DeployStatus>('idle');
+
+  // Infracost report panel state
+  const [infracostReportOpen, setInfracostReportOpen] = useState(false);
+  const [infracostData, setInfracostData] = useState<any>(null);
+  const [infracostStatus, setInfracostStatus] = useState<'running' | 'success' | 'error' | null>(null);
 
   // Credentials state
   const [credentials, setCredentials] = useState<any>(null);
@@ -1095,6 +1101,109 @@ export default function DesignerPageFinal() {
     }
   };
 
+  const runTfsecScan = async () => {
+    try {
+      setTerraformAction('tfsec');
+      setLogsPanelOpen(true);
+      setLogsPanelOperation('tfsec');
+      setLogsPanelStatus('running');
+      setTerraformLogs([]);
+      setTerraformLogs(prev => [...prev, '> Running Tfsec security scan...', '']);
+
+      await saveProject({ silent: true });
+      setTerraformLogs(prev => [...prev, '✓ Project saved', '']);
+
+      const response = await apiClient.post(
+        `/api/terraform/tfsec/${projectId}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        if (response.data.has_issues) {
+          setLogsPanelStatus('error');
+          setTerraformLogs(prev => [...prev, '', `✗ Found ${response.data.issues_count} security issues`, '']);
+        } else {
+          setLogsPanelStatus('success');
+          setTerraformLogs(prev => [...prev, '', '✓ No security issues found!']);
+        }
+        setTerraformLogs(prev => [...prev, JSON.stringify(response.data.scan_output, null, 2)]);
+      }
+    } catch (error: any) {
+      console.error('Tfsec scan failed:', error);
+      setLogsPanelStatus('error');
+      setTerraformLogs(prev => [...prev, '', '✗ Error: ' + (error.response?.data?.detail || error.message)]);
+    } finally {
+      setTerraformAction(null);
+    }
+  };
+
+  const runTerrascanScan = async () => {
+    try {
+      setTerraformAction('terrascan');
+      setLogsPanelOpen(true);
+      setLogsPanelOperation('terrascan');
+      setLogsPanelStatus('running');
+      setTerraformLogs([]);
+      setTerraformLogs(prev => [...prev, '> Running Terrascan security scan...', '']);
+
+      await saveProject({ silent: true });
+      setTerraformLogs(prev => [...prev, '✓ Project saved', '']);
+
+      const response = await apiClient.post(
+        `/api/terraform/terrascan/${projectId}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        if (response.data.has_issues) {
+          setLogsPanelStatus('error');
+          setTerraformLogs(prev => [...prev, '', `✗ Found ${response.data.issues_count} violations`, '']);
+        } else {
+          setLogsPanelStatus('success');
+          setTerraformLogs(prev => [...prev, '', '✓ No violations found!']);
+        }
+        setTerraformLogs(prev => [...prev, JSON.stringify(response.data.scan_output, null, 2)]);
+      }
+    } catch (error: any) {
+      console.error('Terrascan scan failed:', error);
+      setLogsPanelStatus('error');
+      setTerraformLogs(prev => [...prev, '', '✗ Error: ' + (error.response?.data?.detail || error.message)]);
+    } finally {
+      setTerraformAction(null);
+    }
+  };
+
+  const runInfracostEstimate = async () => {
+    try {
+      setTerraformAction('infracost');
+      setInfracostReportOpen(true);
+      setInfracostStatus('running');
+      setInfracostData(null);
+
+      await saveProject({ silent: true});
+
+      const response = await apiClient.post(
+        `/api/terraform/infracost/${projectId}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        setInfracostStatus('success');
+        setInfracostData(response.data.cost_output);
+      } else {
+        setInfracostStatus('error');
+      }
+    } catch (error: any) {
+      console.error('Infracost estimation failed:', error);
+      setInfracostStatus('error');
+    } finally {
+      setTerraformAction(null);
+    }
+  };
+
   const filteredResources = resources.filter((resource) => {
     const matchesCategory = !selectedCategory || resource.category === selectedCategory;
     const search = searchTerm.trim().toLowerCase();
@@ -1142,11 +1251,11 @@ export default function DesignerPageFinal() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 relative">
+    <div className="flex h-screen bg-background relative">
       {/* Toggle Button - Outside sidebar */}
       <button
         onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-        className={`fixed top-1/2 -translate-y-1/2 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-r-lg shadow-lg transition-all duration-300 z-50 ${
+        className={`fixed top-1/2 -translate-y-1/2 bg-primary hover:bg-primary/90 text-primary-foreground p-2 rounded-r-lg shadow-lg transition-all duration-300 z-50 ${
           sidebarCollapsed ? 'left-0' : 'left-80'
         }`}
         title={sidebarCollapsed ? 'Show Resources' : 'Hide Resources'}
@@ -1162,19 +1271,19 @@ export default function DesignerPageFinal() {
       </button>
 
       {/* Left Sidebar - Resource Palette */}
-      <div className={`bg-white border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out ${
+      <div className={`bg-card border-r border-border flex flex-col transition-all duration-300 ease-in-out ${
         sidebarCollapsed ? 'w-0 overflow-hidden' : 'w-80'
       }`}>
         {/* Header */}
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-border">
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+            <div className="flex items-center gap-2 text-lg font-semibold text-foreground">
               <CloudIcon icon={getProviderIcon(project.cloud_provider)} size={22} />
               <span>{getProviderLabel(project.cloud_provider)}</span>
             </div>
             <button
               onClick={() => navigate('/dashboard')}
-              className="text-gray-500 hover:text-gray-700"
+              className="text-muted-foreground hover:text-foreground"
               title="Back to Dashboard"
             >
               ✕
@@ -1230,16 +1339,16 @@ export default function DesignerPageFinal() {
               <button
                 key={resource.type}
                 onClick={() => addNode(resource)}
-                className="w-full p-3 text-left bg-white border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition-all"
+                className="w-full p-3 text-left bg-card border border-border rounded-lg hover:border-primary hover:shadow-md transition-all"
               >
                 <div className="flex items-start">
                   <div className="mr-3 flex items-center justify-center" style={{ width: '32px', height: '32px' }}>
                     <CloudIcon icon={resource.icon} size={28} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900">{resource.label}</p>
-                    <p className="text-xs text-gray-500 mt-1">{resource.description}</p>
-                    <p className="text-xs text-gray-400 mt-1 font-mono">{resource.type}</p>
+                    <p className="text-sm font-medium text-foreground">{resource.label}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{resource.description}</p>
+                    <p className="text-xs text-muted-foreground/70 mt-1 font-mono">{resource.type}</p>
                   </div>
                 </div>
               </button>
@@ -1258,41 +1367,34 @@ export default function DesignerPageFinal() {
       {/* Main Canvas */}
       <div className="flex-1 flex flex-col">
         {/* Top Toolbar */}
-        <div className="bg-white border-b border-gray-200 px-4 py-3">
+        <div className="bg-card border-b border-border px-4 py-3">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-bold text-gray-900">{project.name}</h1>
-              <p className="text-sm text-gray-600">{project.description}</p>
+              <h1 className="text-xl font-bold text-foreground">{project.name}</h1>
+              <p className="text-sm text-muted-foreground">{project.description}</p>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap justify-end">
               <button
                 onClick={() => saveProject()}
                 disabled={saving || terraformAction !== null}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 text-sm font-medium"
+                className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 disabled:opacity-50 text-sm font-medium"
               >
                 {saving ? 'Saving...' : 'Save'}
               </button>
 
               <button
                 onClick={() => setCredentialsModalOpen(true)}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium"
+                className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 text-sm font-medium"
               >
                 {credentials ? 'Update Credentials' : 'Set Credentials'}
               </button>
 
               <button
                 onClick={() => setShowCodePanel((prev) => !prev)}
-                className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 text-sm font-medium"
+                className="px-4 py-2 bg-accent text-accent-foreground rounded-lg hover:bg-accent/80 text-sm font-medium"
               >
                 {showCodePanel ? 'Hide Code' : 'Show Code'}
-              </button>
-
-              <button
-                onClick={() => navigate(`/projects/${projectId}/cicd`)}
-                className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 text-sm font-medium"
-              >
-                CI/CD
               </button>
 
               <button
@@ -1325,6 +1427,30 @@ export default function DesignerPageFinal() {
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm font-medium"
               >
                 {terraformAction === 'destroy' ? 'Destroying...' : 'Destroy'}
+              </button>
+
+              <button
+                onClick={runTfsecScan}
+                disabled={terraformAction !== null}
+                className="px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 disabled:opacity-50 text-sm font-medium"
+              >
+                {terraformAction === 'tfsec' ? 'Scanning...' : 'Tfsec'}
+              </button>
+
+              <button
+                onClick={runTerrascanScan}
+                disabled={terraformAction !== null}
+                className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50 text-sm font-medium"
+              >
+                {terraformAction === 'terrascan' ? 'Scanning...' : 'Terrascan'}
+              </button>
+
+              <button
+                onClick={runInfracostEstimate}
+                disabled={terraformAction !== null}
+                className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 text-sm font-medium"
+              >
+                {terraformAction === 'infracost' ? 'Estimating...' : 'Infracost'}
               </button>
 
               <button
@@ -1449,6 +1575,18 @@ export default function DesignerPageFinal() {
         logs={terraformLogs}
         operation={logsPanelOperation}
         status={logsPanelStatus}
+      />
+
+      {/* Infracost Report Panel */}
+      <InfracostReportPanel
+        isOpen={infracostReportOpen}
+        onClose={() => {
+          setInfracostReportOpen(false);
+          setInfracostData(null);
+          setInfracostStatus(null);
+        }}
+        data={infracostData}
+        status={infracostStatus}
       />
     </div>
   );

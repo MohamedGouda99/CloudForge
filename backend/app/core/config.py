@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     # Terraform
     TERRAFORM_WORKSPACE_DIR: str = "./generated_terraform"
 
+    # Infracost
+    INFRACOST_API_KEY: str = ""
+
     # Git
     GIT_DEFAULT_BRANCH: str = "main"
 

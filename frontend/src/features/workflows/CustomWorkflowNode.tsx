@@ -14,37 +14,12 @@ type NodeData = {
   onRequestDelete?: () => void;
 };
 
-const connectorConfig: Record<
-  ConnectionDirection,
-  {
-    buttonClass: string;
-    sourcePosition: Position;
-    targetPosition: Position;
-    sourceOffset?: string;
-    targetOffset?: string;
-  }
-> = {
-  top: {
-    buttonClass: '-top-5 left-1/2 -translate-x-1/2',
-    sourcePosition: Position.Top,
-    targetPosition: Position.Top,
-  },
-  right: {
-    buttonClass: 'top-1/2 -translate-y-1/2 -right-5',
-    sourcePosition: Position.Right,
-    targetPosition: Position.Right,
-  },
-  bottom: {
-    buttonClass: 'left-1/2 -bottom-5 -translate-x-1/2',
-    sourcePosition: Position.Bottom,
-    targetPosition: Position.Bottom,
-  },
-  left: {
-    buttonClass: 'top-1/2 -translate-y-1/2 -left-5',
-    sourcePosition: Position.Left,
-    targetPosition: Position.Left,
-  },
-};
+const connectorPositions: Array<{ direction: ConnectionDirection; className: string }> = [
+  { direction: 'top', className: '-top-4 left-1/2 -translate-x-1/2' },
+  { direction: 'right', className: 'right-0 top-1/2 -translate-y-1/2 translate-x-1/2' },
+  { direction: 'bottom', className: 'left-1/2 -bottom-4 -translate-x-1/2' },
+  { direction: 'left', className: '-left-4 top-1/2 -translate-y-1/2' },
+];
 
 const CustomWorkflowNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
   const icon = getNodeIcon(data.nodeType);
@@ -60,28 +35,15 @@ const CustomWorkflowNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected 
 
   return (
     <div className="relative">
-      {Object.entries(connectorConfig).map(([direction, config]) => (
-        <React.Fragment key={`${id}-${direction}`}>
-          <Handle
-            id={`target-${direction}`}
-            type="target"
-            position={config.targetPosition}
-            className="w-3 h-3 !bg-purple-500 border-2 border-white"
-          />
-          <Handle
-            id={`source-${direction}`}
-            type="source"
-            position={config.sourcePosition}
-            className="w-3 h-3 !bg-purple-500 border-2 border-white"
-          />
-          <button
-            onClick={(event) => handleAdd(event, direction as ConnectionDirection)}
-            className={`absolute ${config.buttonClass} bg-white border-2 border-purple-200 text-purple-600 rounded-full p-1.5 shadow hover:bg-purple-600 hover:text-white transition`}
-            title="Add next task"
-          >
-            <Plus size={14} />
-          </button>
-        </React.Fragment>
+      {connectorPositions.map(({ direction, className }) => (
+        <button
+          key={`${id}-${direction}`}
+          onClick={(event) => handleAdd(event, direction)}
+          className={`absolute ${className} bg-white border-2 border-purple-200 text-purple-600 rounded-full p-1.5 shadow hover:bg-purple-600 hover:text-white transition`}
+          title="Add next task"
+        >
+          <Plus size={14} />
+        </button>
       ))}
 
       <div
@@ -89,9 +51,11 @@ const CustomWorkflowNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected 
           selected ? 'border-purple-500' : 'border-transparent'
         } min-w-[240px]`}
       >
+        <Handle type="target" position={Position.Top} className="w-3 h-3 !bg-purple-500" />
+
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl overflow-hidden" style={{ backgroundColor: `${accent}22`, color: accent }}>
-            {iconImage ? <img src={iconImage} alt={data.nodeType} className="w-10 h-10 object-contain" /> : icon}
+            {iconImage ? <img src={iconImage} alt={data.nodeType} className="w-full h-full object-cover" /> : icon}
           </div>
           <div className="flex-1 overflow-hidden">
             <div className="font-semibold text-gray-900 truncate">{data.label}</div>
@@ -128,6 +92,8 @@ const CustomWorkflowNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected 
             <Settings size={16} />
           </button>
         </div>
+
+        <Handle type="source" position={Position.Bottom} className="w-3 h-3 !bg-purple-500" />
       </div>
     </div>
   );

@@ -141,41 +141,46 @@ def cleanup_temp_files(file_paths: List[str]) -> None:
 
 def ensure_terraform_files(project: Project, project_id: int, db: Session) -> str:
     """
-    Ensure Terraform files exist for a project, generating them if necessary.
+    Ensure Terraform files are generated for a project, always regenerating to stay in sync with current architecture.
     Returns the project directory path.
     """
     project_dir = os.path.join(settings.TERRAFORM_WORKSPACE_DIR, f"project_{project_id}")
 
-    # Check if Terraform files exist
-    if not os.path.exists(project_dir) or not os.path.exists(os.path.join(project_dir, "main.tf")):
-        # Get resources from database
-        resources = db.query(Resource).filter(Resource.project_id == project_id).all()
+    # ALWAYS get current resources from database to ensure sync
+    resources = db.query(Resource).filter(Resource.project_id == project_id).all()
 
-        if not resources:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Project has no resources. Add resources to the canvas and save first."
-            )
+    if not resources:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Project has no resources. Add resources to the canvas and save first."
+        )
 
-        # Generate Terraform code
-        generator = TerraformGenerator()
-        terraform_files = generator.generate_terraform(project, resources)
+    # Generate Terraform code from current architecture state
+    generator = TerraformGenerator()
+    terraform_files = generator.generate_terraform(project, resources)
 
-        # Create project directory
-        os.makedirs(project_dir, exist_ok=True)
+    # Create project directory
+    os.makedirs(project_dir, exist_ok=True)
 
-        # Clean up old terraform files (especially old providers.tf)
-        old_files = ['providers.tf']  # Files that were renamed
-        for old_file in old_files:
-            old_path = os.path.join(project_dir, old_file)
-            if os.path.exists(old_path):
-                os.remove(old_path)
-
-        # Write Terraform files
-        for filename, content in terraform_files.items():
+    # Clean up ALL old terraform files to ensure fresh generation
+    import shutil
+    if os.path.exists(project_dir):
+        # Remove all files in the directory but keep the directory
+        for filename in os.listdir(project_dir):
             file_path = os.path.join(project_dir, filename)
-            with open(file_path, 'w') as f:
-                f.write(content)
+            try:
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                pass
+
+    # Write fresh Terraform files
+    for filename, content in terraform_files.items():
+        file_path = os.path.join(project_dir, filename)
+        with open(file_path, 'w') as f:
+            f.write(content)
 
     return project_dir
 
@@ -1128,3 +1133,172 @@ async def destroy_infrastructure_stream(
             "X-Accel-Buffering": "no"
         }
     )
+
+
+@router.post("/tfsec/{project_id}")
+def run_tfsec_scan(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Run tfsec security scan on Terraform configuration"""
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == current_user.id
+    ).first()
+
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found"
+        )
+
+    project_dir = ensure_terraform_files(project, project_id, db)
+
+    try:
+        tfsec_result = subprocess.run(
+            ['tfsec', '--format=json', project_dir],
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+
+        try:
+            scan_output = json.loads(tfsec_result.stdout) if tfsec_result.stdout else {"results": []}
+        except json.JSONDecodeError:
+            scan_output = {"raw_output": tfsec_result.stdout, "results": []}
+
+        has_issues = tfsec_result.returncode == 1
+
+        return {
+            "success": True,
+            "scan_tool": "tfsec",
+            "has_issues": has_issues,
+            "issues_count": len(scan_output.get("results", [])),
+            "scan_output": scan_output,
+            "message": "Security scan completed" + (" - issues found" if has_issues else " - no issues found")
+        }
+
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=status.HTTP_408_REQUEST_TIMEOUT, detail="Tfsec scan timed out")
+    except FileNotFoundError:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Tfsec is not installed")
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Tfsec scan failed: {str(e)}")
+
+
+@router.post("/terrascan/{project_id}")
+def run_terrascan_scan(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Run terrascan security scan on Terraform configuration"""
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == current_user.id
+    ).first()
+
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    project_dir = ensure_terraform_files(project, project_id, db)
+
+    try:
+        terrascan_result = subprocess.run(
+            ['terrascan', 'scan', '-i', 'terraform', '-t', 'all', '-d', project_dir, '-o', 'json'],
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+
+        try:
+            scan_output = json.loads(terrascan_result.stdout) if terrascan_result.stdout else {}
+        except json.JSONDecodeError:
+            scan_output = {"raw_output": terrascan_result.stdout}
+
+        results = scan_output.get("results", {})
+        violations = results.get("violations", [])
+
+        return {
+            "success": True,
+            "scan_tool": "terrascan",
+            "has_issues": len(violations) > 0,
+            "issues_count": len(violations),
+            "scan_output": scan_output,
+            "message": f"Security scan completed - {len(violations)} violations found"
+        }
+
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=status.HTTP_408_REQUEST_TIMEOUT, detail="Terrascan scan timed out")
+    except FileNotFoundError:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Terrascan is not installed")
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Terrascan scan failed: {str(e)}")
+
+
+@router.post("/infracost/{project_id}")
+def run_infracost_estimate(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Run infracost cost estimation on Terraform configuration"""
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == current_user.id
+    ).first()
+
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    project_dir = ensure_terraform_files(project, project_id, db)
+
+    infracost_api_key = settings.INFRACOST_API_KEY
+    if not infracost_api_key:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Infracost API key not configured")
+
+    env = os.environ.copy()
+    env['INFRACOST_API_KEY'] = infracost_api_key
+
+    try:
+        infracost_result = subprocess.run(
+            ['infracost', 'breakdown', '--path', project_dir, '--format', 'json'],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=180
+        )
+
+        try:
+            cost_output = json.loads(infracost_result.stdout) if infracost_result.stdout else {}
+        except json.JSONDecodeError:
+            cost_output = {"raw_output": infracost_result.stdout}
+
+        if infracost_result.returncode != 0:
+            return {
+                "success": False,
+                "scan_tool": "infracost",
+                "error": infracost_result.stderr,
+                "output": infracost_result.stdout
+            }
+
+        total_monthly_cost = cost_output.get("totalMonthlyCost", "0")
+        projects_data = cost_output.get("projects", [])
+
+        return {
+            "success": True,
+            "scan_tool": "infracost",
+            "total_monthly_cost": total_monthly_cost,
+            "currency": cost_output.get("currency", "USD"),
+            "projects_count": len(projects_data),
+            "cost_output": cost_output,
+            "message": f"Cost estimate completed - ${total_monthly_cost}/month"
+        }
+
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=status.HTTP_408_REQUEST_TIMEOUT, detail="Infracost estimation timed out")
+    except FileNotFoundError:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Infracost is not installed")
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Infracost estimation failed: {str(e)}")

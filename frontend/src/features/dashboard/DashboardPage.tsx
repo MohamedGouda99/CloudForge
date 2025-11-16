@@ -56,18 +56,18 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-white shadow-sm">
+      <header className="bg-card shadow-sm border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">CloudForge</h1>
-            <p className="text-sm text-gray-600">Welcome back, {user?.full_name || user?.username}!</p>
+            <h1 className="text-2xl font-bold text-foreground">CloudForge</h1>
+            <p className="text-sm text-muted-foreground">Welcome back, {user?.full_name || user?.username}!</p>
           </div>
           <div className="flex gap-4">
             <Link
               to="/projects/new"
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              className="bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors"
             >
               New Project
             </Link>
@@ -75,7 +75,7 @@ export default function DashboardPage() {
               href="http://localhost:8000/docs"
               target="_blank"
               rel="noopener noreferrer"
-              className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors"
+              className="bg-secondary text-secondary-foreground px-4 py-2 rounded-lg hover:bg-secondary/80 transition-colors"
             >
               API Docs
             </a>
@@ -86,17 +86,17 @@ export default function DashboardPage() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Your Projects</h2>
+          <h2 className="text-xl font-semibold text-foreground mb-4">Your Projects</h2>
 
           {loading ? (
             <div className="text-center py-12">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <p className="mt-2 text-gray-600">Loading projects...</p>
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <p className="mt-2 text-muted-foreground">Loading projects...</p>
             </div>
           ) : projects.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+            <div className="bg-card rounded-lg shadow-sm p-12 text-center border border-border">
               <svg
-                className="mx-auto h-12 w-12 text-gray-400"
+                className="mx-auto h-12 w-12 text-muted-foreground"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -108,12 +108,12 @@ export default function DashboardPage() {
                   d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                 />
               </svg>
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No projects</h3>
-              <p className="mt-1 text-sm text-gray-500">Get started by creating a new project.</p>
+              <h3 className="mt-2 text-sm font-medium text-foreground">No projects</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Get started by creating a new project.</p>
               <div className="mt-6">
                 <Link
                   to="/projects/new"
-                  className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                  className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
                 >
                   New Project
                 </Link>
@@ -124,10 +124,10 @@ export default function DashboardPage() {
               {projects.map((project) => (
                 <div
                   key={project.id}
-                  className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow p-6"
+                  className="bg-card rounded-lg shadow-sm hover:shadow-md transition-shadow p-6 border border-border"
                 >
                   <div className="flex justify-between items-start mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">{project.name}</h3>
+                    <h3 className="text-lg font-semibold text-card-foreground">{project.name}</h3>
                     <div className="flex items-center gap-2">
                       <span
                         className={`px-2 py-1 text-xs font-medium rounded-full ${getProviderColor(
@@ -138,7 +138,7 @@ export default function DashboardPage() {
                       </span>
                       <button
                         onClick={() => handleDeleteProject(project.id, project.name)}
-                        className="text-gray-400 hover:text-red-600 transition-colors"
+                        className="text-muted-foreground hover:text-destructive transition-colors"
                         title="Delete project"
                       >
                         <svg
@@ -157,26 +157,26 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
                     {project.description || 'No description'}
                   </p>
 
                   <div className="flex gap-2">
                     <Link
                       to={`/projects/${project.id}`}
-                      className="flex-1 text-center bg-blue-50 text-blue-600 px-3 py-2 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
+                      className="flex-1 text-center bg-primary/10 text-primary px-3 py-2 rounded-lg hover:bg-primary/20 transition-colors text-sm font-medium"
                     >
                       View
                     </Link>
                     <button
-                      className="flex-1 bg-gray-50 text-gray-600 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors text-sm font-medium"
+                      className="flex-1 bg-secondary text-secondary-foreground px-3 py-2 rounded-lg hover:bg-secondary/80 transition-colors text-sm font-medium"
                       onClick={() => alert('Generate feature coming soon!')}
                     >
                       Generate
                     </button>
                   </div>
 
-                  <p className="mt-4 text-xs text-gray-500">
+                  <p className="mt-4 text-xs text-muted-foreground">
                     Created {new Date(project.created_at).toLocaleDateString()}
                   </p>
                 </div>
@@ -187,32 +187,32 @@ export default function DashboardPage() {
 
         {/* Quick Links */}
         <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h3 className="font-semibold text-gray-900 mb-2">Documentation</h3>
-            <p className="text-sm text-gray-600 mb-4">
+          <div className="bg-card rounded-lg shadow-sm p-6 border border-border">
+            <h3 className="font-semibold text-card-foreground mb-2">Documentation</h3>
+            <p className="text-sm text-muted-foreground mb-4">
               Learn how to use CloudForge and explore the API
             </p>
             <a
               href="http://localhost:8000/docs"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              className="text-sm text-primary hover:text-primary/80 font-medium"
             >
               View API Docs {'->'}
             </a>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h3 className="font-semibold text-gray-900 mb-2">Supported Clouds</h3>
-            <p className="text-sm text-gray-600 mb-4">
+          <div className="bg-card rounded-lg shadow-sm p-6 border border-border">
+            <h3 className="font-semibold text-card-foreground mb-2">Supported Clouds</h3>
+            <p className="text-sm text-muted-foreground mb-4">
               AWS, Azure, and GCP with 13+ resource types
             </p>
-            <p className="text-sm text-gray-500">Multi-cloud support</p>
+            <p className="text-sm text-muted-foreground">Multi-cloud support</p>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h3 className="font-semibold text-gray-900 mb-2">Features</h3>
-            <ul className="text-sm text-gray-600 space-y-1">
+          <div className="bg-card rounded-lg shadow-sm p-6 border border-border">
+            <h3 className="font-semibold text-card-foreground mb-2">Features</h3>
+            <ul className="text-sm text-muted-foreground space-y-1">
               <li>- Visual Designer</li>
               <li>- Terraform Generation</li>
               <li>- Real-time Collaboration</li>

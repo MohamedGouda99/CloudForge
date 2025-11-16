@@ -99,7 +99,7 @@ const TaskPaletteDrawer = ({ open, nodeTypes, onClose, onSelect }: TaskPaletteDr
                       style={{ backgroundColor: `${color}15`, color }}
                     >
                       {iconImage ? (
-                        <img src={iconImage} alt={task.display_name} className="w-8 h-8 object-contain" />
+                        <img src={iconImage} alt={task.display_name} className="w-full h-full object-cover rounded-2xl" />
                       ) : (
                         icon
                       )}
