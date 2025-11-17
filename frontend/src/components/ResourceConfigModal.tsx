@@ -40,7 +40,7 @@ export default function ResourceConfigModal({
   const iconLabel = resource.label || resource.type;
   const iconElement = useMemo(
     () => (
-      <div className="flex h-12 w-12 items-center justify-center rounded-md bg-slate-100 border border-slate-200 shadow-inner">
+      <div className="flex h-12 w-12 items-center justify-center rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-inner">
         <CloudIcon icon={resource.icon} size={resolvedIconSize} />
       </div>
     ),
@@ -59,7 +59,7 @@ export default function ResourceConfigModal({
             onChange={(e) => handleFieldChange(field.name, e.target.value)}
             placeholder={field.placeholder}
             required={field.required}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
           />
         );
 
@@ -71,7 +71,7 @@ export default function ResourceConfigModal({
             onChange={(e) => handleFieldChange(field.name, parseInt(e.target.value))}
             placeholder={field.placeholder}
             required={field.required}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
           />
         );
 
@@ -81,7 +81,7 @@ export default function ResourceConfigModal({
             value={value}
             onChange={(e) => handleFieldChange(field.name, e.target.value)}
             required={field.required}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
           >
             <option value="">Select {field.label}</option>
             {field.options?.map((opt) => (
@@ -101,7 +101,7 @@ export default function ResourceConfigModal({
               onChange={(e) => handleFieldChange(field.name, e.target.checked)}
               className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
             />
-            <span className="text-sm text-gray-600">Enable</span>
+            <span className="text-sm text-gray-600 dark:text-gray-400">Enable</span>
           </label>
         );
 
@@ -113,7 +113,7 @@ export default function ResourceConfigModal({
             placeholder={field.placeholder}
             required={field.required}
             rows={4}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 font-mono text-sm"
           />
         );
 
@@ -132,7 +132,7 @@ export default function ResourceConfigModal({
             placeholder={field.placeholder}
             required={field.required}
             rows={6}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 font-mono text-sm"
           />
         );
 
@@ -143,21 +143,21 @@ export default function ResourceConfigModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               {iconElement}
               <div>
-                <h2 className="text-xl font-bold text-gray-900">{iconLabel}</h2>
-                <p className="text-sm text-gray-600">{resource.description}</p>
-                <p className="mt-1 text-xs font-mono text-gray-400">{resource.type}</p>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{iconLabel}</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{resource.description}</p>
+                <p className="mt-1 text-xs font-mono text-gray-400 dark:text-gray-500">{resource.type}</p>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
             >
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
@@ -176,7 +176,7 @@ export default function ResourceConfigModal({
           <div className="space-y-4">
             {/* Resource Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Resource Name <span className="text-red-500">*</span>
               </label>
               <input
@@ -185,9 +185,9 @@ export default function ResourceConfigModal({
                 onChange={(e) => setResourceName(e.target.value)}
                 placeholder="my-resource"
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
               />
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 A unique identifier for this resource in your infrastructure
               </p>
             </div>
@@ -195,12 +195,12 @@ export default function ResourceConfigModal({
             {/* Dynamic Fields */}
             {resource.fields.map((field) => (
               <div key={field.name}>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   {field.label} {field.required && <span className="text-red-500">*</span>}
                 </label>
                 {renderField(field)}
                 {field.description && (
-                  <p className="mt-1 text-xs text-gray-500">{field.description}</p>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{field.description}</p>
                 )}
               </div>
             ))}
@@ -208,11 +208,11 @@ export default function ResourceConfigModal({
         </form>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 flex gap-3">
+        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex gap-3">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+            className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-medium"
           >
             Cancel
           </button>

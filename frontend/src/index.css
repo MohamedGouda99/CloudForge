@@ -60,6 +60,24 @@
 
 /* React Flow customizations */
 .react-flow__node {
+  box-shadow: none !important;
+  border: none !important;
+  outline: none !important;
+}
+
+.react-flow__node.selected {
+  @apply shadow-none border-none;
+  box-shadow: none !important;
+  border: none !important;
+  outline: none !important;
+}
+
+.react-flow__node-resource,
+.react-flow__node-default {
+  @apply shadow-none rounded-none border-none bg-transparent;
+  box-shadow: none !important;
+  border: none !important;
+  outline: none !important;
   @apply shadow-none rounded-none border-none bg-transparent;
 }
 
