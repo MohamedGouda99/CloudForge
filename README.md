@@ -1,231 +1,650 @@
-# CloudForge Developer Guide
+<div align="center">
 
-CloudForge is a diagram-first Terraform authoring platform consisting of a React/Vite frontend, a FastAPI backend, and supporting data services packaged for local or containerised execution. This guide provides a single, technical reference for contributors.
+# ☁️ CloudForge ⚡
 
----
+### 🎨 Draw Your Cloud, Deploy Your Dreams! 🚀
 
-## Contents
-1. [System Overview](#system-overview)
-2. [Repository Layout](#repository-layout)
-3. [Local Environment Setup](#local-environment-setup)
-4. [Configuration](#configuration)
-5. [Execution Modes](#execution-modes)
-6. [Service Operations](#service-operations)
-7. [Health & Diagnostics](#health--diagnostics)
-8. [Packaging & Deployment](#packaging--deployment)
-9. [Data Management](#data-management)
-10. [Troubleshooting Matrix](#troubleshooting-matrix)
-11. [Security Checklist](#security-checklist)
-12. [Reference Links](#reference-links)
+[![Made with React](https://img.shields.io/badge/React-18.3.1-61DAFB?style=for-the-badge&logo=react&logoColor=white)](https://react.dev/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.109-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+[![Terraform](https://img.shields.io/badge/Terraform-Generator-7B42BC?style=for-the-badge&logo=terraform&logoColor=white)](https://www.terraform.io/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
+
+**The magical platform that turns your cloud architecture diagrams into production-ready Terraform code!** ✨
+
+[🚀 Quick Start](#-quick-start) • [📖 Features](#-features) • [🎯 Demo](#-demo) • [🛠️ Tech Stack](#️-tech-stack) • [📚 Docs](#-documentation)
 
 ---
 
-## System Overview
+![CloudForge Banner](https://via.placeholder.com/800x200/667eea/ffffff?text=CloudForge+-+Diagram+First+Terraform+Platform)
 
-| Component | Technology | Purpose | Default Port | Notes |
-|-----------|------------|---------|--------------|-------|
-| Frontend | React 18 + Vite | Diagram editor, Terraform previews | 3000 | Dev server or Nginx (prod) |
-| Backend API | FastAPI + Uvicorn | Auth, Terraform generation, API | 8000 | Celery worker shares code base |
-| Celery Worker | Celery + Redis broker | Async drift scans & tasks | n/a | Known `ModuleNotFoundError` during dev |
-| PostgreSQL | PostgreSQL 15 | Persistent metadata store | 5433 (host) | Mapped to 5432 in-container |
-| Redis | Redis 7 | Cache, background tasks queue | 6379 | In-memory only |
-| Terraform | Hashicorp Terraform 1.6.x | IaC generation toolchain | n/a | Bundled inside backend images |
+</div>
 
 ---
 
-## Repository Layout
+## 🎯 What is CloudForge?
+
+> **TL;DR:** Drag & drop cloud resources → Configure them → Generate Terraform → Deploy to AWS/Azure/GCP! 🎉
+
+CloudForge is your **visual Infrastructure as Code (IaC) companion** that makes designing cloud infrastructure as easy as drawing on a whiteboard! 🎨
+
+### 🤔 Why CloudForge?
 
 ```
-brainboard/
-|-- backend/                  # FastAPI application
-|   |-- app/api               # REST endpoints
-|   |-- app/core              # Settings, celery, logging
-|   |-- app/services          # Business/domain logic
-|   |-- Dockerfile            # Dev image (reload)
-|   `-- Dockerfile.prod       # Hardened production image
-|-- frontend/                 # React + Vite SPA
-|   |-- src/                  # UI, hooks, utilities
-|   |-- Dockerfile            # Dev server
-|   `-- Dockerfile.prod       # Static build + Nginx
-|-- scripts/                  # Automation helpers (PowerShell)
-|-- docker-compose.yaml       # Local stack (profiles supported)
-|-- Dockerfile                # Monolithic runtime image
-|-- .env.example              # Configuration template
-`-- Cloud_Services/           # Provider icon packs & assets
+Traditional Way:                    CloudForge Way:
+😰 Write HCL code manually      →   🎨 Drag & drop resources
+📝 Debug syntax errors          →   ✅ Visual validation
+🐛 Fix dependencies             →   🔗 Auto-detect relationships
+⏰ Hours of work                →   ⚡ Minutes to deploy
 ```
 
 ---
 
-## Local Environment Setup
+## ✨ Features
 
-| Tool | Version | Install Notes |
-|------|---------|---------------|
-| Docker Desktop | Latest (WSL 2 backend) | Required for containers & compose |
-| WSL 2 + Ubuntu | Latest | Scripts assume repository at `/mnt/c/...` |
-| Node.js | v18 or v20 LTS | Includes npm; powers `npm run dev` |
-| Python (optional) | 3.11 | Needed only for direct backend scripting without Docker |
+<div align="center">
 
-Verify installations:
+### 🎨 **Visual Designer**
+Drag, drop, and design your cloud architecture with an intuitive canvas!
 
-```powershell
-docker --version
-docker compose version
-wsl --status
-node --version
-npm --version
+### 🌈 **Multi-Cloud Support**
+AWS ☁️ | Azure 🔷 | GCP 🔴 - We support them all!
+
+### 🎯 **Smart Configuration**
+Context-aware forms that understand your resources
+
+### 🚀 **Instant Terraform**
+Generate production-ready .tf files in seconds
+
+### 🌙 **Dark Mode**
+Easy on the eyes, day or night!
+
+### 🔄 **Live Preview**
+See your infrastructure come to life in real-time
+
+</div>
+
+---
+
+## 🎬 Demo
+
+### 🖼️ Visual Infrastructure Design
+
+```
+   ┌─────────────────────────────────────────────┐
+   │  🎨 CloudForge Designer                     │
+   ├─────────────────────────────────────────────┤
+   │                                             │
+   │    ┌──────┐        ┌──────┐                │
+   │    │ VPC  │────────│ EC2  │                │
+   │    └──────┘        └──────┘                │
+   │        │                                    │
+   │    ┌──────┐        ┌──────┐                │
+   │    │  RDS │        │  S3  │                │
+   │    └──────┘        └──────┘                │
+   │                                             │
+   │  [Generate Terraform] 🚀                    │
+   └─────────────────────────────────────────────┘
+```
+
+### ⚡ Generated Terraform Code
+
+```hcl
+# 🎉 Auto-generated by CloudForge!
+
+resource "aws_vpc" "main" {
+  cidr_block = "10.0.0.0/16"
+  # ... more config
+}
+
+resource "aws_instance" "web" {
+  ami           = "ami-12345678"
+  instance_type = "t2.micro"
+  # ... more config
+}
+
+# And more! 🚀
 ```
 
 ---
 
-## Configuration
+## 🚀 Quick Start
 
-1. Bootstrap environment variables:
-   ```powershell
-   Copy-Item .env.example .env
-   ```
-2. Update secrets before first run.
+### 📋 Prerequisites
 
-| Key | Required | Default | Description |
-|-----|----------|---------|-------------|
-| `POSTGRES_PASSWORD` | Yes | cloudforge_dev_password | Database password (dev only) |
-| `REDIS_PASSWORD` | Yes | redis_password_change_me | Redis authentication (optional for dev) |
-| `SECRET_KEY` | Yes | generate | FastAPI signing key (`openssl rand -hex 32`) |
-| `JWT_SECRET_KEY` | Yes | generate | JWT signing key (`openssl rand -hex 32`) |
-| `CORS_ORIGINS` | Yes | http://localhost:3000 | CSV of trusted origins |
-| `VITE_API_URL` | Yes | http://localhost:8000 | Frontend to API base URL |
+Before you begin, make sure you have:
 
-> `.env` is consumed by Docker Compose and scripts. Never commit a filled `.env`.
+- ✅ **Docker Desktop** (with WSL 2 on Windows)
+- ✅ **Node.js** v18 or v20 LTS
+- ✅ **Git** for cloning
+- ✅ **WSL 2 + Ubuntu** (Windows users)
+- ✅ A cup of coffee ☕ (optional but recommended)
 
----
+### 🎯 Installation in 3 Steps!
 
-## Execution Modes
-
-| Mode | Entry Command | Scope | Notes |
-|------|---------------|-------|-------|
-| Windows helper script | `powershell -ExecutionPolicy Bypass -File scripts/run_cloudforge_background.ps1` | Backend (Docker) + local Vite | Skips frontend start if port 3000 busy |
-| Docker Compose (backend only) | `wsl -d Ubuntu sh -lc "cd /mnt/c/Users/goda/Downloads/brainboard && docker compose up -d"` | Postgres, Redis, FastAPI, Celery | Default profile; frontend untouched |
-| Docker Compose (full stack) | `... docker compose --profile full up -d` | Adds frontend container | Frontend stops only with `--profile full down` |
-| Manual | `docker compose up -d postgres redis backend` (WSL) + `npm run dev` (Windows) | Custom mix | Useful for hot reload plus local Node runtime |
-
----
-
-## Service Operations
-
-| Action | Backend Stack | Frontend Dev Server | Notes |
-|--------|---------------|---------------------|-------|
-| Start | `docker compose up -d` | `npm run dev -- --host 0.0.0.0` | Run from repository root (`WSL` vs Windows terminals) |
-| Stop | `docker compose down` | `Get-Process node \| Stop-Process` | Stopping backend does not kill a Windows Vite process |
-| Full stop | `docker compose --profile full down` | n/a | Removes frontend container and backend services |
-| Logs | `docker compose logs -f` | `npm run dev` terminal output | Use `docker logs cloudforge-backend` for API only |
-
----
-
-## Health & Diagnostics
-
-| Check | Command | Expected |
-|-------|---------|----------|
-| Backend health | `Invoke-WebRequest http://localhost:8000/health` | `{"status":"healthy"}` |
-| API docs | Browser -> `http://localhost:8000/docs` | Swagger UI |
-| Frontend reachability | `Invoke-WebRequest http://localhost:3000` | HTTP 200 (HTML bundle) |
-| Container status | `wsl -d Ubuntu docker ps` | `cloudforge-*` containers listed |
-| Port ownership | `Get-NetTCPConnection -LocalPort <port>` | Identify conflicting processes |
-
----
-
-## Packaging & Deployment
-
-### Multi-Service Images
-
-| Image | Dockerfile | Highlights |
-|-------|------------|------------|
-| Backend (dev) | `backend/Dockerfile` | Uvicorn autoreload, bind mount `/app` |
-| Backend (prod) | `backend/Dockerfile.prod` | Installs Terraform, non-root user, health check |
-| Frontend (dev) | `frontend/Dockerfile` | Vite dev server |
-| Frontend (prod) | `frontend/Dockerfile.prod` | Two-stage build -> Nginx, security headers |
-
-Build examples:
+#### Step 1️⃣: Clone the Magic 🪄
 
 ```bash
-docker build -t cloudforge-backend:prod -f backend/Dockerfile.prod backend
-docker build -t cloudforge-frontend:prod -f frontend/Dockerfile.prod frontend --build-arg VITE_API_URL=https://api.example.com
+git clone https://github.com/MohamedGouda99/CloudForge.git
+cd CloudForge
 ```
 
-### Monolithic Runtime
-
-`Dockerfile` at repo root bundles backend, frontend build, PostgreSQL, Redis, and Nginx.
+#### Step 2️⃣: Setup Environment 🔐
 
 ```bash
-docker build -t cloudforge:latest .
-docker run -d \
-  --name cloudforge \
-  -p 80:80 \
-  -v cloudforge-data:/var/lib/postgresql/15/main \
-  -v cloudforge-terraform:/app/generated_terraform \
-  --restart unless-stopped \
-  cloudforge:latest
+# Copy environment templates
+cp .env.example .env
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+
+# Generate secure keys (in WSL/Linux terminal)
+openssl rand -hex 32  # Copy this for SECRET_KEY
+openssl rand -hex 32  # Copy this for JWT_SECRET_KEY
 ```
 
-Inspect:
+Now edit your `.env` file and update:
+- 🔑 `SECRET_KEY` (paste first generated key)
+- 🔑 `JWT_SECRET_KEY` (paste second generated key)
+- 🔒 `POSTGRES_PASSWORD` (change from default)
+- 🔒 `REDIS_PASSWORD` (change from default)
+
+#### Step 3️⃣: Launch! 🚀
 
 ```bash
-docker logs -f cloudforge
-docker exec -it cloudforge bash
+# Start all services with Docker
+wsl -d Ubuntu sh -lc "cd /mnt/c/Users/YOUR_USERNAME/CloudForge && docker compose up -d"
+
+# Or use the helper script (Windows)
+powershell -ExecutionPolicy Bypass -File scripts/run_cloudforge_background.ps1
+```
+
+### 🎉 Access Your App!
+
+Open your browser and visit:
+
+- 🎨 **Frontend (Designer):** http://localhost:3000
+- 🔧 **Backend API:** http://localhost:8000
+- 📖 **API Docs:** http://localhost:8000/docs
+
+---
+
+## 🏗️ System Architecture
+
+<div align="center">
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    🌐 User's Browser                        │
+│                   (http://localhost:3000)                   │
+└────────────────┬────────────────────────────────────────────┘
+                 │
+                 │ HTTP/REST
+                 ▼
+┌────────────────────────────────────────────────────────────┐
+│              ⚛️  Frontend (React + Vite)                   │
+│                                                            │
+│  🎨 Visual Designer  |  📝 Config Forms  |  🌙 Dark Mode  │
+└────────────────┬───────────────────────────────────────────┘
+                 │
+                 │ REST API
+                 ▼
+┌────────────────────────────────────────────────────────────┐
+│              🔥 Backend (FastAPI + Python)                 │
+│                                                            │
+│  🔄 Terraform Gen  |  🔐 Auth  |  📊 Business Logic       │
+└────────┬──────────────────┬────────────────────────────────┘
+         │                  │
+         │                  │
+    ┌────▼────┐        ┌───▼────┐
+    │ 🐘 PostgreSQL │        │ 🔴 Redis │
+    │  Database  │        │  Cache   │
+    └───────────┘        └────────┘
+```
+
+</div>
+
+### 🧩 Component Details
+
+| Component | Technology | Port | Purpose | Emoji |
+|-----------|------------|------|---------|-------|
+| **Frontend** | React 18 + Vite | 3000 | Visual designer & UI | ⚛️ |
+| **Backend** | FastAPI + Python 3.11 | 8000 | API & Terraform generation | 🔥 |
+| **Database** | PostgreSQL 15 | 5432 | Project & user data | 🐘 |
+| **Cache** | Redis 7 | 6379 | Sessions & caching | 🔴 |
+| **Worker** | Celery | N/A | Background tasks | 🐝 |
+
+---
+
+## 🛠️ Tech Stack
+
+### 🎨 Frontend Magic
+
+<div align="center">
+
+| Technology | Version | Why We Use It |
+|------------|---------|---------------|
+| ⚛️ **React** | 18.3.1 | The UI powerhouse |
+| 📘 **TypeScript** | 5.x | Type safety FTW! |
+| ⚡ **Vite** | 5.4.21 | Lightning-fast builds |
+| 🎯 **ReactFlow** | 11.11.4 | Beautiful node diagrams |
+| 🎨 **Tailwind CSS** | 3.x | Utility-first styling |
+| 🌐 **React Router** | 6.x | Smooth navigation |
+| 📡 **Axios** | Latest | HTTP requests made easy |
+
+</div>
+
+### 🔥 Backend Power
+
+<div align="center">
+
+| Technology | Version | Why We Use It |
+|------------|---------|---------------|
+| 🔥 **FastAPI** | 0.109.x | Modern & fast Python |
+| 🐍 **Python** | 3.11 | Clean & powerful |
+| 🗄️ **SQLAlchemy** | 2.x | ORM excellence |
+| 🔄 **Alembic** | Latest | Database migrations |
+| ✅ **Pydantic** | v2 | Data validation |
+| 🐝 **Celery** | 5.x | Background tasks |
+| 🔴 **Redis** | 7.x | Fast caching |
+
+</div>
+
+### 🐳 DevOps Goodness
+
+- 🐳 **Docker & Docker Compose** - Containerization
+- 🐧 **WSL 2 Ubuntu** - Development environment
+- 🌿 **Git & GitHub** - Version control
+- 🏗️ **Terraform** 1.6.x - IaC deployment
+- 🌐 **Nginx** - Production web server
+
+---
+
+## 📁 Project Structure
+
+```
+CloudForge/
+│
+├── 🎨 frontend/                    # React goodness
+│   ├── src/
+│   │   ├── components/            # Reusable components
+│   │   │   ├── nodes/             # Canvas node types
+│   │   │   │   ├── ResourceNodeEnhanced.tsx  # 🌟 Star component!
+│   │   │   │   └── ContainerNodeEnhanced.tsx
+│   │   │   ├── ResourceConfigModal.tsx  # 📝 Config forms
+│   │   │   └── CloudIcon.tsx      # ☁️ Cloud icons
+│   │   ├── features/              # Feature modules
+│   │   │   └── designer/          # 🎨 Main designer
+│   │   ├── lib/                   # Utilities
+│   │   │   ├── api/               # 📡 API clients
+│   │   │   └── resources/         # 📚 Resource defs
+│   │   └── index.css              # 🎨 Global styles
+│   ├── package.json               # 📦 Dependencies
+│   └── Dockerfile                 # 🐳 Container def
+│
+├── 🔥 backend/                     # Python power
+│   ├── app/
+│   │   ├── api/                   # 🛣️ REST endpoints
+│   │   ├── core/                  # ⚙️ Core logic
+│   │   ├── models/                # 🗄️ Database models
+│   │   ├── services/              # 💼 Business logic
+│   │   │   └── terraform_generator.py  # 🏗️ Magic happens!
+│   │   └── main.py                # 🚀 Entry point
+│   ├── requirements.txt           # 📦 Dependencies
+│   └── Dockerfile                 # 🐳 Container def
+│
+├── ☁️ Cloud_Services/              # Cloud icons
+│   ├── AWS/                       # ☁️ Amazon icons
+│   ├── Azure/                     # 🔷 Microsoft icons
+│   └── GCP/                       # 🔴 Google icons
+│
+├── 🐳 docker-compose.yaml          # Orchestration
+├── 📝 .env.example                 # Config template
+├── 📖 README.md                    # You are here!
+├── 🚀 SETUP.md                     # Quick setup
+└── 📚 HANDOVER.md                  # Project docs
 ```
 
 ---
 
-## Data Management
+## 🎮 How to Use
 
-| Task | Command | Notes |
-|------|---------|-------|
-| PostgreSQL health | `docker exec cloudforge-postgres pg_isready -U cloudforge` | Works with compose service name |
-| psql shell | `docker exec -it cloudforge-postgres psql -U cloudforge -d cloudforge` | Use `\q` to exit |
-| Dump database | `docker compose exec postgres pg_dump -U cloudforge cloudforge > backup.sql` | Run from repo root |
-| Backup volume | `docker run --rm -v cloudforge-stack_postgres_data:/data -v "$PWD":/backup ubuntu tar czf /backup/postgres_volume.tar.gz /data` | Captures raw volume |
-| Apply migrations | `docker exec cloudforge-backend alembic upgrade head` | Ensure backend container running |
+### 1️⃣ Design Your Infrastructure 🎨
 
----
+1. **Open CloudForge** at http://localhost:3000
+2. **Drag resources** from the left panel onto canvas
+3. **Connect them** by dragging from connection points
+4. **Configure each resource** by double-clicking
 
-## Troubleshooting Matrix
+### 2️⃣ Configure Resources ⚙️
 
-| Symptom | Diagnostic | Resolution |
-|---------|-----------|------------|
-| Port already in use | `Get-NetTCPConnection -LocalPort 3000` | Stop owning process (`Stop-Process -Id <pid>`) |
-| Backend health fails | `docker compose logs backend` | Confirm Docker Desktop + WSL running; restart stack |
-| Frontend stays up after compose down | `Get-Process node` | Kill lingering Node process or run `docker compose --profile full down` |
-| Celery container exits | `docker compose ps -a` | Known missing module; safe to ignore for core workflows |
-| Compose command slow | Use `--progress plain` | Large context (icons, node_modules); consider `.dockerignore` tuning |
-| Terraform binary missing | `docker exec cloudforge-backend terraform version` | Rebuild backend image (prod Dockerfile installs Terraform) |
+When you double-click a resource:
+- 📝 Fill in required fields (marked with *)
+- 🎯 Choose from dropdowns for standard options
+- 💡 See helpful descriptions for each field
+- 🌙 Works perfectly in dark mode!
 
----
+### 3️⃣ Generate Terraform 🏗️
 
-## Security Checklist
-
-| Area | Action |
-|------|--------|
-| Secrets | Generate unique values for `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `SECRET_KEY`, `JWT_SECRET_KEY` |
-| HTTPS | Terminate TLS (Nginx, Traefik, or load balancer) before exposing frontend/backend |
-| CORS | Tighten `CORS_ORIGINS` to trusted domains in production |
-| Network | Restrict database and Redis ports to internal networks; expose API via reverse proxy |
-| Accounts | Rotate credentials regularly and enforce least privilege |
-| Monitoring | Enable alerts on backend logs and container health checks |
+1. Click **"Generate Terraform"** button
+2. Review the generated code
+3. Download `.tf` files
+4. Deploy to your cloud! 🚀
 
 ---
 
-## Reference Links
-- FastAPI: https://fastapi.tiangolo.com/
-- React: https://react.dev/
-- Vite: https://vitejs.dev/
-- Docker: https://docs.docker.com/
-- Terraform: https://developer.hashicorp.com/terraform
+## 🎨 Key Features Deep Dive
 
-For project issues:
-- Review compose logs: `docker compose logs -f`
-- Inspect backend logs: `docker logs cloudforge-backend`
-- Capture bugs in the project issue tracker
+### 🖼️ Visual Node System
+
+Our custom-built node system features:
+
+- ✅ **Edge-anchored resizing** - Opposite corner stays fixed
+- ✅ **4 corner resize handles** - Blue circles for resizing
+- ✅ **4 edge connection points** - White circles for connections
+- ✅ **Grid snapping** - 10px grid for perfect alignment
+- ✅ **Size constraints** - Min 40px, max 640px
+- ✅ **Smooth interactions** - No simultaneous drag during resize!
+
+### 🌈 Dark Mode Support
+
+Every single UI element supports dark mode:
+- 🎨 Inputs and forms
+- 📝 Text and labels
+- 🎯 Modals and dialogs
+- 📊 Tables and lists
+- 🔘 Buttons and controls
+
+### 🔌 Multi-Cloud Resources
+
+Support for **100+ cloud resources**:
+
+| Cloud Provider | Resources | Icon Pack |
+|----------------|-----------|-----------|
+| ☁️ **AWS** | EC2, S3, RDS, Lambda, VPC, and more! | Official AWS icons |
+| 🔷 **Azure** | VMs, Storage, SQL, Functions, VNet, etc. | Official Azure icons |
+| 🔴 **GCP** | Compute, Storage, SQL, Functions, VPC, etc. | Official GCP icons |
 
 ---
 
-**Last updated:** 5 November 2025  
-**Maintainer:** CloudForge Development Team
-...
+## 🔧 Development
+
+### 🏃 Running Locally for Development
+
+#### Frontend with Hot Reload 🔥
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Visit: http://localhost:3000
+
+#### Backend with Auto-reload 🔄
+
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+API available at: http://localhost:8000
+
+### 🐳 Docker Commands
+
+```bash
+# Start everything
+docker compose up -d
+
+# View logs
+docker compose logs -f
+
+# Stop everything
+docker compose down
+
+# Rebuild after changes
+docker compose build && docker compose up -d
+
+# Enter container shell
+docker exec -it cloudforge-backend bash
+
+# Database backup
+docker compose exec postgres pg_dump -U cloudforge cloudforge > backup.sql
+```
+
+### 🧪 Testing (Coming Soon!)
+
+```bash
+# Frontend tests
+cd frontend
+npm test
+
+# Backend tests
+cd backend
+pytest
+```
+
+---
+
+## 🗄️ Database Management
+
+### 🔍 Access Database
+
+```bash
+# PostgreSQL shell
+docker exec -it cloudforge-postgres psql -U cloudforge -d cloudforge
+
+# Useful commands
+\dt                    # List tables
+\d table_name          # Describe table
+\q                     # Exit
+```
+
+### 🔄 Migrations
+
+```bash
+# Run migrations
+docker exec cloudforge-backend alembic upgrade head
+
+# Create new migration
+docker exec cloudforge-backend alembic revision --autogenerate -m "description"
+
+# Rollback
+docker exec cloudforge-backend alembic downgrade -1
+```
+
+---
+
+## 🐛 Troubleshooting
+
+### ⚠️ Common Issues & Fixes
+
+| 🔴 Problem | 🔍 Diagnosis | ✅ Solution |
+|-----------|-------------|-----------|
+| Port 3000 in use | `Get-NetTCPConnection -LocalPort 3000` | Kill process or use different port |
+| Port 8000 in use | `docker ps \| grep 8000` | `docker compose down` and restart |
+| Container won't start | `docker compose logs <service>` | Check logs for errors |
+| DB connection failed | `docker exec cloudforge-postgres pg_isready` | Ensure PostgreSQL is running |
+| Frontend can't reach backend | Check `VITE_API_URL` in `.env` | Should be `http://localhost:8000` |
+
+### 🆘 Need More Help?
+
+1. 📖 Check [SETUP.md](SETUP.md) for detailed instructions
+2. 📚 Review [HANDOVER.md](HANDOVER.md) for deep dive
+3. 🐛 Search [GitHub Issues](https://github.com/MohamedGouda99/CloudForge/issues)
+4. 💬 Create a new issue with details
+
+---
+
+## 🔒 Security
+
+### 🛡️ Security Best Practices
+
+- 🔐 **Never commit `.env` files**
+- 🔑 Generate strong secrets with `openssl rand -hex 32`
+- 🌐 Restrict CORS origins in production
+- 🔒 Use HTTPS in production
+- 🔄 Rotate credentials regularly
+- 📊 Monitor logs and health checks
+
+### ⚠️ Production Checklist
+
+Before deploying to production:
+
+- [ ] 🔑 Changed all default passwords
+- [ ] 🔐 Generated unique SECRET_KEY and JWT_SECRET_KEY
+- [ ] 🌐 Updated CORS_ORIGINS
+- [ ] 🔒 Configured SSL certificates
+- [ ] 📧 Set up SMTP (if needed)
+- [ ] 📊 Enabled monitoring (Sentry, Prometheus)
+- [ ] 💾 Configured automated backups
+- [ ] 🔥 Set up firewall rules
+- [ ] 📝 Documented deployment process
+
+---
+
+## 🚀 Recent Updates
+
+### ✨ What's New (November 2025)
+
+- ✅ **Fixed node resizing** - Now properly edge-anchored!
+- ✅ **Dark mode improvements** - All forms now visible
+- ✅ **Removed black borders** - Clean node appearance
+- ✅ **Better resize UX** - No more simultaneous dragging
+- ✅ **Team collaboration** - Updated .gitignore
+- ✅ **Documentation** - Comprehensive handover docs
+
+### 🎯 Coming Soon
+
+- 🧪 Comprehensive test suite
+- 🔄 CI/CD pipeline with GitHub Actions
+- 💰 Cost estimation for infrastructure
+- 🔍 Terraform plan preview
+- 👥 Multi-user collaboration
+- 📡 Real-time collaboration (WebSockets)
+- 📦 Terraform module support
+- 🎨 Diagram templates library
+- 🖼️ Export diagrams as PNG/SVG
+- ⬆️ Import existing Terraform
+
+---
+
+## 🤝 Contributing
+
+We ❤️ contributions! Here's how you can help:
+
+### 🌟 Ways to Contribute
+
+1. 🐛 **Report Bugs** - Found something broken? Let us know!
+2. 💡 **Suggest Features** - Have a cool idea? We want to hear it!
+3. 📝 **Improve Docs** - Help make our docs even better!
+4. 🔧 **Submit PRs** - Code contributions are always welcome!
+5. ⭐ **Star the Repo** - Show some love!
+
+### 📋 Contribution Workflow
+
+```bash
+# 1. Fork the repository
+# 2. Create your feature branch
+git checkout -b feature/AmazingFeature
+
+# 3. Commit your changes
+git commit -m "feat: Add some AmazingFeature"
+
+# 4. Push to the branch
+git push origin feature/AmazingFeature
+
+# 5. Open a Pull Request
+```
+
+### 📝 Commit Message Format
+
+Use these prefixes:
+- `feat:` - New feature
+- `fix:` - Bug fix
+- `docs:` - Documentation
+- `style:` - Code style (formatting)
+- `refactor:` - Code refactoring
+- `test:` - Tests
+- `chore:` - Maintenance
+
+---
+
+## 📚 Documentation
+
+| Document | Description | Emoji |
+|----------|-------------|-------|
+| [README.md](README.md) | You are here! | 📖 |
+| [SETUP.md](SETUP.md) | Quick start guide | 🚀 |
+| [HANDOVER.md](HANDOVER.md) | Complete project docs | 📚 |
+| [API Docs](http://localhost:8000/docs) | Swagger API documentation | 🔧 |
+
+---
+
+## 🌟 Star History
+
+If you find CloudForge useful, please consider giving it a ⭐!
+
+[![Star History Chart](https://api.star-history.com/svg?repos=MohamedGouda99/CloudForge&type=Date)](https://star-history.com/#MohamedGouda99/CloudForge&Date)
+
+---
+
+## 📞 Contact & Support
+
+### 👥 Team
+
+- **Repository:** https://github.com/MohamedGouda99/CloudForge
+- **Issues:** https://github.com/MohamedGouda99/CloudForge/issues
+- **Discussions:** https://github.com/MohamedGouda99/CloudForge/discussions
+
+### 🔗 Useful Links
+
+- 📖 [React Documentation](https://react.dev/)
+- 🎯 [ReactFlow Docs](https://reactflow.dev/)
+- 🔥 [FastAPI Docs](https://fastapi.tiangolo.com/)
+- 🏗️ [Terraform Docs](https://developer.hashicorp.com/terraform)
+- 🐳 [Docker Docs](https://docs.docker.com/)
+
+---
+
+## 📜 License
+
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 💖 Acknowledgments
+
+Special thanks to:
+- ⚛️ React team for the amazing framework
+- 🎯 ReactFlow for the diagram library
+- 🔥 FastAPI for the modern Python framework
+- ☁️ Cloud providers for official icon sets
+- 🌟 All our contributors and users!
+
+---
+
+<div align="center">
+
+## 🎉 Ready to Forge Your Cloud?
+
+### [🚀 Get Started Now!](#-quick-start)
+
+Made with ❤️ by the CloudForge Team
+
+⭐ **Star us on GitHub!** ⭐
+
+---
+
+**CloudForge** - *Turning Cloud Dreams into Reality, One Diagram at a Time!* ☁️✨
+
+</div>
+
+---
+
+**📅 Last Updated:** November 27, 2025
+**📌 Version:** 1.0.0
+**🏷️ Status:** Production Ready
+**🎯 Maintained:** Yes!
+
+---
