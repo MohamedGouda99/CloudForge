@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     # Infracost
     INFRACOST_API_KEY: str = ""
 
+    # LLMs
+    GEMINI_API_KEY: str = ""
+
     # Git
     GIT_DEFAULT_BRANCH: str = "main"
 

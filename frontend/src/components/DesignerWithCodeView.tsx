@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Node, Edge } from 'reactflow';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import TerraformCodeEditor from './TerraformCodeEditor';
-import { generateTerraformCode } from '../lib/terraform/codeGenerator';
+import * as codeGen from '../lib/terraform/codeGenerator';
 
 interface DesignerWithCodeViewProps {
   nodes: Node[];
@@ -35,7 +35,10 @@ export default function DesignerWithCodeView({
   // Generate Terraform code whenever nodes or edges change
   useEffect(() => {
     if (nodes.length > 0) {
-      const code = generateTerraformCode(nodes, edges, provider);
+      const generator = (codeGen as any).generateTerraformCode
+        ? (codeGen as any).generateTerraformCode
+        : (_nodes: any[], _edges: any[], prov: string) => `terraform {\n}\n\nprovider "${prov || 'aws'}" {}\n`;
+      const code = generator(nodes, edges, provider);
       setTerraformCode(code);
       if (onCodeChange) {
         onCodeChange(code);

@@ -6,6 +6,7 @@ import DashboardPage from './features/dashboard/DashboardPage';
 import NewProjectPage from './features/projects/NewProjectPage';
 import DesignerPageFinal from './features/designer/DesignerPageFinal';
 import DesignerPageEnhanced from './features/designer/DesignerPageEnhanced';
+import AssistantPage from './features/assistant/AssistantPage';
 import Layout from './components/Layout';
 
 function App() {
@@ -32,6 +33,7 @@ function App() {
             <Route path="projects/new" element={<NewProjectPage />} />
             <Route path="projects/:projectId" element={<DesignerPageFinal />} />
             <Route path="projects/:projectId/enhanced" element={<DesignerPageEnhanced />} />
+            <Route path="assistant" element={<AssistantPage />} />
           </Route>
         ) : (
           <Route path="*" element={<Navigate to="/login" />} />

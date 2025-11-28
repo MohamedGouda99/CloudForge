@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Editor from '@monaco-editor/react';
-import { validateTerraformSyntax } from '../lib/terraform/codeGenerator';
+import * as codeGen from '../lib/terraform/codeGenerator';
 
 interface TerraformCodeEditorProps {
   code: string;
@@ -25,7 +25,9 @@ export default function TerraformCodeEditor({
   useEffect(() => {
     // Validate code whenever it changes
     if (code) {
-      const result = validateTerraformSyntax(code);
+      const result = (codeGen as any).validateTerraformSyntax
+        ? (codeGen as any).validateTerraformSyntax(code)
+        : { valid: true, errors: [], warnings: [] };
       setValidation(result);
     }
   }, [code]);

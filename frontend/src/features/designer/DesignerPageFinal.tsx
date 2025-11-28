@@ -35,6 +35,7 @@ import DeploymentLogsModal from '../../components/DeploymentLogsModal';
 import PlanPreviewModal from '../../components/PlanPreviewModal';
 import ExportModal from '../../components/ExportModal';
 import DesignerWithCodeView from '../../components/DesignerWithCodeView';
+import AssistantChatPanel from '../../components/AssistantChatPanel';
 import TerraformLogsPanel from '../../components/TerraformLogsPanel';
 import InfracostReportPanel from './InfracostReportPanel';
 
@@ -175,6 +176,7 @@ export default function DesignerPageFinal() {
   const [deployMode, setDeployMode] = useState<'deploy' | 'destroy'>('deploy');
   const [terraformAction, setTerraformAction] = useState<'download' | 'plan' | 'apply' | 'destroy' | 'validate' | 'tfsec' | 'terrascan' | 'infracost' | null>(null);
   const [showCodePanel, setShowCodePanel] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
 
   // Terraform logs panel state
   const [logsPanelOpen, setLogsPanelOpen] = useState(false);
@@ -1454,6 +1456,13 @@ export default function DesignerPageFinal() {
               </button>
 
               <button
+                onClick={() => setAssistantOpen((prev) => !prev)}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
+              >
+                {assistantOpen ? 'Hide Assistant' : 'Assistant'}
+              </button>
+
+              <button
                 onClick={generateAndDownloadTerraform}
                 disabled={terraformAction !== null}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
@@ -1471,8 +1480,10 @@ export default function DesignerPageFinal() {
           </div>
         </div>
 
-        {/* React Flow Canvas */}
-        <div className="flex-1 min-h-0">
+        {/* Content Row: Canvas + Assistant */}
+        <div className="flex flex-1 min-h-0">
+          {/* React Flow Canvas */}
+          <div className="flex-1 min-h-0">
           <DesignerWithCodeView
             nodes={nodes}
             edges={edges}
@@ -1503,7 +1514,27 @@ export default function DesignerPageFinal() {
               <MiniMap />
             </ReactFlow>
           </DesignerWithCodeView>
-        </div>
+          </div>
+
+        {assistantOpen && (
+          <AssistantChatPanel
+            projectId={Number(projectId)}
+            provider={project.cloud_provider}
+            onImport={(diagram) => {
+              const dn = Array.isArray(diagram?.nodes) ? diagram.nodes : [];
+              const de = Array.isArray(diagram?.edges) ? diagram.edges : [];
+              const byId: Record<string, boolean> = {};
+              nodes.forEach((n) => (byId[n.id] = true));
+              const mergedNodes = [...nodes, ...dn.filter((n: any) => !byId[n.id])];
+              const byEdge: Record<string, boolean> = {};
+              edges.forEach((e) => (byEdge[e.id] = true));
+              const mergedEdges = [...edges, ...de.filter((e: any) => !byEdge[e.id])];
+              setNodes(mergedNodes);
+              setEdges(decorateEdges(mergedEdges));
+              saveProject({ silent: true });
+            }}
+          />
+        )}
       </div>
 
       {/* Modals */}
@@ -1589,18 +1620,6 @@ export default function DesignerPageFinal() {
         status={infracostStatus}
       />
     </div>
+    </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
