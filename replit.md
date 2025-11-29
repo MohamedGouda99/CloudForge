@@ -82,10 +82,58 @@ FastAPI routes have mixed trailing slash conventions:
 - List endpoints use trailing slashes: `/api/projects/`
 - Individual resource endpoints do NOT use trailing slashes: `/api/projects/${id}`
 
+## Brainboard-style UI Enhancements (November 29, 2025)
+Major UX/UI overhaul to match professional IaC tools like Brainboard:
+
+### New Frontend Components
+- **ResourcePalette.tsx** - Collapsible sidebar with:
+  - Provider tabs (AWS/Azure/GCP)
+  - Category accordions with resource counts
+  - Search filtering with debounce
+  - Drag-and-drop with ghost preview
+  
+- **DesignerToolbar.tsx** - Professional top toolbar:
+  - File actions (Save, Export, Import)
+  - View toggles (Sidebar, Code Panel, Minimap)
+  - Terraform actions (Validate, Plan, Apply, Destroy)
+  - Zoom controls and keyboard shortcuts
+  
+- **PropertiesPanel.tsx** - Right sidebar for configuration:
+  - Tabbed interface (Properties, Connections, Advanced)
+  - Dynamic form fields based on resource type
+  - Real-time validation with error messages
+  - Auto-save with debounce
+
+- **resourceSchemas.ts** - Schema definitions for 30+ AWS/Azure/GCP resources
+
+### Dashboard Improvements
+- Modern header with user greeting and search
+- Statistics section (total projects, by provider)
+- Filter tabs (All, Recent, AWS, Azure, GCP)
+- Redesigned project cards with provider badges and quick actions
+- Loading skeletons and error states
+
+### Keyboard Shortcuts
+- Cmd/Ctrl+S: Save project
+- Cmd/Ctrl+B: Toggle sidebar
+- Escape: Deselect and close panels
+
+## Backend Production Hardening
+- **Rate Limiting**: slowapi with 100 req/min default, stricter for auth (10/min) and terraform ops (5/min)
+- **Input Validation**: Pydantic validators for all schemas
+- **Security Headers**: X-Content-Type-Options, X-Frame-Options, CSP (production)
+- **Structured Logging**: JSON formatter with request_id tracing
+- **Database Pooling**: pool_pre_ping=True, pool_recycle=300 to handle SSL drops
+- **Gunicorn Config**: Production-ready with worker optimization
+
+## Deployment Configuration
+- **Target**: Autoscale
+- **Build**: `cd frontend && npm run build`
+- **Run**: `gunicorn --config backend/gunicorn.conf.py backend.app.main:app`
+
 ## Known Issues
 - Redis is not running (optional - only needed for Celery background tasks)
-- Some frontend lib files are stubs and may need full implementation for all features
-- Database connection may occasionally drop (SSL connection closed) - restart backend workflow to recover
+- Database connection drops are now handled by pool_pre_ping
 
 ## File Structure
 ```
@@ -111,7 +159,7 @@ CloudForge/
 ```
 
 ## Next Steps
-- Investigate and fix frontend rendering issue
-- Complete implementation of stub files if needed
-- Consider adding Redis for background task support
-- Test full application workflow once frontend renders properly
+- Add Redis for Celery background task support (terraform operations)
+- Implement template gallery with pre-built architecture templates
+- Add collaborative editing (WebSocket-based real-time updates)
+- Integrate cloud provider APIs for real-time resource validation
