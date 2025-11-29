@@ -202,6 +202,8 @@ export default function DesignerPageFinal() {
   const [credentials, setCredentials] = useState<any>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasInitialLoadRef = useRef(false);
+  const isSavingRef = useRef(false);
+  const lastSavedDataRef = useRef<string | null>(null);
 
   const provider = (project?.cloud_provider as CloudProvider) || 'aws';
 
@@ -587,6 +589,11 @@ export default function DesignerPageFinal() {
           if (diagram.edges) {
             setEdges(decorateEdges(diagram.edges as Edge[]));
           }
+          
+          lastSavedDataRef.current = JSON.stringify({
+            nodes: (diagram.nodes || []).map(sanitizeNodeForSave),
+            edges: (diagram.edges || []).map(sanitizeEdgeForSave),
+          });
         } catch (e) {
           console.error('Failed to parse diagram data:', e);
         }
@@ -800,15 +807,23 @@ export default function DesignerPageFinal() {
 
   const saveProject = useCallback(
     async (options?: { silent?: boolean }) => {
-      try {
-        setSaving(true);
+      if (isSavingRef.current) return;
+      
+      const diagramData = JSON.parse(
+        JSON.stringify({
+          nodes: nodes.map(sanitizeNodeForSave),
+          edges: edges.map(sanitizeEdgeForSave),
+        })
+      );
 
-        const diagramData = JSON.parse(
-          JSON.stringify({
-            nodes: nodes.map(sanitizeNodeForSave),
-            edges: edges.map(sanitizeEdgeForSave),
-          })
-        );
+      const dataStr = JSON.stringify(diagramData);
+      if (options?.silent && lastSavedDataRef.current === dataStr) {
+        return;
+      }
+      
+      try {
+        isSavingRef.current = true;
+        setSaving(true);
 
         await apiClient.put(
           `/api/projects/${projectId}`,
@@ -823,17 +838,18 @@ export default function DesignerPageFinal() {
           }
         );
 
-        setProject((prev) =>
-          prev
-            ? {
-                ...prev,
-                diagram_data: diagramData,
-              }
-            : prev
-        );
+        lastSavedDataRef.current = dataStr;
 
         if (!options?.silent) {
           console.info('Project saved', diagramData);
+          setProject((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  diagram_data: diagramData,
+                }
+              : prev
+          );
         }
       } catch (error: any) {
         console.error('Failed to save project:', error);
@@ -843,32 +859,45 @@ export default function DesignerPageFinal() {
           alert('Failed to save project: ' + message);
         }
       } finally {
+        isSavingRef.current = false;
         setSaving(false);
       }
     },
     [edges, nodes, project, projectId, provider, token]
   );
 
+  const saveProjectRef = useRef(saveProject);
+  saveProjectRef.current = saveProject;
+
   useEffect(() => {
-    if (!project || !projectId || !token) return;
+    if (!projectId || !token) return;
     if (!hasInitialLoadRef.current) return;
 
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current);
     }
 
+    const dataStr = JSON.stringify({
+      nodes: nodes.map(sanitizeNodeForSave),
+      edges: edges.map(sanitizeEdgeForSave),
+    });
+    
+    if (lastSavedDataRef.current === dataStr) {
+      return;
+    }
+
     autoSaveTimerRef.current = setTimeout(() => {
-      saveProject({ silent: true }).catch((err) => {
+      saveProjectRef.current({ silent: true }).catch((err) => {
         console.error('Autosave failed', err);
       });
-    }, 800);
+    }, 2000);
 
     return () => {
       if (autoSaveTimerRef.current) {
         clearTimeout(autoSaveTimerRef.current);
       }
     };
-  }, [nodes, edges, project, projectId, token, saveProject]);
+  }, [nodes, edges, projectId, token]);
 
   useEffect(
     () => () => {

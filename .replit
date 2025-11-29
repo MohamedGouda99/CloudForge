@@ -72,11 +72,10 @@ localPort = 8000
 externalPort = 8000
 
 [[ports]]
-localPort = 41757
+localPort = 42609
 externalPort = 3000
 
 [deployment]
 deploymentTarget = "autoscale"
 build = ["cd frontend && npm run build"]
-publicDir = "frontend/dist"
 run = ["gunicorn", "--config", "backend/gunicorn.conf.py", "backend.app.main:app"]
