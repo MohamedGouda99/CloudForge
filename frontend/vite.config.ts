@@ -11,9 +11,11 @@ export default defineConfig({
     },
   },
   server: {
-    port: 3000,
-    host: '0.0.0.0', // Allow access from custom domains
-    allowedHosts: ['cloudforge.io', 'www.cloudforge.io'],
+    port: 5000,
+    host: '0.0.0.0',
+    hmr: {
+      clientPort: 5000,
+    },
     fs: {
       allow: [path.resolve(__dirname, '..')],
     },

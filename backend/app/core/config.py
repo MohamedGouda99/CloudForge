@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     INITIAL_ADMIN_EMAIL: str = "admin@cloudforge.dev"
 
     # CORS
-    ALLOWED_ORIGINS: Union[List[str], str] = ["http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:3003", "http://localhost:5173"]
+    ALLOWED_ORIGINS: Union[List[str], str] = ["http://localhost:5000", "http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:3003", "http://localhost:5173"]
 
     @field_validator('ALLOWED_ORIGINS', mode='before')
     @classmethod
