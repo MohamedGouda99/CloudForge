@@ -60,10 +60,32 @@ Configured for static frontend deployment:
 - Password: admin123
 - Email: admin@cloudforge.dev
 
+## Icon System (Updated November 29, 2025)
+The icon system uses actual cloud provider icons from the Cloud_Services folder:
+
+### Frontend Icon Resolution
+- `frontend/src/lib/resources/iconPaths.ts` - Maps resource types to API icon paths
+- `frontend/src/lib/resources/iconResolver.ts` - Resolves icons with fallback to Lucide icons
+- `frontend/src/components/CloudIcon.tsx` - Renders icons (supports API paths and Lucide icons)
+
+### Backend Icon Endpoint
+- `backend/app/api/endpoints/icons.py` - Serves icons from Cloud_Services folder at `/api/icons/{provider}/{path}`
+
+### Icon Path Mapping
+- AWS icons: `/api/icons/aws/Architecture-Service-Icons_07312025/{category}/64/{icon}.svg`
+- AI/ML icons are in `Arch_Artificial-Intelligence` folder (not Machine-Learning)
+- Azure icons: `/api/icons/azure/{category}/{icon}.svg`
+- GCP icons: `/api/icons/gcp/Category Icons/{category}/SVG/{icon}.svg`
+
+## API Trailing Slash Convention
+FastAPI routes have mixed trailing slash conventions:
+- List endpoints use trailing slashes: `/api/projects/`
+- Individual resource endpoints do NOT use trailing slashes: `/api/projects/${id}`
+
 ## Known Issues
-- Frontend renders blank screen (likely CSS/styling issue or missing assets)
 - Redis is not running (optional - only needed for Celery background tasks)
 - Some frontend lib files are stubs and may need full implementation for all features
+- Database connection may occasionally drop (SSL connection closed) - restart backend workflow to recover
 
 ## File Structure
 ```
