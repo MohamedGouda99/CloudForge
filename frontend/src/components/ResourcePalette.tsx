@@ -86,37 +86,34 @@ interface ResourceItemProps {
 
 function ResourceItem({ resource, onDragStart }: ResourceItemProps) {
   const icon = resolveResourceIcon(resource.type, resource.icon);
+  const [isDragging, setIsDragging] = useState(false);
 
   const handleDragStart = useCallback(
     (event: React.DragEvent) => {
+      setIsDragging(true);
       event.dataTransfer.effectAllowed = 'copy';
       event.dataTransfer.setData('application/json', JSON.stringify(resource));
       event.dataTransfer.setData('text/plain', resource.type);
-
-      const ghost = event.currentTarget.cloneNode(true) as HTMLElement;
-      ghost.style.position = 'absolute';
-      ghost.style.top = '-1000px';
-      ghost.style.opacity = '0.8';
-      ghost.style.transform = 'scale(1.05)';
-      ghost.style.pointerEvents = 'none';
-      document.body.appendChild(ghost);
-      event.dataTransfer.setDragImage(ghost, 40, 20);
-      setTimeout(() => document.body.removeChild(ghost), 0);
-
       onDragStart(event, resource.type, resource);
     },
     [resource, onDragStart]
   );
 
+  const handleDragEnd = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
   return (
     <div
       draggable
       onDragStart={handleDragStart}
-      className="group relative flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-grab
+      onDragEnd={handleDragEnd}
+      className={`group relative flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-grab
                  bg-white/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10
                  border border-transparent hover:border-border/50
                  transition-all duration-150 ease-out
-                 hover:shadow-sm active:cursor-grabbing active:scale-[0.98]"
+                 hover:shadow-sm active:cursor-grabbing active:scale-[0.98]
+                 ${isDragging ? 'opacity-50 border-primary/50' : ''}`}
       title={resource.description}
     >
       <div className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-md
