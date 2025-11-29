@@ -12,8 +12,10 @@ import ReactFlow, {
   MarkerType,
   MiniMap,
   NodeDragHandler,
+  useReactFlow,
+  ReactFlowProvider,
 } from 'reactflow';
-import type { Edge } from 'reactflow';
+import type { Edge, ReactFlowInstance } from 'reactflow';
 import 'reactflow/dist/style.css';
 import apiClient from '../../lib/api/client';
 import { useAuthStore } from '../../lib/store/authStore';
@@ -22,13 +24,10 @@ import {
   getCategoriesForProvider,
   CloudProvider,
   CloudResource,
-  getProviderLabel,
-  getProviderIcon,
   resolveResourceIcon,
 } from '../../lib/resources';
 import { buildCredentialsQuery } from '../../lib/utils/credentials';
 import { nodeTypes } from '../../components/nodes';
-import CloudIcon from '../../components/CloudIcon';
 import ResourceConfigModal from '../../components/ResourceConfigModal';
 import CloudCredentialsModal from '../../components/CloudCredentialsModal';
 import DeploymentLogsModal from '../../components/DeploymentLogsModal';
@@ -38,6 +37,9 @@ import DesignerWithCodeView from '../../components/DesignerWithCodeView';
 import AssistantChatPanel from '../../components/AssistantChatPanel';
 import TerraformLogsPanel from '../../components/TerraformLogsPanel';
 import InfracostReportPanel from './InfracostReportPanel';
+import ResourcePalette from '../../components/ResourcePalette';
+import DesignerToolbar from '../../components/DesignerToolbar';
+import PropertiesPanel from '../../components/PropertiesPanel';
 
 interface Project {
   id: number;
@@ -160,6 +162,10 @@ export default function DesignerPageFinal() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [propertiesPanelOpen, setPropertiesPanelOpen] = useState(true);
+  const [showMinimap, setShowMinimap] = useState(true);
+  const [zoom, setZoom] = useState(100);
+  const reactFlowInstance = useRef<ReactFlowInstance | null>(null);
 
   // Modal states
   const [configModalOpen, setConfigModalOpen] = useState(false);
@@ -1226,6 +1232,103 @@ export default function DesignerPageFinal() {
     return matchesCategory && matchesSearch;
   });
 
+  const handleDragStart = useCallback(
+    (event: React.DragEvent, resourceType: string) => {
+      event.dataTransfer.setData('application/reactflow', resourceType);
+      event.dataTransfer.effectAllowed = 'move';
+    },
+    []
+  );
+
+  const handleUpdateNode = useCallback(
+    (nodeId: string, data: Record<string, unknown>) => {
+      setNodes((nds) =>
+        nds.map((node) => {
+          if (node.id === nodeId) {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                ...data,
+                config: {
+                  ...(node.data.config || {}),
+                  ...(data.config || {}),
+                },
+              },
+            };
+          }
+          return node;
+        })
+      );
+    },
+    [setNodes]
+  );
+
+  const selectedNodeConnections = useMemo(() => {
+    if (!selectedNode) {
+      return { incoming: [], outgoing: [] };
+    }
+    return {
+      incoming: edges.filter((e) => e.target === selectedNode.id),
+      outgoing: edges.filter((e) => e.source === selectedNode.id),
+    };
+  }, [selectedNode, edges]);
+
+  const handleZoomIn = useCallback(() => {
+    if (reactFlowInstance.current) {
+      const currentZoom = reactFlowInstance.current.getZoom();
+      reactFlowInstance.current.zoomTo(Math.min(currentZoom * 1.2, 1.75));
+      setZoom(Math.round(Math.min(currentZoom * 1.2, 1.75) * 100));
+    }
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    if (reactFlowInstance.current) {
+      const currentZoom = reactFlowInstance.current.getZoom();
+      reactFlowInstance.current.zoomTo(Math.max(currentZoom / 1.2, 0.25));
+      setZoom(Math.round(Math.max(currentZoom / 1.2, 0.25) * 100));
+    }
+  }, []);
+
+  const handleFitView = useCallback(() => {
+    if (reactFlowInstance.current) {
+      reactFlowInstance.current.fitView({ padding: 0.1 });
+      setZoom(Math.round(reactFlowInstance.current.getZoom() * 100));
+    }
+  }, []);
+
+  const handleDeleteSelected = useCallback(() => {
+    if (selectedNode) {
+      setNodes((nds) => nds.filter((n) => n.id !== selectedNode.id));
+      setEdges((eds) =>
+        eds.filter((e) => e.source !== selectedNode.id && e.target !== selectedNode.id)
+      );
+      setSelectedNode(null);
+    }
+  }, [selectedNode, setNodes, setEdges]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const cmdOrCtrl = isMac ? event.metaKey : event.ctrlKey;
+
+      if (cmdOrCtrl && event.key === 's') {
+        event.preventDefault();
+        saveProject();
+      } else if (cmdOrCtrl && event.key === 'b') {
+        event.preventDefault();
+        setSidebarCollapsed((prev) => !prev);
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        setSelectedNode(null);
+        setPropertiesPanelOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [saveProject]);
+
   const handleImportDiagram = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -1346,300 +1449,141 @@ export default function DesignerPageFinal() {
   }
 
   return (
-    <div className="flex h-screen bg-background relative">
-      {/* Toggle Button - Outside sidebar */}
-      <button
-        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-        className={`fixed top-1/2 -translate-y-1/2 bg-primary hover:bg-primary/90 text-primary-foreground p-2 rounded-r-lg shadow-lg transition-all duration-300 z-50 ${
-          sidebarCollapsed ? 'left-0' : 'left-80'
-        }`}
-        title={sidebarCollapsed ? 'Show Resources' : 'Hide Resources'}
-      >
-        <svg
-          className={`w-4 h-4 transition-transform duration-300 ${sidebarCollapsed ? '' : 'rotate-180'}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
-      </button>
+    <div className="flex flex-col h-screen bg-background">
+      {/* Top Toolbar - Full Width */}
+      <DesignerToolbar
+        projectName={project.name}
+        projectDescription={project.description}
+        provider={project.cloud_provider}
+        isSaving={saving}
+        hasCredentials={!!credentials}
+        showCode={showCodePanel}
+        showMinimap={showMinimap}
+        showAssistant={assistantOpen}
+        terraformAction={terraformAction}
+        zoom={zoom}
+        onSave={() => saveProject()}
+        onCredentials={() => setCredentialsModalOpen(true)}
+        onToggleCode={() => setShowCodePanel((prev) => !prev)}
+        onToggleMinimap={() => setShowMinimap((prev) => !prev)}
+        onToggleAssistant={() => setAssistantOpen((prev) => !prev)}
+        onValidate={validateTerraform}
+        onPlan={showPlanPreview}
+        onApply={() => applyInfrastructure()}
+        onDestroy={destroyInfrastructure}
+        onTfsec={runTfsecScan}
+        onTerrascan={runTerrascanScan}
+        onInfracost={runInfracostEstimate}
+        onExport={() => setExportModalOpen(true)}
+        onDownload={generateAndDownloadTerraform}
+        onImport={() => fileInputRef.current?.click()}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        onFitView={handleFitView}
+        onDelete={handleDeleteSelected}
+        onBack={() => navigate('/dashboard')}
+      />
 
-      {/* Left Sidebar - Resource Palette */}
-      <div className={`glass-panel border-r border-border flex flex-col transition-all duration-300 ease-in-out ${
-        sidebarCollapsed ? 'w-0 overflow-hidden' : 'w-80'
-      }`}>
-        {/* Header */}
-        <div className="p-4 border-b border-border">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2 text-lg font-semibold text-foreground">
-              <CloudIcon icon={getProviderIcon(project.cloud_provider)} size={22} />
-              <span>{getProviderLabel(project.cloud_provider)}</span>
-            </div>
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="pill-ghost"
-              title="Back to Dashboard"
-            >
-              Exit
-            </button>
-          </div>
+      {/* Main Content Row */}
+      <div className="flex flex-1 min-h-0">
+        {/* Left Sidebar - Resource Palette */}
+        <ResourcePalette
+          provider={project.cloud_provider}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
+          onDragStart={handleDragStart}
+          onResourceClick={addNode}
+        />
 
-          {/* Search */}
-          <input
-            type="text"
-            placeholder="Search resources..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg bg-secondary text-foreground border border-border focus:ring-2 focus:ring-primary/50 focus:border-transparent text-sm"
-          />
-        </div>
-
-        {/* Categories */}
-        <div className="p-4 border-b border-border">
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setSelectedCategory(null)}
-              className={`pill-ghost ${
-                selectedCategory === null
-                  ? 'bg-primary text-primary-foreground shadow-sm border-none'
-                  : ''
-              }`}
-            >
-              All
-            </button>
-            {categories.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.id)}
-                className={`pill-ghost ${
-                  selectedCategory === cat.id
-                    ? 'bg-primary text-primary-foreground shadow-sm border-none'
-                    : ''
-                }`}
-              >
-                <span className="flex items-center gap-1">
-                  <CloudIcon icon={cat.icon} size={16} />
-                  {cat.label}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Resources List */}
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="space-y-3">
-            {filteredResources.map((resource) => (
-              <button
-                key={resource.type}
-                onClick={() => addNode(resource)}
-                className="w-full p-3 text-left glass-panel rounded-lg hover:border-primary hover:shadow-lg transition-all hover:-translate-y-0.5"
-              >
-                <div className="flex items-start">
-                  <div className="mr-3 flex items-center justify-center rounded-md bg-accent/50" style={{ width: '36px', height: '36px' }}>
-                    <CloudIcon icon={resolveResourceIcon(resource.type, resource.icon)} size={22} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground">{resource.label}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{resource.description}</p>
-                    <p className="text-[11px] text-muted-foreground/70 mt-1 font-mono">{resource.type}</p>
-                  </div>
-                </div>
-              </button>
-            ))}
-
-            {filteredResources.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                <p>No resources found</p>
-                <p className="text-xs mt-2">Try adjusting your filters</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Main Canvas */}
-      <div className="flex-1 flex flex-col">
-        {/* Top Toolbar */}
-        <div className="glass-panel border-b border-border px-5 py-3">
-          <div className="flex items-center justify-between gap-6">
-            <div className="flex items-center gap-3">
-              <div className="h-10 px-3 rounded-xl bg-primary/10 text-primary font-semibold flex items-center gap-2">
-                <CloudIcon icon={getProviderIcon(project.cloud_provider)} size={18} />
-                <span>{project.name}</span>
-              </div>
-              <p className="text-sm text-muted-foreground hidden md:block">{project.description}</p>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap justify-end">
-              <button
-                onClick={() => saveProject()}
-                disabled={saving || terraformAction !== null}
-                className="toolbar-button"
-              >
-                {saving ? 'Saving...' : 'Save'}
-              </button>
-
-              <button
-                onClick={() => setCredentialsModalOpen(true)}
-                className="toolbar-button"
-              >
-                {credentials ? 'Credentials' : 'Set credentials'}
-              </button>
-
-              <button
-                onClick={() => setShowCodePanel((prev) => !prev)}
-                className="toolbar-button"
-              >
-                {showCodePanel ? 'Hide code' : 'Show code'}
-              </button>
-
-              <button
-                onClick={validateTerraform}
-                disabled={terraformAction !== null}
-                className="toolbar-button bg-primary text-primary-foreground hover:brightness-105 disabled:opacity-60"
-              >
-                {terraformAction === 'validate' ? 'Validating…' : 'Validate'}
-              </button>
-
-              <button
-                onClick={showPlanPreview}
-                disabled={terraformAction !== null}
-                className="toolbar-button bg-primary/90 text-primary-foreground hover:brightness-105 disabled:opacity-60"
-              >
-                {terraformAction === 'plan' ? 'Preparing…' : 'Preview'}
-              </button>
-
-              <button
-                onClick={() => applyInfrastructure()}
-                disabled={terraformAction !== null}
-                className="toolbar-button bg-emerald-500 text-white hover:brightness-105 disabled:opacity-60"
-              >
-                {terraformAction === 'apply' ? 'Applying…' : 'Apply'}
-              </button>
-
-              <button
-                onClick={destroyInfrastructure}
-                disabled={terraformAction !== null}
-                className="toolbar-button bg-destructive text-destructive-foreground hover:brightness-105 disabled:opacity-60"
-              >
-                {terraformAction === 'destroy' ? 'Destroying…' : 'Destroy'}
-              </button>
-
-              <button
-                onClick={runTfsecScan}
-                disabled={terraformAction !== null}
-                className="toolbar-button"
-              >
-                Tfsec
-              </button>
-
-              <button
-                onClick={runTerrascanScan}
-                disabled={terraformAction !== null}
-                className="toolbar-button"
-              >
-                Terrascan
-              </button>
-
-              <button
-                onClick={runInfracostEstimate}
-                disabled={terraformAction !== null}
-                className="toolbar-button"
-              >
-                Infracost
-              </button>
-
-              <button
-                onClick={() => setAssistantOpen((prev) => !prev)}
-                className="toolbar-button bg-accent text-accent-foreground hover:brightness-105"
-              >
-                {assistantOpen ? 'Hide assistant' : 'Assistant'}
-              </button>
-
-              <button
-                onClick={generateAndDownloadTerraform}
-                disabled={terraformAction !== null}
-                className="toolbar-button"
-              >
-                {terraformAction === 'download' ? 'Preparing…' : 'Download'}
-              </button>
-
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={terraformAction !== null}
-                className="toolbar-button"
-              >
-                Import JSON
-              </button>
-
-              <button
-                onClick={() => setExportModalOpen(true)}
-                className="toolbar-button"
-              >
-                Export
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Content Row: Canvas + Assistant */}
-        <div className="flex flex-1 min-h-0">
-          {/* React Flow Canvas */}
-          <div className="flex-1 min-h-0">
-          <DesignerWithCodeView
-            nodes={nodes}
-            edges={edges}
-            provider={provider}
-            projectId={projectId!}
-            showCode={showCodePanel}
-            onShowCodeChange={setShowCodePanel}
-            floatingToggle={false}
-          >
-            <ReactFlow
-            defaultEdgeOptions={defaultEdgeOptions}
+        {/* Center - React Flow Canvas */}
+        <div className="flex-1 min-h-0 flex">
+          <div className={`flex-1 min-h-0 transition-all duration-300 ${
+            propertiesPanelOpen && selectedNode ? '' : 'flex-1'
+          }`}>
+            <DesignerWithCodeView
               nodes={nodes}
               edges={edges}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              onConnect={onConnect}
-              onNodeDoubleClick={handleNodeDoubleClick}
-              onNodeDragStop={onNodeDragStop}
-              nodeTypes={nodeTypes}
-              snapToGrid
-              snapGrid={[GRID_SIZE, GRID_SIZE]}
-              minZoom={0.25}
-              maxZoom={1.75}
-              fitView
-              deleteKeyCode="Backspace"
+              provider={provider}
+              projectId={projectId!}
+              showCode={showCodePanel}
+              onShowCodeChange={setShowCodePanel}
+              floatingToggle={false}
             >
-              <Background gap={GRID_SIZE} size={1} color="#cfd2f1" variant={BackgroundVariant.Dots} />
-              <Controls />
-              <MiniMap />
-            </ReactFlow>
-          </DesignerWithCodeView>
+              <ReactFlow
+                defaultEdgeOptions={defaultEdgeOptions}
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
+                onNodeClick={(_, node) => {
+                  setSelectedNode(node);
+                  setPropertiesPanelOpen(true);
+                }}
+                onNodeDoubleClick={handleNodeDoubleClick}
+                onNodeDragStop={onNodeDragStop}
+                onPaneClick={() => {
+                  setSelectedNode(null);
+                }}
+                onInit={(instance) => {
+                  reactFlowInstance.current = instance;
+                  setZoom(Math.round(instance.getZoom() * 100));
+                }}
+                onMove={(_, viewport) => {
+                  setZoom(Math.round(viewport.zoom * 100));
+                }}
+                nodeTypes={nodeTypes}
+                snapToGrid
+                snapGrid={[GRID_SIZE, GRID_SIZE]}
+                minZoom={0.25}
+                maxZoom={1.75}
+                fitView
+                deleteKeyCode="Backspace"
+              >
+                <Background gap={GRID_SIZE} size={1} color="#cfd2f1" variant={BackgroundVariant.Dots} />
+                <Controls showZoom={false} showFitView={false} />
+                {showMinimap && <MiniMap />}
+              </ReactFlow>
+            </DesignerWithCodeView>
           </div>
 
-        {assistantOpen && (
-          <AssistantChatPanel
-            projectId={Number(projectId)}
-            provider={project.cloud_provider}
-            onImport={(diagram) => {
-              const dn = Array.isArray(diagram?.nodes) ? diagram.nodes : [];
-              const de = Array.isArray(diagram?.edges) ? diagram.edges : [];
-              const byId: Record<string, boolean> = {};
-              nodes.forEach((n) => (byId[n.id] = true));
-              const mergedNodes = [...nodes, ...dn.filter((n: any) => !byId[n.id])];
-              const byEdge: Record<string, boolean> = {};
-              edges.forEach((e) => (byEdge[e.id] = true));
-              const mergedEdges = [...edges, ...de.filter((e: any) => !byEdge[e.id])];
-              setNodes(mergedNodes);
-              setEdges(decorateEdges(mergedEdges));
-              saveProject({ silent: true });
-            }}
-          />
-        )}
+          {/* Right Sidebar - Properties Panel */}
+          {propertiesPanelOpen && selectedNode && (
+            <PropertiesPanel
+              selectedNode={selectedNode}
+              onUpdateNode={handleUpdateNode}
+              onClose={() => {
+                setPropertiesPanelOpen(false);
+              }}
+              onOpenConfig={() => {
+                setConfigModalOpen(true);
+              }}
+              connections={selectedNodeConnections}
+              nodes={nodes}
+            />
+          )}
+
+          {/* AI Assistant Panel */}
+          {assistantOpen && (
+            <AssistantChatPanel
+              projectId={Number(projectId)}
+              provider={project.cloud_provider}
+              onImport={(diagram) => {
+                const dn = Array.isArray(diagram?.nodes) ? diagram.nodes : [];
+                const de = Array.isArray(diagram?.edges) ? diagram.edges : [];
+                const byId: Record<string, boolean> = {};
+                nodes.forEach((n) => (byId[n.id] = true));
+                const mergedNodes = [...nodes, ...dn.filter((n: any) => !byId[n.id])];
+                const byEdge: Record<string, boolean> = {};
+                edges.forEach((e) => (byEdge[e.id] = true));
+                const mergedEdges = [...edges, ...de.filter((e: any) => !byEdge[e.id])];
+                setNodes(mergedNodes);
+                setEdges(decorateEdges(mergedEdges));
+                saveProject({ silent: true });
+              }}
+            />
+          )}
+        </div>
       </div>
 
       {/* Modals */}
@@ -1732,7 +1676,6 @@ export default function DesignerPageFinal() {
         data={infracostData}
         status={infracostStatus}
       />
-    </div>
     </div>
   );
 }
