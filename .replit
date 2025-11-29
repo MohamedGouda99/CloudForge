@@ -22,3 +22,60 @@ INITIAL_ADMIN_EMAIL = "admin@cloudforge.dev"
 AWS_DEFAULT_REGION = "us-east-1"
 GIT_DEFAULT_BRANCH = "main"
 ALLOWED_ORIGINS = "http://localhost:5000,https://a8b0770b-9ee2-480d-a883-35c696fcee5f-00-2il1lyy4l426g.janeway.replit.dev"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Frontend"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Backend"
+
+[[workflows.workflow]]
+name = "Frontend"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd frontend && npm run dev"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow]]
+name = "Backend"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python main.py"
+waitForPort = 8000
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[[ports]]
+localPort = 8000
+externalPort = 8000
+
+[[ports]]
+localPort = 39745
+externalPort = 3000
+
+[deployment]
+deploymentTarget = "static"
+build = ["bash", "-c", "cd frontend && npm run build"]
+publicDir = "frontend/dist"
