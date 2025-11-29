@@ -1261,8 +1261,12 @@ export default function DesignerPageFinal() {
     return matchesCategory && matchesSearch;
   });
 
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [dragPreview, setDragPreview] = useState<{ resource: CloudResource; x: number; y: number } | null>(null);
+
   const handleDragStart = useCallback(
-    (_event: React.DragEvent, _resourceType: string) => {
+    (event: React.DragEvent, _resourceType: string, resource: CloudResource) => {
+      setDragPreview({ resource, x: event.clientX, y: event.clientY });
     },
     []
   );
@@ -1270,11 +1274,26 @@ export default function DesignerPageFinal() {
   const handleDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'copy';
+    setIsDraggingOver(true);
+    if (dragPreview) {
+      setDragPreview(prev => prev ? { ...prev, x: event.clientX, y: event.clientY } : null);
+    }
+  }, [dragPreview]);
+
+  const handleDragLeave = useCallback(() => {
+    setIsDraggingOver(false);
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    setDragPreview(null);
+    setIsDraggingOver(false);
   }, []);
 
   const handleDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
+      setDragPreview(null);
+      setIsDraggingOver(false);
 
       const resourceData = event.dataTransfer.getData('application/json');
       if (!resourceData) {
@@ -1615,9 +1634,13 @@ export default function DesignerPageFinal() {
 
         {/* Center - React Flow Canvas */}
         <div className="flex-1 min-h-0 flex">
-          <div className={`flex-1 min-h-0 transition-all duration-300 ${
-            propertiesPanelOpen && selectedNode ? '' : 'flex-1'
-          }`}>
+          <div 
+            className={`flex-1 min-h-0 transition-all duration-300 relative ${
+              propertiesPanelOpen && selectedNode ? '' : 'flex-1'
+            } ${isDraggingOver ? 'ring-2 ring-primary ring-inset bg-primary/5' : ''}`}
+            onDragLeave={handleDragLeave}
+            onDragEnd={handleDragEnd}
+          >
             <DesignerWithCodeView
               nodes={nodes}
               edges={edges}
@@ -1796,6 +1819,27 @@ export default function DesignerPageFinal() {
         data={infracostData}
         status={infracostStatus}
       />
+
+      {/* Drag Preview Overlay */}
+      {dragPreview && (
+        <div
+          className="fixed pointer-events-none z-[9999] flex items-center gap-2 px-3 py-2 rounded-lg
+                     bg-white dark:bg-gray-800 border-2 border-primary shadow-lg
+                     transform -translate-x-1/2 -translate-y-1/2"
+          style={{
+            left: dragPreview.x,
+            top: dragPreview.y,
+          }}
+        >
+          <div className="w-8 h-8 flex items-center justify-center bg-primary/10 rounded-md">
+            <span className="text-primary text-lg font-bold">+</span>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-foreground">{dragPreview.resource.label}</p>
+            <p className="text-xs text-muted-foreground">{dragPreview.resource.type}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
