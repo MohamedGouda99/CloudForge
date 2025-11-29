@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from typing import Dict, AsyncGenerator, List, Tuple, Optional
@@ -9,6 +9,8 @@ import zipfile
 import subprocess
 import asyncio
 import json
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from app.core.database import get_db
 from app.core.config import settings
 from app.api.endpoints.auth import get_current_user
@@ -17,6 +19,7 @@ from app.schemas import TerraformOutput
 from app.services.terraform.generator import TerraformGenerator
 
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
 
 
 class TerraformCredentials(BaseModel):
@@ -378,7 +381,9 @@ def get_terraform_files(
 
 
 @router.post("/deploy/{project_id}")
+@limiter.limit(settings.RATE_LIMIT_TERRAFORM)
 def deploy_infrastructure(
+    request: Request,
     project_id: int,
     credentials: TerraformCredentials,
     current_user: User = Depends(get_current_user),
@@ -490,14 +495,15 @@ def deploy_infrastructure(
 
 
 @router.post("/destroy/{project_id}")
+@limiter.limit(settings.RATE_LIMIT_TERRAFORM)
 def destroy_infrastructure(
+    request: Request,
     project_id: int,
     credentials: TerraformCredentials,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Destroy infrastructure using Terraform destroy"""
-    # Verify project ownership
     project = db.query(Project).filter(
         Project.id == project_id,
         Project.owner_id == current_user.id
@@ -585,14 +591,15 @@ def destroy_infrastructure(
 
 
 @router.post("/plan/{project_id}")
+@limiter.limit(settings.RATE_LIMIT_TERRAFORM)
 def plan_infrastructure(
+    request: Request,
     project_id: int,
     credentials: TerraformCredentials,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Run Terraform plan to preview changes without applying them"""
-    # Verify project ownership
     project = db.query(Project).filter(
         Project.id == project_id,
         Project.owner_id == current_user.id

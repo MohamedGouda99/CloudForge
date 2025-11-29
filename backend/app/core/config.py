@@ -1,22 +1,19 @@
 from pydantic_settings import BaseSettings
 from typing import List, Union
 from pydantic import field_validator
+import os
 
 
 class Settings(BaseSettings):
-    # Application
     APP_NAME: str = "CloudForge"
     VERSION: str = "0.1.0"
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
 
-    # Database
     DATABASE_URL: str = "postgresql://cloudforge:cloudforge_dev_password@localhost:5432/cloudforge"
 
-    # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
 
-    # Security
     SECRET_KEY: str = "dev-secret-key-change-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
@@ -24,7 +21,6 @@ class Settings(BaseSettings):
     INITIAL_ADMIN_PASSWORD: str = "admin123"
     INITIAL_ADMIN_EMAIL: str = "admin@cloudforge.dev"
 
-    # CORS
     ALLOWED_ORIGINS: Union[List[str], str] = ["http://localhost:5000", "http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:3003", "http://localhost:5173"]
 
     @field_validator('ALLOWED_ORIGINS', mode='before')
@@ -34,7 +30,6 @@ class Settings(BaseSettings):
             return [i.strip() for i in v.split(',')]
         return v
 
-    # Cloud Providers
     AWS_ACCESS_KEY_ID: str = ""
     AWS_SECRET_ACCESS_KEY: str = ""
     AWS_DEFAULT_REGION: str = "us-east-1"
@@ -48,22 +43,41 @@ class Settings(BaseSettings):
     GOOGLE_CLOUD_PROJECT: str = ""
     GOOGLE_OAUTH_CLIENT_ID: str = ""
 
-    # Terraform
     TERRAFORM_WORKSPACE_DIR: str = "./generated_terraform"
 
-    # Infracost
     INFRACOST_API_KEY: str = ""
 
-    # LLMs
     GEMINI_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
 
-    # Git
     GIT_DEFAULT_BRANCH: str = "main"
+
+    RATE_LIMIT_DEFAULT: str = "100/minute"
+    RATE_LIMIT_AUTH: str = "10/minute"
+    RATE_LIMIT_TERRAFORM: str = "5/minute"
+
+    GUNICORN_WORKERS: int = 4
+    GUNICORN_THREADS: int = 2
+    GUNICORN_TIMEOUT: int = 120
+    GUNICORN_KEEPALIVE: int = 5
+    GUNICORN_MAX_REQUESTS: int = 1000
+    GUNICORN_MAX_REQUESTS_JITTER: int = 50
 
     class Config:
         env_file = ".env"
         case_sensitive = True
+
+    @property
+    def is_production(self) -> bool:
+        return self.ENVIRONMENT.lower() == "production"
+
+    @property
+    def is_development(self) -> bool:
+        return self.ENVIRONMENT.lower() in ("development", "dev")
+
+    @classmethod
+    def get_environment(cls) -> str:
+        return os.getenv("ENVIRONMENT", "development").lower()
 
 
 settings = Settings()
