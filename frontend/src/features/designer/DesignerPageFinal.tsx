@@ -1262,11 +1262,100 @@ export default function DesignerPageFinal() {
   });
 
   const handleDragStart = useCallback(
-    (event: React.DragEvent, resourceType: string) => {
-      event.dataTransfer.setData('application/reactflow', resourceType);
-      event.dataTransfer.effectAllowed = 'move';
+    (_event: React.DragEvent, _resourceType: string) => {
     },
     []
+  );
+
+  const handleDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+  }, []);
+
+  const handleDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+
+      const resourceData = event.dataTransfer.getData('application/json');
+      if (!resourceData) {
+        return;
+      }
+
+      try {
+        const resource = JSON.parse(resourceData) as CloudResource;
+        
+        if (!reactFlowInstance.current) {
+          addNode(resource);
+          return;
+        }
+
+        const position = reactFlowInstance.current.screenToFlowPosition({
+          x: event.clientX,
+          y: event.clientY,
+        });
+
+        const id = `${resource.type}_${Date.now()}`;
+        
+        let nodeType = 'default';
+        let nodeStyle: Record<string, unknown> | undefined = {
+          width: DEFAULT_RESOURCE_SIZE,
+          height: DEFAULT_RESOURCE_SIZE,
+        };
+        let initialSize: number | { width: number; height: number } | undefined = DEFAULT_RESOURCE_SIZE;
+
+        if (resource.isContainer) {
+          nodeType = 'container';
+          nodeStyle = { width: 480, height: 340 };
+          initialSize = { width: 480, height: 340 };
+        } else if (resource.type === 'aws_region' || resource.type === 'azure_resource_group' || resource.type === 'google_project') {
+          nodeType = 'region';
+          nodeStyle = { width: 560, height: 420 };
+          initialSize = { width: 560, height: 420 };
+        } else if (resource.type === 'aws_vpc' || resource.type === 'azurerm_virtual_network' || resource.type === 'google_compute_network') {
+          nodeType = 'vpc';
+          nodeStyle = { width: 480, height: 340 };
+          initialSize = { width: 480, height: 340 };
+        } else if (resource.type === 'aws_subnet' || resource.type === 'azurerm_subnet' || resource.type === 'google_compute_subnetwork') {
+          nodeType = 'subnet';
+          nodeStyle = { width: 360, height: 240 };
+          initialSize = { width: 360, height: 240 };
+        }
+
+        const newNode: Node = {
+          id,
+          type: nodeType,
+          position: {
+            x: Math.round(position.x / GRID_SIZE) * GRID_SIZE,
+            y: Math.round(position.y / GRID_SIZE) * GRID_SIZE,
+          },
+          data: {
+            label: resource.label,
+            resourceType: resource.type,
+            resourceLabel: resource.label,
+            config: {},
+            icon: resolveResourceIcon(resource.type, resource.icon),
+            category: resource.category,
+            resourceDescription: resource.description,
+            displayName: resource.label,
+            size: initialSize,
+            isContainer: resource.isContainer,
+            isDataSource: resource.isDataSource,
+          },
+          style: nodeStyle,
+          ...(nodeType !== 'default' && {
+            extent: 'parent' as const,
+            expandParent: true,
+          }),
+        };
+
+        setNodes((nds) => [...nds, newNode]);
+        setSelectedNode(newNode);
+        setPropertiesPanelOpen(true);
+      } catch (err) {
+        console.error('Failed to parse dropped resource:', err);
+      }
+    },
+    [setNodes]
   );
 
   const handleUpdateNode = useCallback(
@@ -1545,6 +1634,8 @@ export default function DesignerPageFinal() {
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
                 onNodeClick={(_, node) => {
                   setSelectedNode(node);
                   setPropertiesPanelOpen(true);
