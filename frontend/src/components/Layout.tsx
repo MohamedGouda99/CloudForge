@@ -24,6 +24,13 @@ export default function Layout() {
             </div>
             <div className="flex items-center gap-4">
               <button
+                onClick={() => navigate('/assistant')}
+                className="p-2 rounded-lg hover:bg-accent transition-colors"
+                title="Smart Assistant"
+              >
+                🤖
+              </button>
+              <button
                 onClick={toggleTheme}
                 className="p-2 rounded-lg hover:bg-accent transition-colors"
                 aria-label="Toggle theme"

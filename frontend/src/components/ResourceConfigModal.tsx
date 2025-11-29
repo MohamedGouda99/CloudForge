@@ -36,7 +36,8 @@ export default function ResourceConfigModal({
     onSave({ ...config, name: resourceName });
   };
 
-  const resolvedIconSize = resource.fields.length > 0 ? 40 : 32;
+  const fields = Array.isArray((resource as any)?.fields) ? (resource as any).fields : [];
+  const resolvedIconSize = fields.length > 0 ? 40 : 32;
   const iconLabel = resource.label || resource.type;
   const iconElement = useMemo(
     () => (
@@ -193,7 +194,7 @@ export default function ResourceConfigModal({
             </div>
 
             {/* Dynamic Fields */}
-            {resource.fields.map((field) => (
+            {fields.map((field: any) => (
               <div key={field.name}>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   {field.label} {field.required && <span className="text-red-500">*</span>}

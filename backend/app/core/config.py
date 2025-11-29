@@ -46,12 +46,17 @@ class Settings(BaseSettings):
 
     GOOGLE_APPLICATION_CREDENTIALS: str = ""
     GOOGLE_CLOUD_PROJECT: str = ""
+    GOOGLE_OAUTH_CLIENT_ID: str = ""
 
     # Terraform
     TERRAFORM_WORKSPACE_DIR: str = "./generated_terraform"
 
     # Infracost
     INFRACOST_API_KEY: str = ""
+
+    # LLMs
+    GEMINI_API_KEY: str = ""
+    ANTHROPIC_API_KEY: str = ""
 
     # Git
     GIT_DEFAULT_BRANCH: str = "main"

@@ -5,7 +5,7 @@ celery_app = Celery(
     "cloudforge",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
-    include=["app.services.drift.tasks"]
+    include=["app.services.drift.tasks", "app.services.ai.tasks"]
 )
 
 celery_app.conf.update(

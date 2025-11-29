@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 from jinja2 import Environment, FileSystemLoader, Template  # noqa: F401 (Template reserved for future templating)
 import os
 from app.models import Resource, Project, CloudProvider
@@ -11,28 +11,80 @@ class TerraformGenerator:
         self.env = Environment(loader=FileSystemLoader("app/services/terraform/templates"))
 
     def generate_terraform(self, project: Project, resources: List[Resource]) -> Dict[str, str]:
-        """Generate complete Terraform configuration."""
+        """
+        Generate complete Terraform configuration using a root/module layout.
+        Root files manage providers and module wiring; resources live under modules/infrastructure.
+        """
 
+        versions_config = self._generate_versions(project.cloud_provider)
         provider_config = self._generate_provider(project.cloud_provider)
-        resource_configs = self._generate_resources(resources, project.cloud_provider)
+        module_body, _categorized = self._generate_resources(resources, project.cloud_provider)
+        module_outputs, output_names = self._generate_outputs(resources)
         variables_config = self._generate_variables(resources, project.cloud_provider)
-        outputs_config = self._generate_outputs(resources)
         tfvars_config = self._generate_tfvars(project.cloud_provider)
 
-        return {
-            "provider.tf": provider_config,
-            "main.tf": resource_configs,
+        # Root module wiring
+        main_config = '\n'.join([
+            'module "infrastructure" {',
+            '  source = "./modules/infrastructure"',
+            '}',
+            ''
+        ])
+
+        # Forward module outputs to root so callers can consume them easily
+        root_outputs = self._forward_module_outputs(output_names, module_name="infrastructure")
+
+        files: Dict[str, str] = {
+            "versions.tf": versions_config,
+            "providers.tf": provider_config,
+            "main.tf": main_config,
             "variables.tf": variables_config,
-            "outputs.tf": outputs_config,
+            "outputs.tf": root_outputs,
             "terraform.tfvars": tfvars_config,
+            "modules/infrastructure/main.tf": module_body or "# No resources defined",
+            "modules/infrastructure/outputs.tf": module_outputs or "# No outputs defined",
+            "modules/infrastructure/variables.tf": "# Module inherits root provider inputs",
+            ".tfsec.yml": self._generate_tfsec_config(),
+            ".terrascan.toml": self._generate_terrascan_config(),
+            "infracost.yml": self._generate_infracost_config(),
         }
+
+        return files
 
     def _generate_provider(self, cloud_provider: CloudProvider) -> str:
         """Generate provider configuration."""
 
         providers = {
             CloudProvider.AWS: """
+provider "aws" {
+  region = var.aws_region
+}
+
+provider "archive" {}
+""",
+            CloudProvider.AZURE: """
+provider "azurerm" {
+  features {}
+}
+""",
+            CloudProvider.GCP: """
+provider "google" {
+  project = var.gcp_project
+  region  = var.gcp_region
+}
+"""
+        }
+
+        return providers.get(cloud_provider, "")
+
+    def _generate_versions(self, cloud_provider: CloudProvider) -> str:
+        """Generate terraform block with required providers and versions."""
+
+        if cloud_provider == CloudProvider.AWS:
+            provider_block = """
 terraform {
+  required_version = ">= 1.0"
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -43,49 +95,42 @@ terraform {
       version = "~> 2.0"
     }
   }
-  required_version = ">= 1.0"
 }
-
-provider "aws" {
-  region = var.aws_region
-}
-
-provider "archive" {}
-""",
-            CloudProvider.AZURE: """
+"""
+        elif cloud_provider == CloudProvider.AZURE:
+            provider_block = """
 terraform {
+  required_version = ">= 1.0"
+
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
       version = "~> 3.0"
     }
   }
-  required_version = ">= 1.0"
 }
-
-provider "azurerm" {
-  features {}
-}
-""",
-            CloudProvider.GCP: """
+"""
+        elif cloud_provider == CloudProvider.GCP:
+            provider_block = """
 terraform {
+  required_version = ">= 1.0"
+
   required_providers {
     google = {
       source  = "hashicorp/google"
       version = "~> 5.0"
     }
   }
-  required_version = ">= 1.0"
-}
-
-provider "google" {
-  project = var.gcp_project
-  region  = var.gcp_region
 }
 """
-        }
+        else:
+            provider_block = """
+terraform {
+  required_version = ">= 1.0"
+}
+"""
 
-        return providers.get(cloud_provider, "")
+        return provider_block.strip() + "\n"
 
     # -------------------------------------------------------------------------
     # Context & helper utilities
@@ -190,21 +235,27 @@ provider "google" {
         self,
         resources: List[Resource],
         cloud_provider: CloudProvider
-    ) -> str:
+    ) -> Tuple[str, Dict[str, List[str]]]:
         """Generate resource configurations including auxiliary data sources."""
 
         context = self._build_resource_context(resources, cloud_provider)
 
         blocks: List[str] = []
+        categorized: Dict[str, List[str]] = {}
+
         data_source_blocks = self._generate_data_sources(context, cloud_provider)
-        blocks.extend(data_source_blocks)
+        if data_source_blocks:
+            blocks.extend(data_source_blocks)
+            categorized["data"] = list(data_source_blocks)
 
         for resource in resources:
             resource_block = self._generate_resource_block(resource, cloud_provider, context)
             if resource_block:
                 blocks.append(resource_block)
+                category = self._categorize_resource(resource.resource_type)
+                categorized.setdefault(category, []).append(resource_block)
 
-        return "\n\n".join(blocks)
+        return "\n\n".join(blocks), categorized
 
     def _generate_resource_block(
         self,
@@ -249,6 +300,26 @@ provider "google" {
             return generator_func(resource)
 
         return self._generate_generic_resource(resource, context)
+
+    def _categorize_resource(self, resource_type: str) -> str:
+        """Map resource type to a coarse category for file grouping/reporting."""
+        if resource_type.startswith(("aws_vpc", "aws_subnet", "aws_route", "aws_route_table")):
+            return "network"
+        if resource_type.startswith(("aws_security_group", "aws_wafv2", "aws_network_acl")):
+            return "security"
+        if resource_type.startswith(("aws_instance", "aws_launch_template", "aws_autoscaling")):
+            return "compute"
+        if resource_type.startswith(("aws_s3", "aws_efs", "aws_ebs")):
+            return "storage"
+        if resource_type.startswith(("aws_db", "aws_rds")):
+            return "database"
+        if resource_type.startswith(("aws_lambda", "aws_api_gateway")):
+            return "serverless"
+        if resource_type.startswith(("azure_",)):
+            return "azure"
+        if resource_type.startswith(("gcp_", "google_")):
+            return "gcp"
+        return "other"
 
     def _generate_generic_resource(
         self,
@@ -381,6 +452,10 @@ provider "google" {
         instance_type = config.get("instance_type", "t2.micro")
         lines.append(f"  instance_type = {self._format_hcl_value(instance_type)}")
 
+        # Enforce explicit subnet to avoid default VPC usage
+        subnet_id = config.get("subnet_id") or "var.subnet_id"
+        lines.append(f"  subnet_id     = {self._format_hcl_value(subnet_id)}")
+
         key_name = config.get("key_name")
         if key_name:
             lines.append(f"  key_name      = {self._format_hcl_value(key_name)}")
@@ -392,11 +467,24 @@ provider "google" {
         elif az_value:
             lines.append(f"  availability_zone = {self._format_hcl_value(az_value)}")
 
+        # Enforce secure metadata access
+        lines.append("  metadata_options {")
+        lines.append('    http_tokens = "required"')
+        lines.append("  }")
+
+        # Enable detailed monitoring by default
+        lines.append("  monitoring = true")
+
         if "associate_public_ip_address" in config:
             lines.append(
                 "  associate_public_ip_address = "
                 f"{self._format_hcl_value(config.get('associate_public_ip_address', True))}"
             )
+
+        # Encrypt root volume by default
+        lines.append("  root_block_device {")
+        lines.append("    encrypted = true")
+        lines.append("  }")
 
         if config.get("user_data"):
             lines.append("  user_data = <<-EOT")
@@ -429,7 +517,11 @@ resource "aws_vpc" "{resource.resource_name}" {{
         config = resource.config or {}
 
         lines = [f'resource "aws_subnet" "{resource.resource_name}" {{']
-        lines.append(f"  vpc_id            = {self._format_hcl_value(config.get('vpc_id', 'aws_vpc.main.id'))}")
+        vpc_id = config.get('vpc_id')
+        if not vpc_id:
+            # Enforce explicit VPC wiring to avoid default VPC usage
+            vpc_id = 'var.vpc_id'
+        lines.append(f"  vpc_id            = {self._format_hcl_value(vpc_id)}")
         lines.append(f"  cidr_block        = {self._format_hcl_value(config.get('cidr_block', '10.0.1.0/24'))}")
 
         az_value = config.get("availability_zone")
@@ -612,7 +704,7 @@ resource "azurerm_linux_virtual_machine" "{resource.resource_name}" {{
   size                = "{config.get('vm_size', 'Standard_B2s')}"
   admin_username      = "{config.get('admin_username', 'azureuser')}"
   network_interface_ids = [
-    azurerm_network_interface.{config.get('network_interface', 'main-nic')}.id
+    {config.get('network_interface', 'var.azure_network_interface_id')}
   ]
 
   admin_ssh_key {{
@@ -624,6 +716,7 @@ resource "azurerm_linux_virtual_machine" "{resource.resource_name}" {{
     name                 = "{resource.resource_name}-osdisk"
     caching              = "ReadWrite"
     storage_account_type = "Standard_LRS"
+    disk_encryption_set_id = try(var.azure_disk_encryption_set_id, null)
   }}
 
   source_image_reference {{
@@ -632,6 +725,9 @@ resource "azurerm_linux_virtual_machine" "{resource.resource_name}" {{
     sku       = "18.04-LTS"
     version   = "latest"
   }}
+
+  secure_boot_enabled = true
+  vtpm_enabled        = true
 
   tags = {{
     Name = "{resource.resource_name}"
@@ -663,6 +759,10 @@ resource "azurerm_storage_account" "{resource.resource_name}" {{
   location                 = "{config.get('location', 'eastus')}"
   account_tier             = "{config.get('account_tier', 'Standard')}"
   account_replication_type = "{config.get('replication_type', 'LRS')}"
+  enable_https_traffic_only = true
+  min_tls_version            = "TLS1_2"
+  allow_blob_public_access   = false
+  shared_access_key_enabled  = false
 
   tags = {{
     Name = "{resource.resource_name}"
@@ -686,11 +786,18 @@ resource "google_compute_instance" "{resource.resource_name}" {{
     initialize_params {{
       image = "{config.get('image', 'debian-cloud/debian-11')}"
     }}
+    auto_delete = true
   }}
 
   network_interface {{
-    network = "{config.get('network', 'default')}"
+    network    = {self._format_hcl_value(config.get('network', 'var.gcp_network_self_link'))}
+    subnetwork = try({self._format_hcl_value(config.get('subnetwork', 'var.gcp_subnetwork_self_link'))}, null)
     access_config {{}}
+  }}
+
+  shielded_instance_config {{
+    enable_integrity_monitoring = true
+    enable_vtpm                 = true
   }}
 
   labels = {{
@@ -802,23 +909,98 @@ variable "public_subnet_id" {
   default     = "subnet-12345678"
 }""")
 
+        has_subnet = any(r.resource_type == "aws_subnet" for r in resources)
+        if has_subnet:
+            variables.append("""
+variable "vpc_id" {
+  description = "VPC ID for subnets"
+  type        = string
+}""")
+
+        has_instance = any(r.resource_type == "aws_instance" for r in resources)
+        if has_instance:
+            variables.append("""
+variable "subnet_id" {
+  description = "Subnet ID for instances (avoids default VPC usage)"
+  type        = string
+}""")
+
+        has_azure_vm = any(r.resource_type == "azure_virtual_machine" for r in resources)
+        if has_azure_vm:
+            variables.append("""
+variable "azure_network_interface_id" {
+  description = "Existing Azure NIC ID to attach to VM (prevents default NIC assumptions)"
+  type        = string
+}
+
+variable "azure_disk_encryption_set_id" {
+  description = "Optional Disk Encryption Set for OS disk"
+  type        = string
+  default     = null
+}""")
+
+        has_gcp_instance = any(r.resource_type == "gcp_compute_instance" for r in resources)
+        if has_gcp_instance:
+            variables.append("""
+variable "gcp_network_self_link" {
+  description = "Self link of the VPC network to attach instances"
+  type        = string
+}
+
+variable "gcp_subnetwork_self_link" {
+  description = "Self link of the subnetwork to attach instances"
+  type        = string
+  default     = null
+}""")
+
         return "\n".join(variables) if variables else "# No variables defined"
 
-    def _generate_outputs(self, resources: List[Resource]) -> str:
-        """Generate outputs.tf file."""
+    def _generate_outputs(self, resources: List[Resource]) -> Tuple[str, List[str]]:
+        """Generate outputs for module and return names for root forwarding."""
 
         outputs: List[str] = []
+        names: List[str] = []
 
         for resource in resources:
             if resource.resource_type in ["aws_instance", "gcp_compute_instance", "azure_virtual_machine"]:
+                output_name = f"{resource.resource_name}_id"
+                names.append(output_name)
                 outputs.append(f"""
-output "{resource.resource_name}_id" {{
+output "{output_name}" {{
   description = "ID of {resource.resource_name}"
   value       = {resource.resource_type}.{resource.resource_name}.id
 }}
 """)
+            if resource.resource_type in ["aws_vpc", "gcp_compute_network", "azure_virtual_network"]:
+                output_name = f"{resource.resource_name}_network_id"
+                names.append(output_name)
+                outputs.append(f"""
+output "{output_name}" {{
+  description = "Identifier for {resource.resource_name} network"
+  value       = {resource.resource_type}.{resource.resource_name}.id
+}}
+""")
+            if resource.resource_type in ["aws_subnet"]:
+                output_name = f"{resource.resource_name}_subnet_id"
+                names.append(output_name)
+                outputs.append(f"""
+output "{output_name}" {{
+  description = "Subnet ID for {resource.resource_name}"
+  value       = {resource.resource_type}.{resource.resource_name}.id
+}}
+""")
+            if resource.resource_type in ["aws_s3_bucket", "gcp_storage_bucket", "azure_storage_account"]:
+                output_name = f"{resource.resource_name}_bucket_name"
+                names.append(output_name)
+                outputs.append(f"""
+output "{output_name}" {{
+  description = "Storage identifier for {resource.resource_name}"
+  value       = {resource.resource_type}.{resource.resource_name}.id
+}}
+""")
 
-        return "\n".join(outputs) if outputs else "# No outputs defined"
+        module_outputs = "\n".join(outputs) if outputs else "# No outputs defined"
+        return module_outputs, names
 
     def _generate_tfvars(self, cloud_provider: CloudProvider) -> str:
         """Generate terraform.tfvars file with example values."""
@@ -840,16 +1022,69 @@ output "{resource.resource_name}_id" {{
             tfvars.append('azure_subscription_id = "YOUR_SUBSCRIPTION_ID"')
             tfvars.append('azure_tenant_id       = "YOUR_TENANT_ID"')
             tfvars.append('azure_location        = "eastus"')
+            tfvars.append('# azure_network_interface_id = "YOUR_NIC_ID"')
+            tfvars.append('# azure_disk_encryption_set_id = "YOUR_DISK_ENC_SET_ID"')
 
         elif cloud_provider == CloudProvider.GCP:
             tfvars.append("# GCP Configuration")
             tfvars.append('gcp_project           = "YOUR_PROJECT_ID"')
             tfvars.append('gcp_region            = "us-central1"')
             tfvars.append('gcp_credentials_file  = "path/to/credentials.json"')
+            tfvars.append('# gcp_network_self_link     = "projects/xxx/global/networks/my-vpc"')
+            tfvars.append('# gcp_subnetwork_self_link  = "projects/xxx/regions/us-central1/subnetworks/my-subnet"')
 
         tfvars.append("")
         tfvars.append("# Sensitive Variables (use environment variables or secret management)")
         tfvars.append('# db_password = "your-secure-password"')
 
         return "\n".join(tfvars)
+
+    def _forward_module_outputs(self, output_names: List[str], module_name: str) -> str:
+        """Expose module outputs at root level for ease of consumption."""
+        if not output_names:
+            return "# No outputs defined"
+
+        lines: List[str] = []
+        for name in output_names:
+            lines.append(f"""output "{name}" {{
+  value       = module.{module_name}.{name}
+  description = "Forwarded from module {module_name}"
+}}""")
+        return "\n\n".join(lines)
+
+    # -------------------------------------------------------------------------
+    # Scanner/estimator configs
+    # -------------------------------------------------------------------------
+
+    def _generate_tfsec_config(self) -> str:
+        """Baseline tfsec config to scan generated modules directory."""
+        return "\n".join([
+            "minimum_severity: MEDIUM",
+            "exclude_paths:",
+            "  - .terraform",
+            "  - terraform.tfstate",
+            "  - terraform.tfstate.backup",
+            "skip_checks: []",
+            "",
+            "severity_overrides: {}",
+        ])
+
+    def _generate_terrascan_config(self) -> str:
+        """Baseline Terrascan config."""
+        return "\n".join([
+            "[scanner]",
+            'skip_paths = [".terraform"]',
+            'categories = ["all"]',
+            'severity = ["LOW","MEDIUM","HIGH","CRITICAL"]',
+        ])
+
+    def _generate_infracost_config(self) -> str:
+        """Baseline Infracost project config."""
+        return "\n".join([
+            "version: 0.1",
+            "projects:",
+            "  - path: .",
+            "    terraform_var_files:",
+            "      - terraform.tfvars",
+        ])
 

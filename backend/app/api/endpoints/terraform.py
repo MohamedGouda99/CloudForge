@@ -179,6 +179,9 @@ def ensure_terraform_files(project: Project, project_id: int, db: Session) -> st
     # Write fresh Terraform files
     for filename, content in terraform_files.items():
         file_path = os.path.join(project_dir, filename)
+        parent_dir = os.path.dirname(file_path)
+        if parent_dir and not os.path.exists(parent_dir):
+            os.makedirs(parent_dir, exist_ok=True)
         with open(file_path, 'w') as f:
             f.write(content)
 
@@ -229,7 +232,7 @@ def generate_terraform(
         main_tf=terraform_files.get("main.tf", ""),
         variables_tf=terraform_files.get("variables.tf", ""),
         outputs_tf=terraform_files.get("outputs.tf", ""),
-        providers_tf=terraform_files.get("providers.tf", ""),
+        providers_tf=terraform_files.get("providers.tf", terraform_files.get("provider.tf", "")),
         version=version
     )
 
@@ -301,24 +304,20 @@ def download_terraform_files(
             detail="Project not found"
         )
 
-    # Check if files exist
-    project_dir = os.path.join(settings.TERRAFORM_WORKSPACE_DIR, f"project_{project_id}")
-    if not os.path.exists(project_dir):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Terraform files not found. Please generate them first."
-        )
+    # Ensure fresh files are generated
+    project_dir = ensure_terraform_files(project, project_id, db)
 
     # Create zip file in memory with only the main Terraform files
     memory_file = io.BytesIO()
     with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zipf:
-        # Only include the main Terraform configuration files
-        terraform_files = ['main.tf', 'provider.tf', 'variables.tf', 'outputs.tf', 'terraform.tfvars']
-
-        for filename in terraform_files:
-            file_path = os.path.join(project_dir, filename)
-            if os.path.exists(file_path):
-                zipf.write(file_path, filename)
+        for root, _, files in os.walk(project_dir):
+            for file in files:
+                file_path = os.path.join(root, file)
+                # Skip Terraform state and hidden dirs
+                if file.startswith(".terraform") or file.endswith((".tfstate", ".backup")):
+                    continue
+                arcname = os.path.relpath(file_path, project_dir)
+                zipf.write(file_path, arcname)
 
     memory_file.seek(0)
 
@@ -329,6 +328,53 @@ def download_terraform_files(
             "Content-Disposition": f"attachment; filename=terraform-project-{project_id}.zip"
         }
     )
+
+
+@router.get("/files/{project_id}")
+def get_terraform_files(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Return generated Terraform files as a map of path -> content."""
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == current_user.id
+    ).first()
+
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found"
+        )
+
+    project_dir = ensure_terraform_files(project, project_id, db)
+
+    file_map: Dict[str, str] = {}
+    allowed_suffixes = (".tf", ".tfvars", ".toml", ".yml", ".yaml")
+    allowed_names = {".tfsec.yml", ".terrascan.toml", "infracost.yml"}
+
+    for root, _, files in os.walk(project_dir):
+        for filename in files:
+            if filename.startswith(".terraform") or filename.endswith((".tfstate", ".backup")):
+                continue
+            if not (filename.endswith(allowed_suffixes) or filename in allowed_names):
+                continue
+            path = os.path.join(root, filename)
+            rel = os.path.relpath(path, project_dir)
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    file_map[rel] = f.read()
+            except (OSError, UnicodeDecodeError):
+                continue
+
+    if not file_map:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No Terraform files generated for this project"
+        )
+
+    return file_map
 
 
 @router.post("/deploy/{project_id}")
