@@ -13,8 +13,12 @@ export default defineConfig({
   server: {
     port: 5000,
     host: '0.0.0.0',
+    strictPort: true,
+    allowedHosts: 'all',
     hmr: {
-      clientPort: 5000,
+      host: process.env.REPLIT_DEV_DOMAIN,
+      clientPort: 443,
+      protocol: 'wss',
     },
     fs: {
       allow: [path.resolve(__dirname, '..')],
