@@ -1,0 +1,51 @@
+# Node modules
+frontend/node_modules
+frontend/dist
+frontend/.vite
+
+# Python cache
+backend/__pycache__
+backend/**/__pycache__
+backend/.pytest_cache
+backend/**/*.pyc
+backend/**/*.pyo
+backend/**/*.pyd
+
+# Environment files
+.env
+.env.local
+backend/.env
+frontend/.env
+
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+!README.md
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.yml
+Dockerfile.*
+
+# Terraform workspace
+backend/generated_terraform
+
+# Test files
+backend/tests
+frontend/tests

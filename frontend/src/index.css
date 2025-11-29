@@ -1,0 +1,136 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 33% 97%;
+    --foreground: 230 15% 18%;
+    --card: 0 0% 100%;
+    --card-foreground: 230 15% 18%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 230 15% 18%;
+    --primary: 259 80% 64%;
+    --primary-foreground: 260 100% 98%;
+    --secondary: 240 40% 97%;
+    --secondary-foreground: 230 15% 25%;
+    --muted: 240 33% 94%;
+    --muted-foreground: 230 10% 45%;
+    --accent: 260 90% 92%;
+    --accent-foreground: 260 60% 28%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 28% 88%;
+    --input: 240 28% 88%;
+    --ring: 259 80% 64%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 48%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    background-image: radial-gradient(circle at 1px 1px, rgba(124, 58, 237, 0.12) 1.5px, transparent 0);
+    background-size: 18px 18px;
+  }
+}
+
+/* Pro glass panels + toolbar */
+.glass-panel {
+  @apply bg-card/90 backdrop-blur border border-border shadow-[0_10px_40px_rgba(54,79,199,0.08)];
+}
+.dark .glass-panel {
+  @apply bg-card/70 shadow-[0_12px_40px_rgba(0,0,0,0.35)];
+}
+
+.toolbar-button {
+  @apply h-9 px-3 inline-flex items-center gap-2 rounded-full text-sm font-medium transition-all border border-border/80;
+  @apply bg-secondary text-secondary-foreground hover:bg-secondary/80 hover:shadow-sm;
+}
+
+.toolbar-icon {
+  @apply h-4 w-4 text-foreground;
+}
+
+.pill-ghost {
+  @apply px-3 py-1 rounded-full text-xs font-medium bg-card/80 text-foreground hover:bg-card shadow-sm border border-border/80;
+}
+.dark .pill-ghost {
+  @apply hover:bg-card/70;
+}
+
+/* React Flow customizations */
+.react-flow__node {
+  box-shadow: none !important;
+  border: none !important;
+  outline: none !important;
+}
+
+.react-flow__node.selected {
+  @apply shadow-none border-none;
+  box-shadow: none !important;
+  border: none !important;
+  outline: none !important;
+}
+
+.react-flow__node-resource,
+.react-flow__node-default {
+  @apply shadow-none rounded-none border-none bg-transparent;
+  box-shadow: none !important;
+  border: none !important;
+  outline: none !important;
+  @apply shadow-none rounded-none border-none bg-transparent;
+}
+
+.react-flow__node-aws,
+.react-flow__node-azure,
+.react-flow__node-gcp {
+  @apply border-none bg-transparent;
+}
+
+.react-flow__edge-path {
+  @apply stroke-2;
+}
+
+.react-flow__controls {
+  @apply shadow-lg bg-card/90 border border-border rounded-lg overflow-hidden;
+}
+
+.react-flow__controls-button {
+  @apply text-foreground bg-transparent border-b border-border/80 hover:bg-secondary/70 transition-colors;
+}
+.react-flow__controls-button:last-child {
+  @apply border-b-0;
+}
+
+.react-flow__minimap {
+  @apply shadow-lg border border-border bg-card/90;
+}
+.dark .react-flow__minimap {
+  @apply bg-card/80;
+}
