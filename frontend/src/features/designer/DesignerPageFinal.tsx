@@ -24,9 +24,9 @@ import {
   CloudResource,
   getProviderLabel,
   getProviderIcon,
+  resolveResourceIcon,
 } from '../../lib/resources';
 import { buildCredentialsQuery } from '../../lib/utils/credentials';
-import { getCloudIconPath } from '../../lib/resources/cloudIconsComplete';
 import { nodeTypes } from '../../components/nodes';
 import CloudIcon from '../../components/CloudIcon';
 import ResourceConfigModal from '../../components/ResourceConfigModal';
@@ -506,7 +506,7 @@ export default function DesignerPageFinal() {
               const data = { ...(node.data || {}) };
               const resourceType = data.resourceType;
               const catalogEntry = resourceType ? lookup.get(resourceType) : undefined;
-              const icon = data.icon || catalogEntry?.icon || (resourceType ? getCloudIconPath(resourceType) : undefined);
+              const icon = data.icon || resolveResourceIcon(resourceType, catalogEntry?.icon);
               const category = data.category || catalogEntry?.category || 'other';
               const displayName =
                 data.displayName ||
@@ -652,7 +652,7 @@ export default function DesignerPageFinal() {
           resourceType: resource.type,
           resourceLabel: resource.label,
           config: {},
-          icon: resource.icon,
+          icon: resolveResourceIcon(resource.type, resource.icon),
           category: resource.category,
           resourceDescription: resource.description,
           displayName: resource.label,
@@ -1438,7 +1438,7 @@ export default function DesignerPageFinal() {
               >
                 <div className="flex items-start">
                   <div className="mr-3 flex items-center justify-center rounded-md bg-accent/50" style={{ width: '36px', height: '36px' }}>
-                    <CloudIcon icon={resource.icon} size={22} />
+                    <CloudIcon icon={resolveResourceIcon(resource.type, resource.icon)} size={22} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground">{resource.label}</p>

@@ -61,9 +61,17 @@ export default function CloudIcon({ icon, size = 24, className = '' }: CloudIcon
   const fullSize = Math.max(size, 12);
 
   if (!hasError && resolvedIcon && isIconPath(resolvedIcon)) {
-    const iconUrl = resolvedIcon.startsWith('http')
-      ? resolvedIcon
-      : `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${resolvedIcon}`;
+    // For API paths, use proxy (frontend proxies /api to backend)
+    // For full URLs, use as-is
+    let iconUrl: string;
+    if (resolvedIcon.startsWith('http')) {
+      iconUrl = resolvedIcon;
+    } else if (resolvedIcon.startsWith('/api/')) {
+      // Use the Vite proxy - requests to /api/* are proxied to backend
+      iconUrl = resolvedIcon;
+    } else {
+      iconUrl = resolvedIcon;
+    }
 
     return (
       <img
