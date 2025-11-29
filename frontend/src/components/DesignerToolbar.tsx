@@ -406,7 +406,7 @@ export default function DesignerToolbar({
             icon={sidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeft className="h-4 w-4" />}
             label={sidebarOpen ? 'Hide Sidebar' : 'Show Sidebar'}
             shortcut="⌘B"
-            onClick={onToggleSidebar}
+            onClick={onToggleSidebar || (() => {})}
             active={sidebarOpen}
           />
           <ToolbarButton
@@ -475,13 +475,13 @@ export default function DesignerToolbar({
             icon={<Bot className="h-4 w-4" />}
             label="AI Assistant"
             shortcut="⌘K"
-            onClick={onOpenAssistant}
+            onClick={onOpenAssistant || (() => {})}
           />
           <ToolbarButton
             icon={<Settings className="h-4 w-4" />}
             label="Settings"
             shortcut="⌘,"
-            onClick={onOpenSettings}
+            onClick={onOpenSettings || (() => {})}
           />
         </ToolbarGroup>
       </div>
@@ -549,7 +549,7 @@ export default function DesignerToolbar({
               )}
               <button
                 onClick={() => {
-                  onOpenSettings();
+                  onOpenSettings?.();
                   setUserMenuOpen(false);
                 }}
                 className="w-full px-3 py-2 flex items-center gap-2.5 text-sm text-left

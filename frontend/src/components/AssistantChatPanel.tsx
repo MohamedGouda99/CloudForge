@@ -12,7 +12,7 @@ export default function AssistantChatPanel({ projectId, provider, onImport }: { 
 
   const send = async () => {
     if (!input.trim()) return;
-    const next = [...messages, { role: 'user', text: input }];
+    const next: Message[] = [...messages, { role: 'user' as const, text: input }];
     setMessages(next);
     setInput('');
     setError('');
@@ -20,7 +20,7 @@ export default function AssistantChatPanel({ projectId, provider, onImport }: { 
     try {
       const res = await apiClient.post('/api/assistant/complete', { prompt: input, model });
       const text = res.data?.output || '';
-      setMessages([...next, { role: 'assistant', text }]);
+      setMessages([...next, { role: 'assistant' as const, text }]);
     } catch (e: any) {
       setError(e?.response?.data?.detail || e.message);
     } finally {
@@ -36,7 +36,7 @@ export default function AssistantChatPanel({ projectId, provider, onImport }: { 
       const diagram = res.data?.diagram;
       if (diagram) onImport(diagram);
       const text = 'Design imported into canvas';
-      setMessages([...messages, { role: 'assistant', text }]);
+      setMessages([...messages, { role: 'assistant' as const, text }]);
     } catch (e: any) {
       setError(e?.response?.data?.detail || e.message);
     } finally {
