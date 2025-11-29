@@ -407,7 +407,7 @@ export default function ResourcePalette({
               resources={resourcesByCategory[category]}
               isExpanded={expandedCategories.has(category)}
               onToggle={() => toggleCategory(category)}
-              onDragStart={onDragStart}
+              onDragStart={onDragStart || (() => {})}
             />
           ))
         )}
