@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import engine, Base
 from app.core.bootstrap import ensure_default_admin
-from app.api.endpoints import auth, projects, resources, terraform, drift, icons, security, ai
+from app.api.endpoints import auth, projects, resources, terraform, drift, icons, security, ai, assistant
 import socketio
 
 # Create database tables
@@ -41,6 +41,7 @@ app.include_router(security.router, prefix="/api/security", tags=["security"])
 app.include_router(drift.router, prefix="/api/drift", tags=["drift"])
 app.include_router(icons.router, prefix="/api", tags=["icons"])
 app.include_router(ai.router, tags=["ai"])
+app.include_router(assistant.router, tags=["assistant"])
 
 
 @app.get("/")

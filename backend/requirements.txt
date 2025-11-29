@@ -33,6 +33,7 @@ azure-mgmt-resource==23.0.1
 azure-identity==1.15.0
 google-cloud-compute==1.14.1
 google-auth==2.25.2
+anthropic==0.39.0
 
 # Terraform
 python-terraform==0.10.1

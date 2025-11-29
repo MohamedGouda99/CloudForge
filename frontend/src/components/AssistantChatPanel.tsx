@@ -6,7 +6,7 @@ type Message = { role: 'user' | 'assistant'; text: string };
 export default function AssistantChatPanel({ projectId, provider, onImport }: { projectId: number; provider: string; onImport: (diagram: any) => void }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('Add an EC2 instance in the public subnet');
-  const [model, setModel] = useState('gemini-2.0-flash');
+  const [model, setModel] = useState('claude-3-5-sonnet-20241022');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -49,10 +49,10 @@ export default function AssistantChatPanel({ projectId, provider, onImport }: { 
       <div className="px-4 py-3 border-b border-border flex items-center justify-between">
         <div className="font-semibold text-foreground">Assistant</div>
         <select value={model} onChange={(e) => setModel(e.target.value)} className="text-sm bg-background border border-input rounded px-2 py-1">
-          <option value="gemini-2.0-flash">gemini-2.0-flash</option>
-          <option value="gemini-2.0-pro">gemini-2.0-pro</option>
-          <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-          <option value="gemini-2.5-pro">gemini-2.5-pro</option>
+          <option value="claude-3-5-sonnet-20241022">claude-3-5-sonnet-20241022</option>
+          <option value="claude-3-5-sonnet-20240620">claude-3-5-sonnet-20240620</option>
+          <option value="claude-3-opus-20240229">claude-3-opus-20240229</option>
+          <option value="claude-3-haiku-20240307">claude-3-haiku-20240307</option>
         </select>
       </div>
       <div className="flex-1 overflow-y-auto p-3 space-y-3">

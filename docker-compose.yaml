@@ -42,7 +42,8 @@ services:
       SECRET_KEY: dev_secret_key_change_in_production
       ENVIRONMENT: development
       INFRACOST_API_KEY: ico-4xqc9bXXsEoViseD6A7kMjdns7d4LStZ
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
     ports:
       - "8000:8000"
     volumes:
@@ -66,6 +67,8 @@ services:
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: dev_secret_key_change_in_production
       ENVIRONMENT: development
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
     volumes:
       - ./backend:/app
       - generated_terraform:/app/generated_terraform

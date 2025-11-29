@@ -177,6 +177,7 @@ export default function DesignerPageFinal() {
   const [terraformAction, setTerraformAction] = useState<'download' | 'plan' | 'apply' | 'destroy' | 'validate' | 'tfsec' | 'terrascan' | 'infracost' | null>(null);
   const [showCodePanel, setShowCodePanel] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Terraform logs panel state
   const [logsPanelOpen, setLogsPanelOpen] = useState(false);
@@ -1225,12 +1226,104 @@ export default function DesignerPageFinal() {
     return matchesCategory && matchesSearch;
   });
 
+  const handleImportDiagram = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+
+      const parsedNodes = Array.isArray(parsed?.nodes)
+        ? parsed.nodes
+        : Array.isArray(parsed?.resources)
+        ? parsed.resources.map((r: any) => {
+            const resourceType = r.type || r.resourceType || r.data?.resourceType;
+            const baseType =
+              resourceType?.includes('vpc') ? 'vpc' :
+              resourceType?.includes('subnet') ? 'subnet' :
+              resourceType === 'aws_region' ? 'region' :
+              'resource';
+            return {
+              id: r.id || r.node_id || r.config?.name || r.type || crypto.randomUUID(),
+              type: baseType,
+              position: {
+                x: Number(r.position?.x) || 0,
+                y: Number(r.position?.y) || 0,
+              },
+              data: {
+                resourceType,
+                resourceLabel: r.config?.name || r.label || r.id,
+                resourceCategory: r.category,
+                config: r.config || r.data?.config || {},
+                displayName: r.config?.name || r.label || r.id,
+              },
+            };
+          })
+        : [];
+
+      const parsedEdges = Array.isArray(parsed?.edges)
+        ? parsed.edges
+        : Array.isArray(parsed?.connections)
+        ? parsed.connections.map((c: any, idx: number) => ({
+            id: c.id || `edge-${idx}`,
+            source: c.source || c.source_id,
+            target: c.target || c.target_id,
+            type: c.type || 'smoothstep',
+          }))
+        : [];
+
+      const sanitizedNodes = parsedNodes
+        .filter((n: any) => n?.id && n?.position)
+        .map((n: any) => ({
+          ...n,
+          position: {
+            x: Number(n.position?.x) || 0,
+            y: Number(n.position?.y) || 0,
+          },
+          data: {
+            resourceType: n.data?.resourceType,
+            resourceLabel: n.data?.resourceLabel || n.id,
+            resourceCategory: n.data?.resourceCategory,
+            config: n.data?.config || {},
+            displayName: n.data?.displayName || n.data?.resourceLabel || n.id,
+          },
+        }));
+
+      const sanitizedEdges = parsedEdges
+        .filter((e: any) => e?.source && e?.target)
+        .map((e: any, idx: number) => ({
+          id: e.id || `edge-${idx}`,
+          source: e.source,
+          target: e.target,
+          type: e.type || 'smoothstep',
+          markerEnd: e.markerEnd,
+          style: e.style,
+        }));
+
+      if (sanitizedNodes.length === 0) {
+        throw new Error('No nodes found in import file');
+      }
+
+      setNodes(sanitizedNodes);
+      setEdges(decorateEdges(sanitizedEdges));
+      await saveProject({ silent: true });
+      alert(`Imported ${sanitizedNodes.length} node(s) and ${sanitizedEdges.length} edge(s).`);
+    } catch (err) {
+      console.error('Failed to import diagram', err);
+      alert('Invalid import file. Please provide a JSON with "nodes"/"edges" or "resources"/"connections".');
+    } finally {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading project...</p>
+          <p className="mt-4 text-muted-foreground">Loading project...</p>
         </div>
       </div>
     );
@@ -1273,7 +1366,7 @@ export default function DesignerPageFinal() {
       </button>
 
       {/* Left Sidebar - Resource Palette */}
-      <div className={`bg-card border-r border-border flex flex-col transition-all duration-300 ease-in-out ${
+      <div className={`glass-panel border-r border-border flex flex-col transition-all duration-300 ease-in-out ${
         sidebarCollapsed ? 'w-0 overflow-hidden' : 'w-80'
       }`}>
         {/* Header */}
@@ -1285,10 +1378,10 @@ export default function DesignerPageFinal() {
             </div>
             <button
               onClick={() => navigate('/dashboard')}
-              className="text-muted-foreground hover:text-foreground"
+              className="pill-ghost"
               title="Back to Dashboard"
             >
-              ✕
+              Exit
             </button>
           </div>
 
@@ -1298,19 +1391,19 @@ export default function DesignerPageFinal() {
             placeholder="Search resources..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+            className="w-full px-3 py-2 rounded-lg bg-secondary text-foreground border border-border focus:ring-2 focus:ring-primary/50 focus:border-transparent text-sm"
           />
         </div>
 
         {/* Categories */}
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-border">
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setSelectedCategory(null)}
-              className={`px-3 py-1 text-xs rounded-full ${
+              className={`pill-ghost ${
                 selectedCategory === null
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-primary text-primary-foreground shadow-sm border-none'
+                  : ''
               }`}
             >
               All
@@ -1319,10 +1412,10 @@ export default function DesignerPageFinal() {
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
-                className={`px-3 py-1 text-xs rounded-full ${
+                className={`pill-ghost ${
                   selectedCategory === cat.id
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-primary text-primary-foreground shadow-sm border-none'
+                    : ''
                 }`}
               >
                 <span className="flex items-center gap-1">
@@ -1336,28 +1429,28 @@ export default function DesignerPageFinal() {
 
         {/* Resources List */}
         <div className="flex-1 overflow-y-auto p-4">
-          <div className="space-y-2">
+          <div className="space-y-3">
             {filteredResources.map((resource) => (
               <button
                 key={resource.type}
                 onClick={() => addNode(resource)}
-                className="w-full p-3 text-left bg-card border border-border rounded-lg hover:border-primary hover:shadow-md transition-all"
+                className="w-full p-3 text-left glass-panel rounded-lg hover:border-primary hover:shadow-lg transition-all hover:-translate-y-0.5"
               >
                 <div className="flex items-start">
-                  <div className="mr-3 flex items-center justify-center" style={{ width: '32px', height: '32px' }}>
-                    <CloudIcon icon={resource.icon} size={28} />
+                  <div className="mr-3 flex items-center justify-center rounded-md bg-accent/50" style={{ width: '36px', height: '36px' }}>
+                    <CloudIcon icon={resource.icon} size={22} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground">{resource.label}</p>
+                    <p className="text-sm font-semibold text-foreground">{resource.label}</p>
                     <p className="text-xs text-muted-foreground mt-1">{resource.description}</p>
-                    <p className="text-xs text-muted-foreground/70 mt-1 font-mono">{resource.type}</p>
+                    <p className="text-[11px] text-muted-foreground/70 mt-1 font-mono">{resource.type}</p>
                   </div>
                 </div>
               </button>
             ))}
 
             {filteredResources.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-muted-foreground">
                 <p>No resources found</p>
                 <p className="text-xs mt-2">Try adjusting your filters</p>
               </div>
@@ -1369,112 +1462,123 @@ export default function DesignerPageFinal() {
       {/* Main Canvas */}
       <div className="flex-1 flex flex-col">
         {/* Top Toolbar */}
-        <div className="bg-card border-b border-border px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold text-foreground">{project.name}</h1>
-              <p className="text-sm text-muted-foreground">{project.description}</p>
+        <div className="glass-panel border-b border-border px-5 py-3">
+          <div className="flex items-center justify-between gap-6">
+            <div className="flex items-center gap-3">
+              <div className="h-10 px-3 rounded-xl bg-primary/10 text-primary font-semibold flex items-center gap-2">
+                <CloudIcon icon={getProviderIcon(project.cloud_provider)} size={18} />
+                <span>{project.name}</span>
+              </div>
+              <p className="text-sm text-muted-foreground hidden md:block">{project.description}</p>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap justify-end">
               <button
                 onClick={() => saveProject()}
                 disabled={saving || terraformAction !== null}
-                className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 disabled:opacity-50 text-sm font-medium"
+                className="toolbar-button"
               >
                 {saving ? 'Saving...' : 'Save'}
               </button>
 
               <button
                 onClick={() => setCredentialsModalOpen(true)}
-                className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 text-sm font-medium"
+                className="toolbar-button"
               >
-                {credentials ? 'Update Credentials' : 'Set Credentials'}
+                {credentials ? 'Credentials' : 'Set credentials'}
               </button>
 
               <button
                 onClick={() => setShowCodePanel((prev) => !prev)}
-                className="px-4 py-2 bg-accent text-accent-foreground rounded-lg hover:bg-accent/80 text-sm font-medium"
+                className="toolbar-button"
               >
-                {showCodePanel ? 'Hide Code' : 'Show Code'}
+                {showCodePanel ? 'Hide code' : 'Show code'}
               </button>
 
               <button
                 onClick={validateTerraform}
                 disabled={terraformAction !== null}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-sm font-medium"
+                className="toolbar-button bg-primary text-primary-foreground hover:brightness-105 disabled:opacity-60"
               >
-                {terraformAction === 'validate' ? 'Validating...' : 'Validate'}
+                {terraformAction === 'validate' ? 'Validating…' : 'Validate'}
               </button>
 
               <button
                 onClick={showPlanPreview}
                 disabled={terraformAction !== null}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm font-medium"
+                className="toolbar-button bg-primary/90 text-primary-foreground hover:brightness-105 disabled:opacity-60"
               >
-                {terraformAction === 'plan' ? 'Preparing...' : 'Preview Plan'}
+                {terraformAction === 'plan' ? 'Preparing…' : 'Preview'}
               </button>
 
               <button
                 onClick={() => applyInfrastructure()}
                 disabled={terraformAction !== null}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm font-medium"
+                className="toolbar-button bg-emerald-500 text-white hover:brightness-105 disabled:opacity-60"
               >
-                {terraformAction === 'apply' ? 'Applying...' : 'Apply'}
+                {terraformAction === 'apply' ? 'Applying…' : 'Apply'}
               </button>
 
               <button
                 onClick={destroyInfrastructure}
                 disabled={terraformAction !== null}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm font-medium"
+                className="toolbar-button bg-destructive text-destructive-foreground hover:brightness-105 disabled:opacity-60"
               >
-                {terraformAction === 'destroy' ? 'Destroying...' : 'Destroy'}
+                {terraformAction === 'destroy' ? 'Destroying…' : 'Destroy'}
               </button>
 
               <button
                 onClick={runTfsecScan}
                 disabled={terraformAction !== null}
-                className="px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 disabled:opacity-50 text-sm font-medium"
+                className="toolbar-button"
               >
-                {terraformAction === 'tfsec' ? 'Scanning...' : 'Tfsec'}
+                Tfsec
               </button>
 
               <button
                 onClick={runTerrascanScan}
                 disabled={terraformAction !== null}
-                className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50 text-sm font-medium"
+                className="toolbar-button"
               >
-                {terraformAction === 'terrascan' ? 'Scanning...' : 'Terrascan'}
+                Terrascan
               </button>
 
               <button
                 onClick={runInfracostEstimate}
                 disabled={terraformAction !== null}
-                className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 text-sm font-medium"
+                className="toolbar-button"
               >
-                {terraformAction === 'infracost' ? 'Estimating...' : 'Infracost'}
+                Infracost
               </button>
 
               <button
                 onClick={() => setAssistantOpen((prev) => !prev)}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
+                className="toolbar-button bg-accent text-accent-foreground hover:brightness-105"
               >
-                {assistantOpen ? 'Hide Assistant' : 'Assistant'}
+                {assistantOpen ? 'Hide assistant' : 'Assistant'}
               </button>
 
               <button
                 onClick={generateAndDownloadTerraform}
                 disabled={terraformAction !== null}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
+                className="toolbar-button"
               >
-                {terraformAction === 'download' ? 'Preparing...' : 'Download Terraform'}
+                {terraformAction === 'download' ? 'Preparing…' : 'Download'}
+              </button>
+
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={terraformAction !== null}
+                className="toolbar-button"
+              >
+                Import JSON
               </button>
 
               <button
                 onClick={() => setExportModalOpen(true)}
-                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm font-medium"
+                className="toolbar-button"
               >
-                Export Diagram
+                Export
               </button>
             </div>
           </div>
@@ -1488,6 +1592,7 @@ export default function DesignerPageFinal() {
             nodes={nodes}
             edges={edges}
             provider={provider}
+            projectId={projectId!}
             showCode={showCodePanel}
             onShowCodeChange={setShowCodePanel}
             floatingToggle={false}
@@ -1509,7 +1614,7 @@ export default function DesignerPageFinal() {
               fitView
               deleteKeyCode="Backspace"
             >
-              <Background gap={GRID_SIZE} size={1} color="#d3d9e5" variant={BackgroundVariant.Dots} />
+              <Background gap={GRID_SIZE} size={1} color="#cfd2f1" variant={BackgroundVariant.Dots} />
               <Controls />
               <MiniMap />
             </ReactFlow>
@@ -1538,6 +1643,14 @@ export default function DesignerPageFinal() {
       </div>
 
       {/* Modals */}
+      <input
+        type="file"
+        accept="application/json"
+        className="hidden"
+        ref={fileInputRef}
+        onChange={handleImportDiagram}
+      />
+
       {selectedNode && (
         <ResourceConfigModal
           resource={

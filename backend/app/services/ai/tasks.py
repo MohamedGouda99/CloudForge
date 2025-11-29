@@ -3,7 +3,7 @@ import json
 import time
 from pathlib import Path
 from celery import shared_task
-from app.services.ai.gemini import generate_framework_plan
+from app.services.ai.claude import generate_framework_plan
 from app.services.terraform.generator import TerraformGenerator
 from app.models.project import CloudProvider, Project
 from app.models.resource import Resource
