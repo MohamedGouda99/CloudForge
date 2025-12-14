@@ -39,7 +39,8 @@ import TerraformLogsPanel from '../../components/TerraformLogsPanel';
 import InfracostReportPanel from './InfracostReportPanel';
 import ResourcePalette from '../../components/ResourcePalette';
 import DesignerToolbar from '../../components/DesignerToolbar';
-import PropertiesPanel from '../../components/PropertiesPanel';
+import BrainboardRightPanel from '../../components/BrainboardRightPanel';
+import ResourceContextMenu from '../../components/ResourceContextMenu';
 
 interface Project {
   id: number;
@@ -49,7 +50,7 @@ interface Project {
   diagram_data: any;
 }
 
-const GRID_SIZE = 10;
+const GRID_SIZE = 10; // Grid size for snapping - larger values = more stable movement
 type PlanStatus = 'idle' | 'running' | 'success' | 'error';
 type DeployStatus = 'idle' | 'running' | 'success' | 'error';
 const DEFAULT_RESOURCE_SIZE = 160;
@@ -197,6 +198,17 @@ export default function DesignerPageFinal() {
   const [infracostReportOpen, setInfracostReportOpen] = useState(false);
   const [infracostData, setInfracostData] = useState<any>(null);
   const [infracostStatus, setInfracostStatus] = useState<'running' | 'success' | 'error' | null>(null);
+
+  // Terraform files state
+  const [terraformFiles, setTerraformFiles] = useState<Record<string, string>>({});
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    nodeId: string;
+  } | null>(null);
+  const [configPanelOpen, setConfigPanelOpen] = useState(false);
 
   // Credentials state
   const [credentials, setCredentials] = useState<any>(null);
@@ -691,10 +703,88 @@ export default function DesignerPageFinal() {
   const handleNodeDoubleClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
       setSelectedNode(node);
-      setConfigModalOpen(true);
+      setConfigPanelOpen(true);
     },
     []
   );
+
+  const handleNodeContextMenu = useCallback(
+    (event: React.MouseEvent, node: Node) => {
+      event.preventDefault();
+      setContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        nodeId: node.id,
+      });
+      setSelectedNode(node);
+    },
+    []
+  );
+
+  // Context menu action handlers
+  const handleContextMenuCloudConfig = useCallback(() => {
+    if (selectedNode) {
+      setConfigPanelOpen(true);
+    }
+  }, [selectedNode]);
+
+  const handleContextMenuDelete = useCallback(() => {
+    if (contextMenu) {
+      setNodes((nds) => nds.filter((n) => n.id !== contextMenu.nodeId));
+      setEdges((eds) => eds.filter((e) => e.source !== contextMenu.nodeId && e.target !== contextMenu.nodeId));
+    }
+  }, [contextMenu, setNodes, setEdges]);
+
+  const handleContextMenuDuplicate = useCallback(() => {
+    if (contextMenu) {
+      const nodeToDuplicate = nodes.find((n) => n.id === contextMenu.nodeId);
+      if (nodeToDuplicate) {
+        const newNode = {
+          ...nodeToDuplicate,
+          id: `${nodeToDuplicate.id}-copy-${Date.now()}`,
+          position: {
+            x: nodeToDuplicate.position.x + 50,
+            y: nodeToDuplicate.position.y + 50,
+          },
+          data: {
+            ...nodeToDuplicate.data,
+            displayName: `${(nodeToDuplicate.data as any).displayName || (nodeToDuplicate.data as any).resourceLabel} (Copy)`,
+          },
+        };
+        setNodes((nds) => [...nds, newNode]);
+      }
+    }
+  }, [contextMenu, nodes, setNodes]);
+
+  const handleContextMenuHighlightConnections = useCallback(() => {
+    if (contextMenu) {
+      const connectedEdges = edges.filter(
+        (e) => e.source === contextMenu.nodeId || e.target === contextMenu.nodeId
+      );
+      setEdges((eds) =>
+        eds.map((e) => {
+          if (connectedEdges.find((ce) => ce.id === e.id)) {
+            return {
+              ...e,
+              style: { ...e.style, stroke: '#714EFF', strokeWidth: 3 },
+              animated: true,
+            };
+          }
+          return e;
+        })
+      );
+      // Reset after 3 seconds
+      setTimeout(() => {
+        setEdges((eds) =>
+          eds.map((e) => ({
+            ...e,
+            style: { ...e.style, stroke: DEFAULT_EDGE_COLOR, strokeWidth: 1.5 },
+            animated: false,
+          }))
+        );
+      }, 3000);
+    }
+  }, [contextMenu, edges, setEdges]);
 
   // Handle node drag to support nesting
   const onNodeDragStop: NodeDragHandler = useCallback(
@@ -839,6 +929,34 @@ export default function DesignerPageFinal() {
         );
 
         lastSavedDataRef.current = dataStr;
+
+        // Auto-generate Terraform in real-time after saving
+        if (nodes.length > 0) {
+          try {
+            await apiClient.post(
+              `/api/terraform/generate/${projectId}`,
+              {},
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              }
+            );
+
+            // Auto-fetch the generated Terraform files
+            const filesResponse = await apiClient.get(
+              `/api/terraform/files/${projectId}`,
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              }
+            );
+
+            if (filesResponse.data) {
+              setTerraformFiles(filesResponse.data);
+            }
+          } catch (tfError) {
+            console.warn('Auto Terraform generation failed:', tfError);
+            // Don't block the save operation if Terraform generation fails
+          }
+        }
 
         if (!options?.silent) {
           console.info('Project saved', diagramData);
@@ -1664,6 +1782,7 @@ export default function DesignerPageFinal() {
                   setPropertiesPanelOpen(true);
                 }}
                 onNodeDoubleClick={handleNodeDoubleClick}
+                onNodeContextMenu={handleNodeContextMenu}
                 onNodeDragStop={onNodeDragStop}
                 onPaneClick={() => {
                   setSelectedNode(null);
@@ -1683,28 +1802,37 @@ export default function DesignerPageFinal() {
                 fitView
                 deleteKeyCode="Backspace"
               >
-                <Background gap={GRID_SIZE} size={1} color="#cfd2f1" variant={BackgroundVariant.Dots} />
+                <Background gap={20} size={1} color="#e0e0e0" variant={BackgroundVariant.Dots} style={{ backgroundColor: '#ffffff' }} />
                 <Controls showZoom={false} showFitView={false} />
                 {showMinimap && <MiniMap />}
+                
+                {/* Node counter - Brainboard style */}
+                <div className="absolute bottom-4 left-4 px-3 py-1.5 bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 flex items-center gap-2 text-xs font-medium">
+                  <span className="text-gray-500 dark:text-gray-400">Nodes:</span>
+                  <span className="text-primary font-bold">{nodes.length}</span>
+                  <span className="text-gray-300 dark:text-gray-600">|</span>
+                  <span className="text-gray-500 dark:text-gray-400">Edges:</span>
+                  <span className="text-primary font-bold">{edges.length}</span>
+                </div>
               </ReactFlow>
             </DesignerWithCodeView>
           </div>
 
-          {/* Right Sidebar - Properties Panel */}
-          {propertiesPanelOpen && selectedNode && (
-            <PropertiesPanel
-              selectedNode={selectedNode}
-              onUpdateNode={handleUpdateNode}
-              onClose={() => {
-                setPropertiesPanelOpen(false);
-              }}
-              onOpenConfig={() => {
-                setConfigModalOpen(true);
-              }}
-              connections={selectedNodeConnections}
-              nodes={nodes}
-            />
-          )}
+          {/* Right Sidebar - Brainboard-style Panel */}
+          <BrainboardRightPanel
+            nodes={nodes}
+            terraformFiles={terraformFiles}
+            selectedNode={selectedNode}
+            onNodeSelect={(nodeId) => {
+              const node = nodes.find((n) => n.id === nodeId);
+              if (node) {
+                setSelectedNode(node);
+              }
+            }}
+            onUpdateNode={handleUpdateNode}
+            configPanelOpen={configPanelOpen}
+            onCloseConfigPanel={() => setConfigPanelOpen(false)}
+          />
 
           {/* AI Assistant Panel */}
           {assistantOpen && (
@@ -1728,6 +1856,40 @@ export default function DesignerPageFinal() {
           )}
         </div>
       </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <ResourceContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          onCloudConfig={handleContextMenuCloudConfig}
+          onSwitchToData={() => {
+            console.log('Switch to data - not implemented yet');
+          }}
+          onSwitchToContainer={() => {
+            console.log('Switch to container - not implemented yet');
+          }}
+          onDelete={handleContextMenuDelete}
+          onDuplicate={handleContextMenuDuplicate}
+          onLock={() => {
+            console.log('Lock - not implemented yet');
+          }}
+          onEditTitle={() => {
+            console.log('Edit title - not implemented yet');
+          }}
+          onState={() => {
+            console.log('State - not implemented yet');
+          }}
+          onEditTFFilename={() => {
+            console.log('Edit TF filename - not implemented yet');
+          }}
+          onHighlightConnections={handleContextMenuHighlightConnections}
+          onOmitFromCode={() => {
+            console.log('Omit from code - not implemented yet');
+          }}
+        />
+      )}
 
       {/* Modals */}
       <input

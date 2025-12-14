@@ -1,0 +1,1032 @@
+{
+  "category": "storage",
+  "services": [
+    {
+      "id": "s3_bucket",
+      "name": "S3 Bucket",
+      "description": "Object storage bucket",
+      "terraform_resource": "aws_s3_bucket",
+      "icon": "archive",
+      "inputs": {
+        "required": [],
+        "optional": [
+          {"name": "bucket", "type": "string", "description": "Bucket name (globally unique)"},
+          {"name": "bucket_prefix", "type": "string", "description": "Bucket name prefix"},
+          {"name": "force_destroy", "type": "bool", "description": "Delete all objects on destroy", "default": false},
+          {"name": "object_lock_enabled", "type": "bool", "description": "Enable object lock"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Bucket name"},
+        {"name": "arn", "type": "string", "description": "Bucket ARN"},
+        {"name": "bucket", "type": "string", "description": "Bucket name"},
+        {"name": "bucket_domain_name", "type": "string", "description": "Bucket domain name"},
+        {"name": "bucket_regional_domain_name", "type": "string", "description": "Regional domain name"},
+        {"name": "hosted_zone_id", "type": "string", "description": "Route 53 hosted zone ID"},
+        {"name": "region", "type": "string", "description": "AWS region"},
+        {"name": "website_endpoint", "type": "string", "description": "Website endpoint"},
+        {"name": "website_domain", "type": "string", "description": "Website domain"}
+      ],
+      "related_resources": [
+        "aws_s3_bucket_versioning",
+        "aws_s3_bucket_server_side_encryption_configuration",
+        "aws_s3_bucket_public_access_block",
+        "aws_s3_bucket_lifecycle_configuration",
+        "aws_s3_bucket_cors_configuration",
+        "aws_s3_bucket_website_configuration",
+        "aws_s3_bucket_logging",
+        "aws_s3_bucket_policy",
+        "aws_s3_bucket_acl",
+        "aws_s3_bucket_notification",
+        "aws_s3_bucket_replication_configuration"
+      ]
+    },
+    {
+      "id": "s3_bucket_versioning",
+      "name": "S3 Bucket Versioning",
+      "description": "Enable versioning on S3 bucket",
+      "terraform_resource": "aws_s3_bucket_versioning",
+      "icon": "git-branch",
+      "inputs": {
+        "required": [
+          {"name": "bucket", "type": "string", "description": "Bucket name or ID", "reference": "aws_s3_bucket.id"}
+        ],
+        "optional": [
+          {"name": "expected_bucket_owner", "type": "string", "description": "Expected bucket owner account ID"},
+          {"name": "mfa", "type": "string", "description": "MFA device serial and token"}
+        ],
+        "blocks": [
+          {
+            "name": "versioning_configuration",
+            "required": true,
+            "attributes": [
+              {"name": "status", "type": "string", "required": true, "options": ["Enabled", "Suspended", "Disabled"]},
+              {"name": "mfa_delete", "type": "string", "options": ["Enabled", "Disabled"]}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Bucket name"}
+      ]
+    },
+    {
+      "id": "s3_bucket_encryption",
+      "name": "S3 Bucket Encryption",
+      "description": "Server-side encryption configuration",
+      "terraform_resource": "aws_s3_bucket_server_side_encryption_configuration",
+      "icon": "lock",
+      "inputs": {
+        "required": [
+          {"name": "bucket", "type": "string", "description": "Bucket name or ID", "reference": "aws_s3_bucket.id"}
+        ],
+        "optional": [
+          {"name": "expected_bucket_owner", "type": "string", "description": "Expected bucket owner account ID"}
+        ],
+        "blocks": [
+          {
+            "name": "rule",
+            "required": true,
+            "multiple": true,
+            "attributes": [
+              {"name": "bucket_key_enabled", "type": "bool"}
+            ],
+            "nested_blocks": [
+              {
+                "name": "apply_server_side_encryption_by_default",
+                "attributes": [
+                  {"name": "sse_algorithm", "type": "string", "required": true, "options": ["aws:kms", "AES256"]},
+                  {"name": "kms_master_key_id", "type": "string"}
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Bucket name"}
+      ]
+    },
+    {
+      "id": "s3_bucket_public_access_block",
+      "name": "S3 Public Access Block",
+      "description": "Block public access to S3 bucket",
+      "terraform_resource": "aws_s3_bucket_public_access_block",
+      "icon": "shield",
+      "inputs": {
+        "required": [
+          {"name": "bucket", "type": "string", "description": "Bucket name or ID", "reference": "aws_s3_bucket.id"}
+        ],
+        "optional": [
+          {"name": "block_public_acls", "type": "bool", "description": "Block public ACLs", "default": false},
+          {"name": "block_public_policy", "type": "bool", "description": "Block public bucket policies", "default": false},
+          {"name": "ignore_public_acls", "type": "bool", "description": "Ignore public ACLs", "default": false},
+          {"name": "restrict_public_buckets", "type": "bool", "description": "Restrict public bucket policies", "default": false}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Bucket name"}
+      ]
+    },
+    {
+      "id": "s3_bucket_lifecycle",
+      "name": "S3 Bucket Lifecycle",
+      "description": "Lifecycle configuration for S3 bucket",
+      "terraform_resource": "aws_s3_bucket_lifecycle_configuration",
+      "icon": "clock",
+      "inputs": {
+        "required": [
+          {"name": "bucket", "type": "string", "description": "Bucket name or ID", "reference": "aws_s3_bucket.id"}
+        ],
+        "optional": [
+          {"name": "expected_bucket_owner", "type": "string", "description": "Expected bucket owner account ID"}
+        ],
+        "blocks": [
+          {
+            "name": "rule",
+            "required": true,
+            "multiple": true,
+            "attributes": [
+              {"name": "id", "type": "string", "required": true},
+              {"name": "status", "type": "string", "required": true, "options": ["Enabled", "Disabled"]}
+            ],
+            "nested_blocks": [
+              {
+                "name": "abort_incomplete_multipart_upload",
+                "attributes": [
+                  {"name": "days_after_initiation", "type": "number"}
+                ]
+              },
+              {
+                "name": "expiration",
+                "attributes": [
+                  {"name": "date", "type": "string"},
+                  {"name": "days", "type": "number"},
+                  {"name": "expired_object_delete_marker", "type": "bool"}
+                ]
+              },
+              {
+                "name": "filter",
+                "attributes": [
+                  {"name": "object_size_greater_than", "type": "number"},
+                  {"name": "object_size_less_than", "type": "number"},
+                  {"name": "prefix", "type": "string"}
+                ]
+              },
+              {
+                "name": "noncurrent_version_expiration",
+                "attributes": [
+                  {"name": "newer_noncurrent_versions", "type": "number"},
+                  {"name": "noncurrent_days", "type": "number"}
+                ]
+              },
+              {
+                "name": "noncurrent_version_transition",
+                "multiple": true,
+                "attributes": [
+                  {"name": "noncurrent_days", "type": "number"},
+                  {"name": "newer_noncurrent_versions", "type": "number"},
+                  {"name": "storage_class", "type": "string", "required": true}
+                ]
+              },
+              {
+                "name": "transition",
+                "multiple": true,
+                "attributes": [
+                  {"name": "date", "type": "string"},
+                  {"name": "days", "type": "number"},
+                  {"name": "storage_class", "type": "string", "required": true, "options": ["GLACIER", "STANDARD_IA", "ONEZONE_IA", "INTELLIGENT_TIERING", "DEEP_ARCHIVE", "GLACIER_IR"]}
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Bucket name"}
+      ]
+    },
+    {
+      "id": "s3_bucket_cors",
+      "name": "S3 Bucket CORS",
+      "description": "CORS configuration for S3 bucket",
+      "terraform_resource": "aws_s3_bucket_cors_configuration",
+      "icon": "globe",
+      "inputs": {
+        "required": [
+          {"name": "bucket", "type": "string", "description": "Bucket name or ID", "reference": "aws_s3_bucket.id"}
+        ],
+        "optional": [
+          {"name": "expected_bucket_owner", "type": "string", "description": "Expected bucket owner account ID"}
+        ],
+        "blocks": [
+          {
+            "name": "cors_rule",
+            "required": true,
+            "multiple": true,
+            "attributes": [
+              {"name": "allowed_methods", "type": "list(string)", "required": true, "options": ["GET", "PUT", "POST", "DELETE", "HEAD"]},
+              {"name": "allowed_origins", "type": "list(string)", "required": true},
+              {"name": "allowed_headers", "type": "list(string)"},
+              {"name": "expose_headers", "type": "list(string)"},
+              {"name": "id", "type": "string"},
+              {"name": "max_age_seconds", "type": "number"}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Bucket name"}
+      ]
+    },
+    {
+      "id": "s3_bucket_website",
+      "name": "S3 Bucket Website",
+      "description": "Static website configuration for S3 bucket",
+      "terraform_resource": "aws_s3_bucket_website_configuration",
+      "icon": "globe",
+      "inputs": {
+        "required": [
+          {"name": "bucket", "type": "string", "description": "Bucket name or ID", "reference": "aws_s3_bucket.id"}
+        ],
+        "optional": [
+          {"name": "expected_bucket_owner", "type": "string", "description": "Expected bucket owner account ID"},
+          {"name": "routing_rules", "type": "string", "description": "Routing rules JSON"}
+        ],
+        "blocks": [
+          {
+            "name": "error_document",
+            "attributes": [
+              {"name": "key", "type": "string", "required": true}
+            ]
+          },
+          {
+            "name": "index_document",
+            "attributes": [
+              {"name": "suffix", "type": "string", "required": true}
+            ]
+          },
+          {
+            "name": "redirect_all_requests_to",
+            "attributes": [
+              {"name": "host_name", "type": "string", "required": true},
+              {"name": "protocol", "type": "string", "options": ["http", "https"]}
+            ]
+          },
+          {
+            "name": "routing_rule",
+            "multiple": true,
+            "nested_blocks": [
+              {
+                "name": "condition",
+                "attributes": [
+                  {"name": "http_error_code_returned_equals", "type": "string"},
+                  {"name": "key_prefix_equals", "type": "string"}
+                ]
+              },
+              {
+                "name": "redirect",
+                "attributes": [
+                  {"name": "host_name", "type": "string"},
+                  {"name": "http_redirect_code", "type": "string"},
+                  {"name": "protocol", "type": "string"},
+                  {"name": "replace_key_prefix_with", "type": "string"},
+                  {"name": "replace_key_with", "type": "string"}
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Bucket name"},
+        {"name": "website_domain", "type": "string", "description": "Website domain"},
+        {"name": "website_endpoint", "type": "string", "description": "Website endpoint"}
+      ]
+    },
+    {
+      "id": "s3_bucket_policy",
+      "name": "S3 Bucket Policy",
+      "description": "Bucket policy for S3",
+      "terraform_resource": "aws_s3_bucket_policy",
+      "icon": "file-text",
+      "inputs": {
+        "required": [
+          {"name": "bucket", "type": "string", "description": "Bucket name or ID", "reference": "aws_s3_bucket.id"},
+          {"name": "policy", "type": "string", "description": "IAM policy document JSON"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Bucket name"}
+      ]
+    },
+    {
+      "id": "s3_bucket_notification",
+      "name": "S3 Bucket Notification",
+      "description": "Event notifications for S3 bucket",
+      "terraform_resource": "aws_s3_bucket_notification",
+      "icon": "bell",
+      "inputs": {
+        "required": [
+          {"name": "bucket", "type": "string", "description": "Bucket name or ID", "reference": "aws_s3_bucket.id"}
+        ],
+        "optional": [
+          {"name": "eventbridge", "type": "bool", "description": "Enable EventBridge notifications"}
+        ],
+        "blocks": [
+          {
+            "name": "lambda_function",
+            "multiple": true,
+            "attributes": [
+              {"name": "lambda_function_arn", "type": "string", "required": true},
+              {"name": "events", "type": "list(string)", "required": true},
+              {"name": "filter_prefix", "type": "string"},
+              {"name": "filter_suffix", "type": "string"},
+              {"name": "id", "type": "string"}
+            ]
+          },
+          {
+            "name": "queue",
+            "multiple": true,
+            "attributes": [
+              {"name": "queue_arn", "type": "string", "required": true},
+              {"name": "events", "type": "list(string)", "required": true},
+              {"name": "filter_prefix", "type": "string"},
+              {"name": "filter_suffix", "type": "string"},
+              {"name": "id", "type": "string"}
+            ]
+          },
+          {
+            "name": "topic",
+            "multiple": true,
+            "attributes": [
+              {"name": "topic_arn", "type": "string", "required": true},
+              {"name": "events", "type": "list(string)", "required": true},
+              {"name": "filter_prefix", "type": "string"},
+              {"name": "filter_suffix", "type": "string"},
+              {"name": "id", "type": "string"}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Bucket name"}
+      ]
+    },
+    {
+      "id": "s3_bucket_replication",
+      "name": "S3 Bucket Replication",
+      "description": "Replication configuration for S3 bucket",
+      "terraform_resource": "aws_s3_bucket_replication_configuration",
+      "icon": "copy",
+      "inputs": {
+        "required": [
+          {"name": "bucket", "type": "string", "description": "Source bucket name", "reference": "aws_s3_bucket.id"},
+          {"name": "role", "type": "string", "description": "IAM role ARN", "reference": "aws_iam_role.arn"}
+        ],
+        "optional": [
+          {"name": "token", "type": "string", "description": "Token for object lock"}
+        ],
+        "blocks": [
+          {
+            "name": "rule",
+            "required": true,
+            "multiple": true,
+            "attributes": [
+              {"name": "id", "type": "string"},
+              {"name": "priority", "type": "number"},
+              {"name": "status", "type": "string", "required": true, "options": ["Enabled", "Disabled"]}
+            ],
+            "nested_blocks": [
+              {
+                "name": "delete_marker_replication",
+                "attributes": [
+                  {"name": "status", "type": "string", "required": true}
+                ]
+              },
+              {
+                "name": "destination",
+                "required": true,
+                "attributes": [
+                  {"name": "bucket", "type": "string", "required": true},
+                  {"name": "account", "type": "string"},
+                  {"name": "storage_class", "type": "string"}
+                ],
+                "nested_blocks": [
+                  {
+                    "name": "access_control_translation",
+                    "attributes": [
+                      {"name": "owner", "type": "string", "required": true}
+                    ]
+                  },
+                  {
+                    "name": "encryption_configuration",
+                    "attributes": [
+                      {"name": "replica_kms_key_id", "type": "string"}
+                    ]
+                  },
+                  {
+                    "name": "metrics",
+                    "attributes": [
+                      {"name": "status", "type": "string", "required": true}
+                    ]
+                  },
+                  {
+                    "name": "replication_time",
+                    "attributes": [
+                      {"name": "status", "type": "string", "required": true}
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "filter",
+                "attributes": [
+                  {"name": "prefix", "type": "string"}
+                ]
+              },
+              {
+                "name": "source_selection_criteria",
+                "nested_blocks": [
+                  {
+                    "name": "replica_modifications",
+                    "attributes": [
+                      {"name": "status", "type": "string", "required": true}
+                    ]
+                  },
+                  {
+                    "name": "sse_kms_encrypted_objects",
+                    "attributes": [
+                      {"name": "status", "type": "string", "required": true}
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Bucket name"}
+      ]
+    },
+    {
+      "id": "s3_object",
+      "name": "S3 Object",
+      "description": "Object in S3 bucket",
+      "terraform_resource": "aws_s3_object",
+      "icon": "file",
+      "inputs": {
+        "required": [
+          {"name": "bucket", "type": "string", "description": "Bucket name", "reference": "aws_s3_bucket.id"},
+          {"name": "key", "type": "string", "description": "Object key"}
+        ],
+        "optional": [
+          {"name": "source", "type": "string", "description": "Path to file"},
+          {"name": "content", "type": "string", "description": "Literal content"},
+          {"name": "content_base64", "type": "string", "description": "Base64 encoded content"},
+          {"name": "acl", "type": "string", "description": "ACL", "options": ["private", "public-read", "public-read-write", "authenticated-read", "aws-exec-read", "bucket-owner-read", "bucket-owner-full-control"]},
+          {"name": "cache_control", "type": "string", "description": "Cache control header"},
+          {"name": "content_disposition", "type": "string", "description": "Content disposition header"},
+          {"name": "content_encoding", "type": "string", "description": "Content encoding header"},
+          {"name": "content_language", "type": "string", "description": "Content language header"},
+          {"name": "content_type", "type": "string", "description": "Content type"},
+          {"name": "etag", "type": "string", "description": "ETag for updates"},
+          {"name": "force_destroy", "type": "bool", "description": "Force destroy"},
+          {"name": "kms_key_id", "type": "string", "description": "KMS key ID"},
+          {"name": "metadata", "type": "map(string)", "description": "Object metadata"},
+          {"name": "object_lock_legal_hold_status", "type": "string", "description": "Legal hold status"},
+          {"name": "object_lock_mode", "type": "string", "description": "Object lock mode"},
+          {"name": "object_lock_retain_until_date", "type": "string", "description": "Retain until date"},
+          {"name": "server_side_encryption", "type": "string", "description": "SSE algorithm"},
+          {"name": "source_hash", "type": "string", "description": "Source file hash"},
+          {"name": "storage_class", "type": "string", "description": "Storage class", "options": ["STANDARD", "REDUCED_REDUNDANCY", "ONEZONE_IA", "INTELLIGENT_TIERING", "GLACIER", "DEEP_ARCHIVE", "OUTPOSTS", "GLACIER_IR", "STANDARD_IA"]},
+          {"name": "website_redirect", "type": "string", "description": "Website redirect location"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Object key"},
+        {"name": "etag", "type": "string", "description": "ETag"},
+        {"name": "version_id", "type": "string", "description": "Version ID"}
+      ]
+    },
+    {
+      "id": "ebs_volume",
+      "name": "EBS Volume",
+      "description": "Elastic Block Store volume",
+      "terraform_resource": "aws_ebs_volume",
+      "icon": "hard-drive",
+      "inputs": {
+        "required": [
+          {"name": "availability_zone", "type": "string", "description": "Availability zone"}
+        ],
+        "optional": [
+          {"name": "encrypted", "type": "bool", "description": "Enable encryption"},
+          {"name": "final_snapshot", "type": "bool", "description": "Create final snapshot"},
+          {"name": "iops", "type": "number", "description": "IOPS for io1/io2/gp3"},
+          {"name": "kms_key_id", "type": "string", "description": "KMS key ID for encryption"},
+          {"name": "multi_attach_enabled", "type": "bool", "description": "Enable multi-attach"},
+          {"name": "outpost_arn", "type": "string", "description": "Outpost ARN"},
+          {"name": "size", "type": "number", "description": "Size in GB"},
+          {"name": "snapshot_id", "type": "string", "description": "Snapshot ID to create from"},
+          {"name": "throughput", "type": "number", "description": "Throughput for gp3"},
+          {"name": "type", "type": "string", "description": "Volume type", "options": ["gp2", "gp3", "io1", "io2", "st1", "sc1", "standard"]},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Volume ID"},
+        {"name": "arn", "type": "string", "description": "Volume ARN"},
+        {"name": "availability_zone", "type": "string", "description": "AZ"},
+        {"name": "encrypted", "type": "bool", "description": "Is encrypted"},
+        {"name": "iops", "type": "number", "description": "IOPS"},
+        {"name": "kms_key_id", "type": "string", "description": "KMS key ID"},
+        {"name": "size", "type": "number", "description": "Size in GB"},
+        {"name": "snapshot_id", "type": "string", "description": "Snapshot ID"},
+        {"name": "throughput", "type": "number", "description": "Throughput"},
+        {"name": "type", "type": "string", "description": "Volume type"}
+      ]
+    },
+    {
+      "id": "ebs_volume_attachment",
+      "name": "EBS Volume Attachment",
+      "description": "Attach EBS volume to EC2 instance",
+      "terraform_resource": "aws_volume_attachment",
+      "icon": "link",
+      "inputs": {
+        "required": [
+          {"name": "device_name", "type": "string", "description": "Device name", "example": "/dev/sdf"},
+          {"name": "instance_id", "type": "string", "description": "Instance ID", "reference": "aws_instance.id"},
+          {"name": "volume_id", "type": "string", "description": "Volume ID", "reference": "aws_ebs_volume.id"}
+        ],
+        "optional": [
+          {"name": "force_detach", "type": "bool", "description": "Force detach"},
+          {"name": "skip_destroy", "type": "bool", "description": "Skip destroy"},
+          {"name": "stop_instance_before_detaching", "type": "bool", "description": "Stop instance before detaching"}
+        ]
+      },
+      "outputs": [
+        {"name": "device_name", "type": "string", "description": "Device name"},
+        {"name": "instance_id", "type": "string", "description": "Instance ID"},
+        {"name": "volume_id", "type": "string", "description": "Volume ID"}
+      ]
+    },
+    {
+      "id": "ebs_snapshot",
+      "name": "EBS Snapshot",
+      "description": "Snapshot of EBS volume",
+      "terraform_resource": "aws_ebs_snapshot",
+      "icon": "camera",
+      "inputs": {
+        "required": [
+          {"name": "volume_id", "type": "string", "description": "Volume ID", "reference": "aws_ebs_volume.id"}
+        ],
+        "optional": [
+          {"name": "description", "type": "string", "description": "Snapshot description"},
+          {"name": "outpost_arn", "type": "string", "description": "Outpost ARN"},
+          {"name": "permanent_restore", "type": "bool", "description": "Permanent restore"},
+          {"name": "storage_tier", "type": "string", "description": "Storage tier", "options": ["archive", "standard"]},
+          {"name": "temporary_restore_days", "type": "number", "description": "Temporary restore days"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Snapshot ID"},
+        {"name": "arn", "type": "string", "description": "Snapshot ARN"},
+        {"name": "data_encryption_key_id", "type": "string", "description": "Data encryption key ID"},
+        {"name": "encrypted", "type": "bool", "description": "Is encrypted"},
+        {"name": "kms_key_id", "type": "string", "description": "KMS key ID"},
+        {"name": "owner_alias", "type": "string", "description": "Owner alias"},
+        {"name": "owner_id", "type": "string", "description": "Owner account ID"},
+        {"name": "volume_size", "type": "number", "description": "Volume size in GB"}
+      ]
+    },
+    {
+      "id": "ebs_snapshot_copy",
+      "name": "EBS Snapshot Copy",
+      "description": "Copy EBS snapshot",
+      "terraform_resource": "aws_ebs_snapshot_copy",
+      "icon": "copy",
+      "inputs": {
+        "required": [
+          {"name": "source_region", "type": "string", "description": "Source region"},
+          {"name": "source_snapshot_id", "type": "string", "description": "Source snapshot ID"}
+        ],
+        "optional": [
+          {"name": "description", "type": "string", "description": "Description"},
+          {"name": "encrypted", "type": "bool", "description": "Encrypt the copy"},
+          {"name": "kms_key_id", "type": "string", "description": "KMS key ID"},
+          {"name": "permanent_restore", "type": "bool", "description": "Permanent restore"},
+          {"name": "storage_tier", "type": "string", "description": "Storage tier"},
+          {"name": "temporary_restore_days", "type": "number", "description": "Temporary restore days"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Snapshot ID"},
+        {"name": "arn", "type": "string", "description": "Snapshot ARN"}
+      ]
+    },
+    {
+      "id": "efs_file_system",
+      "name": "EFS File System",
+      "description": "Elastic File System",
+      "terraform_resource": "aws_efs_file_system",
+      "icon": "folder",
+      "inputs": {
+        "required": [],
+        "optional": [
+          {"name": "availability_zone_name", "type": "string", "description": "AZ for One Zone storage"},
+          {"name": "creation_token", "type": "string", "description": "Creation token"},
+          {"name": "encrypted", "type": "bool", "description": "Enable encryption"},
+          {"name": "kms_key_id", "type": "string", "description": "KMS key ID"},
+          {"name": "performance_mode", "type": "string", "description": "Performance mode", "options": ["generalPurpose", "maxIO"]},
+          {"name": "provisioned_throughput_in_mibps", "type": "number", "description": "Provisioned throughput"},
+          {"name": "throughput_mode", "type": "string", "description": "Throughput mode", "options": ["bursting", "provisioned", "elastic"]},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "lifecycle_policy",
+            "multiple": true,
+            "attributes": [
+              {"name": "transition_to_ia", "type": "string", "options": ["AFTER_7_DAYS", "AFTER_14_DAYS", "AFTER_30_DAYS", "AFTER_60_DAYS", "AFTER_90_DAYS"]},
+              {"name": "transition_to_primary_storage_class", "type": "string", "options": ["AFTER_1_ACCESS"]}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "File system ID"},
+        {"name": "arn", "type": "string", "description": "File system ARN"},
+        {"name": "availability_zone_id", "type": "string", "description": "AZ ID"},
+        {"name": "dns_name", "type": "string", "description": "DNS name"},
+        {"name": "number_of_mount_targets", "type": "number", "description": "Number of mount targets"},
+        {"name": "owner_id", "type": "string", "description": "Owner account ID"},
+        {"name": "size_in_bytes", "type": "number", "description": "Size in bytes"}
+      ]
+    },
+    {
+      "id": "efs_mount_target",
+      "name": "EFS Mount Target",
+      "description": "Mount target for EFS",
+      "terraform_resource": "aws_efs_mount_target",
+      "icon": "target",
+      "inputs": {
+        "required": [
+          {"name": "file_system_id", "type": "string", "description": "File system ID", "reference": "aws_efs_file_system.id"},
+          {"name": "subnet_id", "type": "string", "description": "Subnet ID", "reference": "aws_subnet.id"}
+        ],
+        "optional": [
+          {"name": "ip_address", "type": "string", "description": "IP address"},
+          {"name": "security_groups", "type": "list(string)", "description": "Security group IDs"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Mount target ID"},
+        {"name": "dns_name", "type": "string", "description": "DNS name"},
+        {"name": "file_system_arn", "type": "string", "description": "File system ARN"},
+        {"name": "ip_address", "type": "string", "description": "IP address"},
+        {"name": "mount_target_dns_name", "type": "string", "description": "Mount target DNS name"},
+        {"name": "network_interface_id", "type": "string", "description": "Network interface ID"},
+        {"name": "availability_zone_id", "type": "string", "description": "AZ ID"},
+        {"name": "availability_zone_name", "type": "string", "description": "AZ name"}
+      ]
+    },
+    {
+      "id": "efs_access_point",
+      "name": "EFS Access Point",
+      "description": "Access point for EFS",
+      "terraform_resource": "aws_efs_access_point",
+      "icon": "key",
+      "inputs": {
+        "required": [
+          {"name": "file_system_id", "type": "string", "description": "File system ID", "reference": "aws_efs_file_system.id"}
+        ],
+        "optional": [
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "posix_user",
+            "attributes": [
+              {"name": "gid", "type": "number", "required": true},
+              {"name": "uid", "type": "number", "required": true},
+              {"name": "secondary_gids", "type": "list(number)"}
+            ]
+          },
+          {
+            "name": "root_directory",
+            "attributes": [
+              {"name": "path", "type": "string"}
+            ],
+            "nested_blocks": [
+              {
+                "name": "creation_info",
+                "attributes": [
+                  {"name": "owner_gid", "type": "number", "required": true},
+                  {"name": "owner_uid", "type": "number", "required": true},
+                  {"name": "permissions", "type": "string", "required": true}
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Access point ID"},
+        {"name": "arn", "type": "string", "description": "Access point ARN"},
+        {"name": "file_system_arn", "type": "string", "description": "File system ARN"},
+        {"name": "owner_id", "type": "string", "description": "Owner account ID"}
+      ]
+    },
+    {
+      "id": "fsx_lustre_file_system",
+      "name": "FSx Lustre File System",
+      "description": "High-performance file system for compute workloads",
+      "terraform_resource": "aws_fsx_lustre_file_system",
+      "icon": "zap",
+      "inputs": {
+        "required": [
+          {"name": "subnet_ids", "type": "list(string)", "description": "Subnet IDs", "reference": "aws_subnet.id"}
+        ],
+        "optional": [
+          {"name": "storage_capacity", "type": "number", "description": "Storage capacity in GB"},
+          {"name": "storage_type", "type": "string", "description": "Storage type", "options": ["SSD", "HDD"]},
+          {"name": "deployment_type", "type": "string", "description": "Deployment type", "options": ["SCRATCH_1", "SCRATCH_2", "PERSISTENT_1", "PERSISTENT_2"]},
+          {"name": "per_unit_storage_throughput", "type": "number", "description": "Throughput per TB"},
+          {"name": "drive_cache_type", "type": "string", "description": "Drive cache type", "options": ["NONE", "READ"]},
+          {"name": "auto_import_policy", "type": "string", "description": "Auto import policy"},
+          {"name": "backup_id", "type": "string", "description": "Backup ID to restore from"},
+          {"name": "copy_tags_to_backups", "type": "bool", "description": "Copy tags to backups"},
+          {"name": "data_compression_type", "type": "string", "description": "Compression type", "options": ["LZ4", "NONE"]},
+          {"name": "export_path", "type": "string", "description": "Export path"},
+          {"name": "file_system_type_version", "type": "string", "description": "File system version"},
+          {"name": "import_path", "type": "string", "description": "Import path"},
+          {"name": "imported_file_chunk_size", "type": "number", "description": "Import chunk size in MB"},
+          {"name": "kms_key_id", "type": "string", "description": "KMS key ID"},
+          {"name": "security_group_ids", "type": "list(string)", "description": "Security group IDs"},
+          {"name": "weekly_maintenance_start_time", "type": "string", "description": "Weekly maintenance window"},
+          {"name": "daily_automatic_backup_start_time", "type": "string", "description": "Daily backup window"},
+          {"name": "automatic_backup_retention_days", "type": "number", "description": "Backup retention days"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "log_configuration",
+            "attributes": [
+              {"name": "destination", "type": "string"},
+              {"name": "level", "type": "string", "options": ["DISABLED", "WARN_ONLY", "ERROR_ONLY", "WARN_ERROR"]}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "File system ID"},
+        {"name": "arn", "type": "string", "description": "File system ARN"},
+        {"name": "dns_name", "type": "string", "description": "DNS name"},
+        {"name": "mount_name", "type": "string", "description": "Mount name"},
+        {"name": "network_interface_ids", "type": "list(string)", "description": "Network interface IDs"},
+        {"name": "owner_id", "type": "string", "description": "Owner account ID"},
+        {"name": "vpc_id", "type": "string", "description": "VPC ID"}
+      ]
+    },
+    {
+      "id": "fsx_windows_file_system",
+      "name": "FSx Windows File System",
+      "description": "Windows file server",
+      "terraform_resource": "aws_fsx_windows_file_system",
+      "icon": "hard-drive",
+      "inputs": {
+        "required": [
+          {"name": "subnet_ids", "type": "list(string)", "description": "Subnet IDs"},
+          {"name": "throughput_capacity", "type": "number", "description": "Throughput capacity in MB/s"}
+        ],
+        "optional": [
+          {"name": "active_directory_id", "type": "string", "description": "Active Directory ID"},
+          {"name": "aliases", "type": "list(string)", "description": "DNS aliases"},
+          {"name": "automatic_backup_retention_days", "type": "number", "description": "Backup retention days"},
+          {"name": "backup_id", "type": "string", "description": "Backup ID to restore from"},
+          {"name": "copy_tags_to_backups", "type": "bool", "description": "Copy tags to backups"},
+          {"name": "daily_automatic_backup_start_time", "type": "string", "description": "Daily backup window"},
+          {"name": "deployment_type", "type": "string", "description": "Deployment type", "options": ["SINGLE_AZ_1", "SINGLE_AZ_2", "MULTI_AZ_1"]},
+          {"name": "kms_key_id", "type": "string", "description": "KMS key ID"},
+          {"name": "preferred_subnet_id", "type": "string", "description": "Preferred subnet ID"},
+          {"name": "security_group_ids", "type": "list(string)", "description": "Security group IDs"},
+          {"name": "skip_final_backup", "type": "bool", "description": "Skip final backup"},
+          {"name": "storage_capacity", "type": "number", "description": "Storage capacity in GB"},
+          {"name": "storage_type", "type": "string", "description": "Storage type", "options": ["SSD", "HDD"]},
+          {"name": "weekly_maintenance_start_time", "type": "string", "description": "Weekly maintenance window"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "self_managed_active_directory",
+            "attributes": [
+              {"name": "dns_ips", "type": "list(string)", "required": true},
+              {"name": "domain_name", "type": "string", "required": true},
+              {"name": "password", "type": "string", "required": true},
+              {"name": "username", "type": "string", "required": true},
+              {"name": "file_system_administrators_group", "type": "string"},
+              {"name": "organizational_unit_distinguished_name", "type": "string"}
+            ]
+          },
+          {
+            "name": "audit_log_configuration",
+            "attributes": [
+              {"name": "audit_log_destination", "type": "string"},
+              {"name": "file_access_audit_log_level", "type": "string"},
+              {"name": "file_share_access_audit_log_level", "type": "string"}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "File system ID"},
+        {"name": "arn", "type": "string", "description": "File system ARN"},
+        {"name": "dns_name", "type": "string", "description": "DNS name"},
+        {"name": "network_interface_ids", "type": "list(string)", "description": "Network interface IDs"},
+        {"name": "owner_id", "type": "string", "description": "Owner account ID"},
+        {"name": "preferred_file_server_ip", "type": "string", "description": "Preferred file server IP"},
+        {"name": "remote_administration_endpoint", "type": "string", "description": "Remote admin endpoint"},
+        {"name": "vpc_id", "type": "string", "description": "VPC ID"}
+      ]
+    },
+    {
+      "id": "glacier_vault",
+      "name": "Glacier Vault",
+      "description": "Archive storage vault",
+      "terraform_resource": "aws_glacier_vault",
+      "icon": "archive",
+      "inputs": {
+        "required": [
+          {"name": "name", "type": "string", "description": "Vault name"}
+        ],
+        "optional": [
+          {"name": "access_policy", "type": "string", "description": "Access policy JSON"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "notification",
+            "attributes": [
+              {"name": "events", "type": "list(string)", "required": true, "options": ["ArchiveRetrievalCompleted", "InventoryRetrievalCompleted"]},
+              {"name": "sns_topic", "type": "string", "required": true}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "arn", "type": "string", "description": "Vault ARN"},
+        {"name": "location", "type": "string", "description": "Vault location"}
+      ]
+    },
+    {
+      "id": "glacier_vault_lock",
+      "name": "Glacier Vault Lock",
+      "description": "Lock policy for Glacier vault",
+      "terraform_resource": "aws_glacier_vault_lock",
+      "icon": "lock",
+      "inputs": {
+        "required": [
+          {"name": "complete_lock", "type": "bool", "description": "Complete the lock"},
+          {"name": "policy", "type": "string", "description": "Policy document JSON"},
+          {"name": "vault_name", "type": "string", "description": "Vault name", "reference": "aws_glacier_vault.name"}
+        ],
+        "optional": [
+          {"name": "ignore_deletion_error", "type": "bool", "description": "Ignore deletion errors"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Vault name"}
+      ]
+    },
+    {
+      "id": "backup_vault",
+      "name": "Backup Vault",
+      "description": "AWS Backup vault",
+      "terraform_resource": "aws_backup_vault",
+      "icon": "archive",
+      "inputs": {
+        "required": [
+          {"name": "name", "type": "string", "description": "Vault name"}
+        ],
+        "optional": [
+          {"name": "kms_key_arn", "type": "string", "description": "KMS key ARN"},
+          {"name": "force_destroy", "type": "bool", "description": "Force destroy"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Vault name"},
+        {"name": "arn", "type": "string", "description": "Vault ARN"},
+        {"name": "recovery_points", "type": "number", "description": "Number of recovery points"}
+      ]
+    },
+    {
+      "id": "backup_plan",
+      "name": "Backup Plan",
+      "description": "AWS Backup plan",
+      "terraform_resource": "aws_backup_plan",
+      "icon": "calendar",
+      "inputs": {
+        "required": [
+          {"name": "name", "type": "string", "description": "Plan name"}
+        ],
+        "optional": [
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "rule",
+            "required": true,
+            "multiple": true,
+            "attributes": [
+              {"name": "rule_name", "type": "string", "required": true},
+              {"name": "target_vault_name", "type": "string", "required": true},
+              {"name": "schedule", "type": "string"},
+              {"name": "enable_continuous_backup", "type": "bool"},
+              {"name": "start_window", "type": "number"},
+              {"name": "completion_window", "type": "number"},
+              {"name": "recovery_point_tags", "type": "map(string)"}
+            ],
+            "nested_blocks": [
+              {
+                "name": "lifecycle",
+                "attributes": [
+                  {"name": "cold_storage_after", "type": "number"},
+                  {"name": "delete_after", "type": "number"}
+                ]
+              },
+              {
+                "name": "copy_action",
+                "multiple": true,
+                "attributes": [
+                  {"name": "destination_vault_arn", "type": "string", "required": true}
+                ]
+              }
+            ]
+          },
+          {
+            "name": "advanced_backup_setting",
+            "multiple": true,
+            "attributes": [
+              {"name": "backup_options", "type": "map(string)", "required": true},
+              {"name": "resource_type", "type": "string", "required": true}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Plan ID"},
+        {"name": "arn", "type": "string", "description": "Plan ARN"},
+        {"name": "version", "type": "string", "description": "Plan version"}
+      ]
+    },
+    {
+      "id": "backup_selection",
+      "name": "Backup Selection",
+      "description": "Resource selection for backup plan",
+      "terraform_resource": "aws_backup_selection",
+      "icon": "check-square",
+      "inputs": {
+        "required": [
+          {"name": "name", "type": "string", "description": "Selection name"},
+          {"name": "plan_id", "type": "string", "description": "Backup plan ID", "reference": "aws_backup_plan.id"},
+          {"name": "iam_role_arn", "type": "string", "description": "IAM role ARN", "reference": "aws_iam_role.arn"}
+        ],
+        "optional": [
+          {"name": "resources", "type": "list(string)", "description": "Resource ARNs"},
+          {"name": "not_resources", "type": "list(string)", "description": "Excluded resource ARNs"}
+        ],
+        "blocks": [
+          {
+            "name": "selection_tag",
+            "multiple": true,
+            "attributes": [
+              {"name": "type", "type": "string", "required": true, "options": ["STRINGEQUALS"]},
+              {"name": "key", "type": "string", "required": true},
+              {"name": "value", "type": "string", "required": true}
+            ]
+          },
+          {
+            "name": "condition",
+            "multiple": true,
+            "attributes": [
+              {"name": "string_equals", "type": "list(object)"},
+              {"name": "string_like", "type": "list(object)"},
+              {"name": "string_not_equals", "type": "list(object)"},
+              {"name": "string_not_like", "type": "list(object)"}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Selection ID"}
+      ]
+    }
+  ]
+}
+

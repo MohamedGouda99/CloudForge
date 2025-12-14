@@ -329,15 +329,16 @@ terraform {
         """Fallback generator for resources without explicit handlers."""
 
         config = resource.config or {}
+        sanitized_name = self._sanitize_identifier(resource.resource_name)
 
         if not config:
             return (
-                f'# {resource.resource_type}.{resource.resource_name} is defined without configuration.\n'
+                f'# {resource.resource_type}.{sanitized_name} is defined without configuration.\n'
                 f'# Add properties in the designer to generate Terraform for this resource.\n'
-                f'resource "{resource.resource_type}" "{resource.resource_name}" {{\n}}\n'
+                f'resource "{resource.resource_type}" "{sanitized_name}" {{\n}}\n'
             )
 
-        lines = [f'resource "{resource.resource_type}" "{resource.resource_name}" {{']
+        lines = [f'resource "{resource.resource_type}" "{sanitized_name}" {{']
 
         for key, value in config.items():
             formatted_value = self._format_hcl_value(value, indent_level=2)
@@ -368,9 +369,16 @@ terraform {
             return str(value)
         if isinstance(value, str):
             stripped = value.strip()
+            # BRAINBOARD-STYLE: Handle Terraform interpolation syntax
             if stripped.startswith("${") and stripped.endswith("}"):
                 return stripped[2:-1]
-            if stripped.startswith("data.") or stripped.startswith("var.") or stripped.startswith("local."):
+            # BRAINBOARD-STYLE: Handle Terraform references (data sources, variables, locals, resources)
+            if (stripped.startswith("data.") or
+                stripped.startswith("var.") or
+                stripped.startswith("local.") or
+                stripped.startswith("aws_") or  # AWS resource references
+                stripped.startswith("azurerm_") or  # Azure resource references
+                stripped.startswith("google_")):  # GCP resource references
                 return stripped
             escaped = value.replace('"', '\\"')
             return f'"{escaped}"'
@@ -443,18 +451,39 @@ terraform {
 
     def _generate_aws_instance(self, resource: Resource, context: Dict[str, Any]) -> str:
         config = resource.config or {}
+        sanitized_name = self._sanitize_identifier(resource.resource_name)
 
-        lines = [f'resource "aws_instance" "{resource.resource_name}" {{']
+        lines = [f'resource "aws_instance" "{sanitized_name}" {{']
 
-        ami_value = config.get("ami", "ami-0c55b159cbfafe1f0")
+        # BRAINBOARD-STYLE: Use actual user config, only fall back to defaults if truly empty
+        ami_value = config.get("ami") or config.get("ami_id")
+        if not ami_value:
+            # Only use default as last resort
+            ami_value = "ami-0c55b159cbfafe1f0"
         lines.append(f"  ami           = {self._format_hcl_value(ami_value)}")
 
-        instance_type = config.get("instance_type", "t2.micro")
+        instance_type = config.get("instance_type")
+        if not instance_type:
+            # Only use default as last resort
+            instance_type = "t2.micro"
         lines.append(f"  instance_type = {self._format_hcl_value(instance_type)}")
 
-        # Enforce explicit subnet to avoid default VPC usage
-        subnet_id = config.get("subnet_id") or "var.subnet_id"
+        # BRAINBOARD-STYLE: Use auto-wired subnet_id from edges, or explicit config, or fallback
+        subnet_id = config.get("subnet_id")
+        if not subnet_id:
+            # Check if it's a Terraform reference (from auto-wiring)
+            subnet_id = "var.subnet_id"
         lines.append(f"  subnet_id     = {self._format_hcl_value(subnet_id)}")
+
+        # BRAINBOARD-STYLE: Handle security groups (can be auto-wired from edges)
+        vpc_security_group_ids = config.get("vpc_security_group_ids")
+        if vpc_security_group_ids:
+            if isinstance(vpc_security_group_ids, list):
+                # Format as Terraform list
+                formatted_sgs = "[" + ", ".join(self._format_hcl_value(sg) for sg in vpc_security_group_ids) + "]"
+                lines.append(f"  vpc_security_group_ids = {formatted_sgs}")
+            else:
+                lines.append(f"  vpc_security_group_ids = {self._format_hcl_value(vpc_security_group_ids)}")
 
         key_name = config.get("key_name")
         if key_name:
@@ -472,8 +501,12 @@ terraform {
         lines.append('    http_tokens = "required"')
         lines.append("  }")
 
-        # Enable detailed monitoring by default
-        lines.append("  monitoring = true")
+        # Enable detailed monitoring by default (can be overridden)
+        monitoring = config.get("monitoring", True)
+        if isinstance(monitoring, bool):
+            lines.append(f"  monitoring = {str(monitoring).lower()}")
+        else:
+            lines.append(f"  monitoring = {self._format_hcl_value(monitoring)}")
 
         if "associate_public_ip_address" in config:
             lines.append(
@@ -491,9 +524,17 @@ terraform {
             lines.append(config["user_data"])
             lines.append("EOT")
 
+        # BRAINBOARD-STYLE: Include user-defined tags
+        tags = config.get("tags", {})
+        if not isinstance(tags, dict):
+            tags = {}
+
         lines.append("")
         lines.append("  tags = {")
         lines.append(f'    Name = "{resource.resource_name}"')
+        for key, value in tags.items():
+            if key != "Name":  # Avoid duplicate Name tag
+                lines.append(f'    {key} = "{value}"')
         lines.append("  }")
         lines.append("}")
 
@@ -501,8 +542,9 @@ terraform {
 
     def _generate_aws_vpc(self, resource: Resource, _context: Dict[str, Any]) -> str:
         config = resource.config or {}
+        sanitized_name = self._sanitize_identifier(resource.resource_name)
         return f"""
-resource "aws_vpc" "{resource.resource_name}" {{
+resource "aws_vpc" "{sanitized_name}" {{
   cidr_block           = "{config.get('cidr_block', '10.0.0.0/16')}"
   enable_dns_hostnames = {str(config.get('enable_dns_hostnames', True)).lower()}
   enable_dns_support   = {str(config.get('enable_dns_support', True)).lower()}
@@ -515,8 +557,9 @@ resource "aws_vpc" "{resource.resource_name}" {{
 
     def _generate_aws_subnet(self, resource: Resource, context: Dict[str, Any]) -> str:
         config = resource.config or {}
+        sanitized_name = self._sanitize_identifier(resource.resource_name)
 
-        lines = [f'resource "aws_subnet" "{resource.resource_name}" {{']
+        lines = [f'resource "aws_subnet" "{sanitized_name}" {{']
         vpc_id = config.get('vpc_id')
         if not vpc_id:
             # Enforce explicit VPC wiring to avoid default VPC usage
@@ -607,12 +650,13 @@ resource "aws_db_instance" "{resource.resource_name}" {{
 
     def _generate_aws_lambda(self, resource: Resource, _context: Dict[str, Any]) -> str:
         config = resource.config or {}
-        zip_filename = config.get('filename', f'{resource.resource_name}.zip')
+        sanitized_name = self._sanitize_identifier(resource.resource_name)
+        zip_filename = config.get('filename', f'{sanitized_name}.zip')
 
         # Generate archive data source for the Lambda function code
         archive_data_source = f"""
 # Create a placeholder Lambda function code archive
-data "archive_file" "{resource.resource_name}_code" {{
+data "archive_file" "{sanitized_name}_code" {{
   type        = "zip"
   output_path = "${{path.module}}/{zip_filename}"
 
@@ -629,21 +673,73 @@ EOT
 }}
 """
 
-        return archive_data_source + f"""
-resource "aws_lambda_function" "{resource.resource_name}" {{
-  function_name = "{config.get('function_name', resource.resource_name)}"
-  runtime       = "{config.get('runtime', 'python3.11')}"
-  handler       = "{config.get('handler', 'lambda_function.lambda_handler')}"
-  role          = "{config.get('role_arn', 'arn:aws:iam::123456789012:role/lambda_execution_role')}"
+        lines = [f'resource "aws_lambda_function" "{sanitized_name}" {{']
 
-  filename         = data.archive_file.{resource.resource_name}_code.output_path
-  source_code_hash = data.archive_file.{resource.resource_name}_code.output_base64sha256
+        # BRAINBOARD-STYLE: Use actual config values
+        function_name = config.get('function_name') or resource.resource_name
+        lines.append(f'  function_name = "{function_name}"')
 
-  tags = {{
-    Name = "{resource.resource_name}"
-  }}
-}}
-"""
+        runtime = config.get('runtime') or 'python3.11'
+        lines.append(f'  runtime       = "{runtime}"')
+
+        handler = config.get('handler') or 'lambda_function.lambda_handler'
+        lines.append(f'  handler       = "{handler}"')
+
+        role = config.get('role') or config.get('role_arn') or 'arn:aws:iam::123456789012:role/lambda_execution_role'
+        lines.append(f'  role          = {self._format_hcl_value(role)}')
+
+        lines.append(f"  filename         = data.archive_file.{sanitized_name}_code.output_path")
+        lines.append(f"  source_code_hash = data.archive_file.{sanitized_name}_code.output_base64sha256")
+
+        # BRAINBOARD-STYLE: Handle VPC config (auto-wired from edges)
+        vpc_config = config.get('vpc_config')
+        if vpc_config and isinstance(vpc_config, dict):
+            subnet_ids = vpc_config.get('subnet_ids', [])
+            security_group_ids = vpc_config.get('security_group_ids', [])
+            if subnet_ids or security_group_ids:
+                lines.append("  vpc_config {")
+                if subnet_ids:
+                    formatted_subnets = "[" + ", ".join(self._format_hcl_value(s) for s in subnet_ids) + "]"
+                    lines.append(f"    subnet_ids         = {formatted_subnets}")
+                if security_group_ids:
+                    formatted_sgs = "[" + ", ".join(self._format_hcl_value(sg) for sg in security_group_ids) + "]"
+                    lines.append(f"    security_group_ids = {formatted_sgs}")
+                lines.append("  }")
+
+        # Memory and timeout from config
+        memory_size = config.get('memory_size')
+        if memory_size:
+            lines.append(f"  memory_size = {memory_size}")
+
+        timeout = config.get('timeout')
+        if timeout:
+            lines.append(f"  timeout = {timeout}")
+
+        # Environment variables
+        environment = config.get('environment')
+        if environment and isinstance(environment, dict) and environment:
+            lines.append("  environment {")
+            lines.append("    variables = {")
+            for key, val in environment.items():
+                lines.append(f'      {key} = "{val}"')
+            lines.append("    }")
+            lines.append("  }")
+
+        # BRAINBOARD-STYLE: Include user-defined tags
+        tags = config.get("tags", {})
+        if not isinstance(tags, dict):
+            tags = {}
+
+        lines.append("")
+        lines.append("  tags = {")
+        lines.append(f'    Name = "{resource.resource_name}"')
+        for key, value in tags.items():
+            if key != "Name":
+                lines.append(f'    {key} = "{value}"')
+        lines.append("  }")
+        lines.append("}")
+
+        return archive_data_source + "\n".join(lines)
 
     def _generate_aws_nat_gateway(self, resource: Resource, _context: Dict[str, Any]) -> str:
         config = resource.config or {}
@@ -962,40 +1058,43 @@ variable "gcp_subnetwork_self_link" {
         names: List[str] = []
 
         for resource in resources:
+            # Sanitize resource name for use in output identifiers
+            sanitized_name = self._sanitize_identifier(resource.resource_name)
+
             if resource.resource_type in ["aws_instance", "gcp_compute_instance", "azure_virtual_machine"]:
-                output_name = f"{resource.resource_name}_id"
+                output_name = f"{sanitized_name}_id"
                 names.append(output_name)
                 outputs.append(f"""
 output "{output_name}" {{
   description = "ID of {resource.resource_name}"
-  value       = {resource.resource_type}.{resource.resource_name}.id
+  value       = {resource.resource_type}.{sanitized_name}.id
 }}
 """)
             if resource.resource_type in ["aws_vpc", "gcp_compute_network", "azure_virtual_network"]:
-                output_name = f"{resource.resource_name}_network_id"
+                output_name = f"{sanitized_name}_network_id"
                 names.append(output_name)
                 outputs.append(f"""
 output "{output_name}" {{
   description = "Identifier for {resource.resource_name} network"
-  value       = {resource.resource_type}.{resource.resource_name}.id
+  value       = {resource.resource_type}.{sanitized_name}.id
 }}
 """)
             if resource.resource_type in ["aws_subnet"]:
-                output_name = f"{resource.resource_name}_subnet_id"
+                output_name = f"{sanitized_name}_subnet_id"
                 names.append(output_name)
                 outputs.append(f"""
 output "{output_name}" {{
   description = "Subnet ID for {resource.resource_name}"
-  value       = {resource.resource_type}.{resource.resource_name}.id
+  value       = {resource.resource_type}.{sanitized_name}.id
 }}
 """)
             if resource.resource_type in ["aws_s3_bucket", "gcp_storage_bucket", "azure_storage_account"]:
-                output_name = f"{resource.resource_name}_bucket_name"
+                output_name = f"{sanitized_name}_bucket_name"
                 names.append(output_name)
                 outputs.append(f"""
 output "{output_name}" {{
   description = "Storage identifier for {resource.resource_name}"
-  value       = {resource.resource_type}.{resource.resource_name}.id
+  value       = {resource.resource_type}.{sanitized_name}.id
 }}
 """)
 

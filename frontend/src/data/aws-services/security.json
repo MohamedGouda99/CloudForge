@@ -1,0 +1,1000 @@
+{
+  "category": "security",
+  "services": [
+    {
+      "id": "iam_user",
+      "name": "IAM User",
+      "description": "Identity and Access Management user",
+      "terraform_resource": "aws_iam_user",
+      "icon": "user",
+      "inputs": {
+        "required": [
+          {"name": "name", "type": "string", "description": "User name"}
+        ],
+        "optional": [
+          {"name": "path", "type": "string", "description": "Path for the user", "default": "/"},
+          {"name": "permissions_boundary", "type": "string", "description": "Permissions boundary ARN"},
+          {"name": "force_destroy", "type": "bool", "description": "Force destroy"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "User ID"},
+        {"name": "arn", "type": "string", "description": "User ARN"},
+        {"name": "name", "type": "string", "description": "User name"},
+        {"name": "unique_id", "type": "string", "description": "Unique ID"}
+      ]
+    },
+    {
+      "id": "iam_group",
+      "name": "IAM Group",
+      "description": "IAM group for users",
+      "terraform_resource": "aws_iam_group",
+      "icon": "users",
+      "inputs": {
+        "required": [
+          {"name": "name", "type": "string", "description": "Group name"}
+        ],
+        "optional": [
+          {"name": "path", "type": "string", "description": "Path for the group", "default": "/"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Group ID"},
+        {"name": "arn", "type": "string", "description": "Group ARN"},
+        {"name": "name", "type": "string", "description": "Group name"},
+        {"name": "unique_id", "type": "string", "description": "Unique ID"}
+      ]
+    },
+    {
+      "id": "iam_role",
+      "name": "IAM Role",
+      "description": "IAM role for AWS services",
+      "terraform_resource": "aws_iam_role",
+      "icon": "key",
+      "inputs": {
+        "required": [
+          {"name": "assume_role_policy", "type": "string", "description": "Assume role policy document JSON"}
+        ],
+        "optional": [
+          {"name": "name", "type": "string", "description": "Role name"},
+          {"name": "name_prefix", "type": "string", "description": "Role name prefix"},
+          {"name": "path", "type": "string", "description": "Path for the role", "default": "/"},
+          {"name": "description", "type": "string", "description": "Role description"},
+          {"name": "max_session_duration", "type": "number", "description": "Maximum session duration in seconds"},
+          {"name": "permissions_boundary", "type": "string", "description": "Permissions boundary ARN"},
+          {"name": "force_detach_policies", "type": "bool", "description": "Force detach policies"},
+          {"name": "managed_policy_arns", "type": "list(string)", "description": "Managed policy ARNs"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "inline_policy",
+            "multiple": true,
+            "attributes": [
+              {"name": "name", "type": "string"},
+              {"name": "policy", "type": "string"}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Role ID"},
+        {"name": "arn", "type": "string", "description": "Role ARN"},
+        {"name": "name", "type": "string", "description": "Role name"},
+        {"name": "unique_id", "type": "string", "description": "Unique ID"},
+        {"name": "create_date", "type": "string", "description": "Creation date"}
+      ]
+    },
+    {
+      "id": "iam_policy",
+      "name": "IAM Policy",
+      "description": "IAM managed policy",
+      "terraform_resource": "aws_iam_policy",
+      "icon": "file-text",
+      "inputs": {
+        "required": [
+          {"name": "policy", "type": "string", "description": "Policy document JSON"}
+        ],
+        "optional": [
+          {"name": "name", "type": "string", "description": "Policy name"},
+          {"name": "name_prefix", "type": "string", "description": "Policy name prefix"},
+          {"name": "path", "type": "string", "description": "Path for the policy", "default": "/"},
+          {"name": "description", "type": "string", "description": "Policy description"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Policy ID"},
+        {"name": "arn", "type": "string", "description": "Policy ARN"},
+        {"name": "name", "type": "string", "description": "Policy name"},
+        {"name": "policy_id", "type": "string", "description": "Policy ID"},
+        {"name": "attachment_count", "type": "number", "description": "Attachment count"}
+      ]
+    },
+    {
+      "id": "iam_role_policy_attachment",
+      "name": "IAM Role Policy Attachment",
+      "description": "Attach policy to IAM role",
+      "terraform_resource": "aws_iam_role_policy_attachment",
+      "icon": "link",
+      "inputs": {
+        "required": [
+          {"name": "role", "type": "string", "description": "Role name", "reference": "aws_iam_role.name"},
+          {"name": "policy_arn", "type": "string", "description": "Policy ARN", "reference": "aws_iam_policy.arn"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Attachment ID"}
+      ]
+    },
+    {
+      "id": "iam_user_policy_attachment",
+      "name": "IAM User Policy Attachment",
+      "description": "Attach policy to IAM user",
+      "terraform_resource": "aws_iam_user_policy_attachment",
+      "icon": "link",
+      "inputs": {
+        "required": [
+          {"name": "user", "type": "string", "description": "User name", "reference": "aws_iam_user.name"},
+          {"name": "policy_arn", "type": "string", "description": "Policy ARN", "reference": "aws_iam_policy.arn"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Attachment ID"}
+      ]
+    },
+    {
+      "id": "iam_group_policy_attachment",
+      "name": "IAM Group Policy Attachment",
+      "description": "Attach policy to IAM group",
+      "terraform_resource": "aws_iam_group_policy_attachment",
+      "icon": "link",
+      "inputs": {
+        "required": [
+          {"name": "group", "type": "string", "description": "Group name", "reference": "aws_iam_group.name"},
+          {"name": "policy_arn", "type": "string", "description": "Policy ARN", "reference": "aws_iam_policy.arn"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Attachment ID"}
+      ]
+    },
+    {
+      "id": "iam_instance_profile",
+      "name": "IAM Instance Profile",
+      "description": "Instance profile for EC2",
+      "terraform_resource": "aws_iam_instance_profile",
+      "icon": "server",
+      "inputs": {
+        "required": [],
+        "optional": [
+          {"name": "name", "type": "string", "description": "Profile name"},
+          {"name": "name_prefix", "type": "string", "description": "Profile name prefix"},
+          {"name": "path", "type": "string", "description": "Path for the profile", "default": "/"},
+          {"name": "role", "type": "string", "description": "Role name", "reference": "aws_iam_role.name"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Profile ID"},
+        {"name": "arn", "type": "string", "description": "Profile ARN"},
+        {"name": "name", "type": "string", "description": "Profile name"},
+        {"name": "unique_id", "type": "string", "description": "Unique ID"},
+        {"name": "create_date", "type": "string", "description": "Creation date"}
+      ]
+    },
+    {
+      "id": "iam_access_key",
+      "name": "IAM Access Key",
+      "description": "Access key for IAM user",
+      "terraform_resource": "aws_iam_access_key",
+      "icon": "key",
+      "inputs": {
+        "required": [
+          {"name": "user", "type": "string", "description": "IAM user name", "reference": "aws_iam_user.name"}
+        ],
+        "optional": [
+          {"name": "pgp_key", "type": "string", "description": "PGP key for encryption"},
+          {"name": "status", "type": "string", "description": "Access key status", "options": ["Active", "Inactive"]}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Access key ID"},
+        {"name": "secret", "type": "string", "description": "Secret access key", "sensitive": true},
+        {"name": "encrypted_secret", "type": "string", "description": "Encrypted secret"},
+        {"name": "encrypted_ses_smtp_password_v4", "type": "string", "description": "Encrypted SES SMTP password"},
+        {"name": "key_fingerprint", "type": "string", "description": "Key fingerprint"},
+        {"name": "ses_smtp_password_v4", "type": "string", "description": "SES SMTP password", "sensitive": true},
+        {"name": "create_date", "type": "string", "description": "Creation date"}
+      ]
+    },
+    {
+      "id": "iam_openid_connect_provider",
+      "name": "IAM OIDC Provider",
+      "description": "OpenID Connect identity provider",
+      "terraform_resource": "aws_iam_openid_connect_provider",
+      "icon": "log-in",
+      "inputs": {
+        "required": [
+          {"name": "client_id_list", "type": "list(string)", "description": "Client ID list"},
+          {"name": "thumbprint_list", "type": "list(string)", "description": "Thumbprint list"},
+          {"name": "url", "type": "string", "description": "OIDC provider URL"}
+        ],
+        "optional": [
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Provider ID"},
+        {"name": "arn", "type": "string", "description": "Provider ARN"}
+      ]
+    },
+    {
+      "id": "iam_saml_provider",
+      "name": "IAM SAML Provider",
+      "description": "SAML identity provider",
+      "terraform_resource": "aws_iam_saml_provider",
+      "icon": "shield",
+      "inputs": {
+        "required": [
+          {"name": "name", "type": "string", "description": "Provider name"},
+          {"name": "saml_metadata_document", "type": "string", "description": "SAML metadata document"}
+        ],
+        "optional": [
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Provider ID"},
+        {"name": "arn", "type": "string", "description": "Provider ARN"},
+        {"name": "valid_until", "type": "string", "description": "Valid until date"}
+      ]
+    },
+    {
+      "id": "cognito_user_pool",
+      "name": "Cognito User Pool",
+      "description": "User directory for authentication",
+      "terraform_resource": "aws_cognito_user_pool",
+      "icon": "users",
+      "inputs": {
+        "required": [
+          {"name": "name", "type": "string", "description": "User pool name"}
+        ],
+        "optional": [
+          {"name": "alias_attributes", "type": "list(string)", "description": "Alias attributes", "options": ["phone_number", "email", "preferred_username"]},
+          {"name": "auto_verified_attributes", "type": "list(string)", "description": "Auto-verified attributes", "options": ["email", "phone_number"]},
+          {"name": "deletion_protection", "type": "string", "description": "Deletion protection", "options": ["ACTIVE", "INACTIVE"]},
+          {"name": "email_verification_message", "type": "string", "description": "Email verification message"},
+          {"name": "email_verification_subject", "type": "string", "description": "Email verification subject"},
+          {"name": "mfa_configuration", "type": "string", "description": "MFA configuration", "options": ["OFF", "ON", "OPTIONAL"]},
+          {"name": "sms_authentication_message", "type": "string", "description": "SMS authentication message"},
+          {"name": "sms_verification_message", "type": "string", "description": "SMS verification message"},
+          {"name": "username_attributes", "type": "list(string)", "description": "Username attributes"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "account_recovery_setting",
+            "nested_blocks": [
+              {
+                "name": "recovery_mechanism",
+                "multiple": true,
+                "attributes": [
+                  {"name": "name", "type": "string", "required": true},
+                  {"name": "priority", "type": "number", "required": true}
+                ]
+              }
+            ]
+          },
+          {
+            "name": "admin_create_user_config",
+            "attributes": [
+              {"name": "allow_admin_create_user_only", "type": "bool"}
+            ],
+            "nested_blocks": [
+              {
+                "name": "invite_message_template",
+                "attributes": [
+                  {"name": "email_message", "type": "string"},
+                  {"name": "email_subject", "type": "string"},
+                  {"name": "sms_message", "type": "string"}
+                ]
+              }
+            ]
+          },
+          {
+            "name": "device_configuration",
+            "attributes": [
+              {"name": "challenge_required_on_new_device", "type": "bool"},
+              {"name": "device_only_remembered_on_user_prompt", "type": "bool"}
+            ]
+          },
+          {
+            "name": "email_configuration",
+            "attributes": [
+              {"name": "configuration_set", "type": "string"},
+              {"name": "email_sending_account", "type": "string"},
+              {"name": "from_email_address", "type": "string"},
+              {"name": "reply_to_email_address", "type": "string"},
+              {"name": "source_arn", "type": "string"}
+            ]
+          },
+          {
+            "name": "lambda_config",
+            "attributes": [
+              {"name": "create_auth_challenge", "type": "string"},
+              {"name": "custom_message", "type": "string"},
+              {"name": "define_auth_challenge", "type": "string"},
+              {"name": "post_authentication", "type": "string"},
+              {"name": "post_confirmation", "type": "string"},
+              {"name": "pre_authentication", "type": "string"},
+              {"name": "pre_sign_up", "type": "string"},
+              {"name": "pre_token_generation", "type": "string"},
+              {"name": "user_migration", "type": "string"},
+              {"name": "verify_auth_challenge_response", "type": "string"},
+              {"name": "kms_key_id", "type": "string"}
+            ]
+          },
+          {
+            "name": "password_policy",
+            "attributes": [
+              {"name": "minimum_length", "type": "number"},
+              {"name": "require_lowercase", "type": "bool"},
+              {"name": "require_numbers", "type": "bool"},
+              {"name": "require_symbols", "type": "bool"},
+              {"name": "require_uppercase", "type": "bool"},
+              {"name": "temporary_password_validity_days", "type": "number"}
+            ]
+          },
+          {
+            "name": "schema",
+            "multiple": true,
+            "attributes": [
+              {"name": "attribute_data_type", "type": "string", "required": true, "options": ["Boolean", "DateTime", "Number", "String"]},
+              {"name": "name", "type": "string", "required": true},
+              {"name": "developer_only_attribute", "type": "bool"},
+              {"name": "mutable", "type": "bool"},
+              {"name": "required", "type": "bool"}
+            ],
+            "nested_blocks": [
+              {
+                "name": "number_attribute_constraints",
+                "attributes": [
+                  {"name": "max_value", "type": "string"},
+                  {"name": "min_value", "type": "string"}
+                ]
+              },
+              {
+                "name": "string_attribute_constraints",
+                "attributes": [
+                  {"name": "max_length", "type": "string"},
+                  {"name": "min_length", "type": "string"}
+                ]
+              }
+            ]
+          },
+          {
+            "name": "sms_configuration",
+            "attributes": [
+              {"name": "external_id", "type": "string", "required": true},
+              {"name": "sns_caller_arn", "type": "string", "required": true},
+              {"name": "sns_region", "type": "string"}
+            ]
+          },
+          {
+            "name": "software_token_mfa_configuration",
+            "attributes": [
+              {"name": "enabled", "type": "bool", "required": true}
+            ]
+          },
+          {
+            "name": "user_attribute_update_settings",
+            "attributes": [
+              {"name": "attributes_require_verification_before_update", "type": "list(string)", "required": true}
+            ]
+          },
+          {
+            "name": "user_pool_add_ons",
+            "attributes": [
+              {"name": "advanced_security_mode", "type": "string", "required": true, "options": ["OFF", "AUDIT", "ENFORCED"]}
+            ]
+          },
+          {
+            "name": "username_configuration",
+            "attributes": [
+              {"name": "case_sensitive", "type": "bool", "required": true}
+            ]
+          },
+          {
+            "name": "verification_message_template",
+            "attributes": [
+              {"name": "default_email_option", "type": "string"},
+              {"name": "email_message", "type": "string"},
+              {"name": "email_message_by_link", "type": "string"},
+              {"name": "email_subject", "type": "string"},
+              {"name": "email_subject_by_link", "type": "string"},
+              {"name": "sms_message", "type": "string"}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "User pool ID"},
+        {"name": "arn", "type": "string", "description": "User pool ARN"},
+        {"name": "endpoint", "type": "string", "description": "User pool endpoint"},
+        {"name": "domain", "type": "string", "description": "User pool domain"},
+        {"name": "estimated_number_of_users", "type": "number", "description": "Estimated number of users"},
+        {"name": "creation_date", "type": "string", "description": "Creation date"},
+        {"name": "last_modified_date", "type": "string", "description": "Last modified date"}
+      ]
+    },
+    {
+      "id": "cognito_user_pool_client",
+      "name": "Cognito User Pool Client",
+      "description": "App client for user pool",
+      "terraform_resource": "aws_cognito_user_pool_client",
+      "icon": "smartphone",
+      "inputs": {
+        "required": [
+          {"name": "name", "type": "string", "description": "Client name"},
+          {"name": "user_pool_id", "type": "string", "description": "User pool ID", "reference": "aws_cognito_user_pool.id"}
+        ],
+        "optional": [
+          {"name": "access_token_validity", "type": "number", "description": "Access token validity in minutes"},
+          {"name": "allowed_oauth_flows", "type": "list(string)", "description": "Allowed OAuth flows", "options": ["code", "implicit", "client_credentials"]},
+          {"name": "allowed_oauth_flows_user_pool_client", "type": "bool", "description": "Enable OAuth flows"},
+          {"name": "allowed_oauth_scopes", "type": "list(string)", "description": "Allowed OAuth scopes"},
+          {"name": "auth_session_validity", "type": "number", "description": "Auth session validity"},
+          {"name": "callback_urls", "type": "list(string)", "description": "Callback URLs"},
+          {"name": "default_redirect_uri", "type": "string", "description": "Default redirect URI"},
+          {"name": "enable_propagate_additional_user_context_data", "type": "bool", "description": "Enable propagate additional user context data"},
+          {"name": "enable_token_revocation", "type": "bool", "description": "Enable token revocation"},
+          {"name": "explicit_auth_flows", "type": "list(string)", "description": "Explicit auth flows"},
+          {"name": "generate_secret", "type": "bool", "description": "Generate client secret"},
+          {"name": "id_token_validity", "type": "number", "description": "ID token validity in minutes"},
+          {"name": "logout_urls", "type": "list(string)", "description": "Logout URLs"},
+          {"name": "prevent_user_existence_errors", "type": "string", "description": "Prevent user existence errors", "options": ["ENABLED", "LEGACY"]},
+          {"name": "read_attributes", "type": "list(string)", "description": "Read attributes"},
+          {"name": "refresh_token_validity", "type": "number", "description": "Refresh token validity in days"},
+          {"name": "supported_identity_providers", "type": "list(string)", "description": "Supported identity providers"},
+          {"name": "write_attributes", "type": "list(string)", "description": "Write attributes"}
+        ],
+        "blocks": [
+          {
+            "name": "analytics_configuration",
+            "attributes": [
+              {"name": "application_arn", "type": "string"},
+              {"name": "application_id", "type": "string"},
+              {"name": "external_id", "type": "string"},
+              {"name": "role_arn", "type": "string"},
+              {"name": "user_data_shared", "type": "bool"}
+            ]
+          },
+          {
+            "name": "token_validity_units",
+            "attributes": [
+              {"name": "access_token", "type": "string", "options": ["seconds", "minutes", "hours", "days"]},
+              {"name": "id_token", "type": "string", "options": ["seconds", "minutes", "hours", "days"]},
+              {"name": "refresh_token", "type": "string", "options": ["seconds", "minutes", "hours", "days"]}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Client ID"},
+        {"name": "client_secret", "type": "string", "description": "Client secret", "sensitive": true}
+      ]
+    },
+    {
+      "id": "cognito_identity_pool",
+      "name": "Cognito Identity Pool",
+      "description": "Federated identities for AWS access",
+      "terraform_resource": "aws_cognito_identity_pool",
+      "icon": "users",
+      "inputs": {
+        "required": [
+          {"name": "identity_pool_name", "type": "string", "description": "Identity pool name"}
+        ],
+        "optional": [
+          {"name": "allow_unauthenticated_identities", "type": "bool", "description": "Allow unauthenticated identities"},
+          {"name": "allow_classic_flow", "type": "bool", "description": "Allow classic flow"},
+          {"name": "developer_provider_name", "type": "string", "description": "Developer provider name"},
+          {"name": "openid_connect_provider_arns", "type": "list(string)", "description": "OIDC provider ARNs"},
+          {"name": "saml_provider_arns", "type": "list(string)", "description": "SAML provider ARNs"},
+          {"name": "supported_login_providers", "type": "map(string)", "description": "Supported login providers"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "cognito_identity_providers",
+            "multiple": true,
+            "attributes": [
+              {"name": "client_id", "type": "string"},
+              {"name": "provider_name", "type": "string"},
+              {"name": "server_side_token_check", "type": "bool"}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Identity pool ID"},
+        {"name": "arn", "type": "string", "description": "Identity pool ARN"}
+      ]
+    },
+    {
+      "id": "kms_key",
+      "name": "KMS Key",
+      "description": "Customer managed encryption key",
+      "terraform_resource": "aws_kms_key",
+      "icon": "key",
+      "inputs": {
+        "required": [],
+        "optional": [
+          {"name": "description", "type": "string", "description": "Key description"},
+          {"name": "key_usage", "type": "string", "description": "Key usage", "options": ["ENCRYPT_DECRYPT", "SIGN_VERIFY", "GENERATE_VERIFY_MAC"], "default": "ENCRYPT_DECRYPT"},
+          {"name": "customer_master_key_spec", "type": "string", "description": "Key spec", "options": ["SYMMETRIC_DEFAULT", "RSA_2048", "RSA_3072", "RSA_4096", "ECC_NIST_P256", "ECC_NIST_P384", "ECC_NIST_P521", "ECC_SECG_P256K1", "HMAC_224", "HMAC_256", "HMAC_384", "HMAC_512"]},
+          {"name": "policy", "type": "string", "description": "Key policy JSON"},
+          {"name": "bypass_policy_lockout_safety_check", "type": "bool", "description": "Bypass policy lockout safety check"},
+          {"name": "deletion_window_in_days", "type": "number", "description": "Deletion window in days"},
+          {"name": "enable_key_rotation", "type": "bool", "description": "Enable key rotation"},
+          {"name": "is_enabled", "type": "bool", "description": "Key is enabled", "default": true},
+          {"name": "multi_region", "type": "bool", "description": "Multi-region key"},
+          {"name": "custom_key_store_id", "type": "string", "description": "Custom key store ID"},
+          {"name": "xks_key_id", "type": "string", "description": "External key store key ID"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Key ID"},
+        {"name": "arn", "type": "string", "description": "Key ARN"},
+        {"name": "key_id", "type": "string", "description": "Key ID"}
+      ]
+    },
+    {
+      "id": "kms_alias",
+      "name": "KMS Alias",
+      "description": "Alias for KMS key",
+      "terraform_resource": "aws_kms_alias",
+      "icon": "tag",
+      "inputs": {
+        "required": [
+          {"name": "target_key_id", "type": "string", "description": "Target key ID", "reference": "aws_kms_key.id"}
+        ],
+        "optional": [
+          {"name": "name", "type": "string", "description": "Alias name (must start with alias/)"},
+          {"name": "name_prefix", "type": "string", "description": "Alias name prefix"}
+        ]
+      },
+      "outputs": [
+        {"name": "arn", "type": "string", "description": "Alias ARN"},
+        {"name": "target_key_arn", "type": "string", "description": "Target key ARN"}
+      ]
+    },
+    {
+      "id": "secretsmanager_secret",
+      "name": "Secrets Manager Secret",
+      "description": "Secret for credentials and sensitive data",
+      "terraform_resource": "aws_secretsmanager_secret",
+      "icon": "lock",
+      "inputs": {
+        "required": [],
+        "optional": [
+          {"name": "name", "type": "string", "description": "Secret name"},
+          {"name": "name_prefix", "type": "string", "description": "Secret name prefix"},
+          {"name": "description", "type": "string", "description": "Secret description"},
+          {"name": "kms_key_id", "type": "string", "description": "KMS key ID"},
+          {"name": "policy", "type": "string", "description": "Resource policy JSON"},
+          {"name": "recovery_window_in_days", "type": "number", "description": "Recovery window in days"},
+          {"name": "force_overwrite_replica_secret", "type": "bool", "description": "Force overwrite replica secret"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "replica",
+            "multiple": true,
+            "attributes": [
+              {"name": "region", "type": "string", "required": true},
+              {"name": "kms_key_id", "type": "string"}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Secret ID"},
+        {"name": "arn", "type": "string", "description": "Secret ARN"},
+        {"name": "name", "type": "string", "description": "Secret name"}
+      ]
+    },
+    {
+      "id": "secretsmanager_secret_version",
+      "name": "Secrets Manager Secret Version",
+      "description": "Version of a secret",
+      "terraform_resource": "aws_secretsmanager_secret_version",
+      "icon": "file-text",
+      "inputs": {
+        "required": [
+          {"name": "secret_id", "type": "string", "description": "Secret ID", "reference": "aws_secretsmanager_secret.id"}
+        ],
+        "optional": [
+          {"name": "secret_string", "type": "string", "description": "Secret string value", "sensitive": true},
+          {"name": "secret_binary", "type": "string", "description": "Secret binary value", "sensitive": true},
+          {"name": "version_stages", "type": "list(string)", "description": "Version stages"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Version ID"},
+        {"name": "arn", "type": "string", "description": "Version ARN"},
+        {"name": "version_id", "type": "string", "description": "Version ID"}
+      ]
+    },
+    {
+      "id": "secretsmanager_secret_rotation",
+      "name": "Secrets Manager Rotation",
+      "description": "Automatic secret rotation",
+      "terraform_resource": "aws_secretsmanager_secret_rotation",
+      "icon": "refresh-cw",
+      "inputs": {
+        "required": [
+          {"name": "secret_id", "type": "string", "description": "Secret ID", "reference": "aws_secretsmanager_secret.id"},
+          {"name": "rotation_lambda_arn", "type": "string", "description": "Rotation Lambda ARN", "reference": "aws_lambda_function.arn"}
+        ],
+        "optional": [
+          {"name": "rotate_immediately", "type": "bool", "description": "Rotate immediately"}
+        ],
+        "blocks": [
+          {
+            "name": "rotation_rules",
+            "required": true,
+            "attributes": [
+              {"name": "automatically_after_days", "type": "number"},
+              {"name": "duration", "type": "string"},
+              {"name": "schedule_expression", "type": "string"}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Secret ID"},
+        {"name": "rotation_enabled", "type": "bool", "description": "Rotation enabled"}
+      ]
+    },
+    {
+      "id": "acm_certificate",
+      "name": "ACM Certificate",
+      "description": "SSL/TLS certificate",
+      "terraform_resource": "aws_acm_certificate",
+      "icon": "shield",
+      "inputs": {
+        "required": [],
+        "optional": [
+          {"name": "domain_name", "type": "string", "description": "Domain name"},
+          {"name": "subject_alternative_names", "type": "list(string)", "description": "Subject alternative names"},
+          {"name": "validation_method", "type": "string", "description": "Validation method", "options": ["DNS", "EMAIL", "NONE"]},
+          {"name": "certificate_authority_arn", "type": "string", "description": "Private CA ARN"},
+          {"name": "certificate_body", "type": "string", "description": "Certificate body PEM"},
+          {"name": "certificate_chain", "type": "string", "description": "Certificate chain PEM"},
+          {"name": "private_key", "type": "string", "description": "Private key PEM", "sensitive": true},
+          {"name": "early_renewal_duration", "type": "string", "description": "Early renewal duration"},
+          {"name": "key_algorithm", "type": "string", "description": "Key algorithm", "options": ["RSA_1024", "RSA_2048", "RSA_3072", "RSA_4096", "EC_prime256v1", "EC_secp384r1", "EC_secp521r1"]},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "options",
+            "attributes": [
+              {"name": "certificate_transparency_logging_preference", "type": "string", "options": ["ENABLED", "DISABLED"]}
+            ]
+          },
+          {
+            "name": "validation_option",
+            "multiple": true,
+            "attributes": [
+              {"name": "domain_name", "type": "string", "required": true},
+              {"name": "validation_domain", "type": "string", "required": true}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Certificate ID"},
+        {"name": "arn", "type": "string", "description": "Certificate ARN"},
+        {"name": "domain_name", "type": "string", "description": "Domain name"},
+        {"name": "domain_validation_options", "type": "list(object)", "description": "Domain validation options"},
+        {"name": "not_after", "type": "string", "description": "Not valid after"},
+        {"name": "not_before", "type": "string", "description": "Not valid before"},
+        {"name": "pending_renewal", "type": "bool", "description": "Pending renewal"},
+        {"name": "renewal_eligibility", "type": "string", "description": "Renewal eligibility"},
+        {"name": "renewal_summary", "type": "list(object)", "description": "Renewal summary"},
+        {"name": "status", "type": "string", "description": "Certificate status"},
+        {"name": "type", "type": "string", "description": "Certificate type"},
+        {"name": "validation_emails", "type": "list(string)", "description": "Validation emails"}
+      ]
+    },
+    {
+      "id": "acm_certificate_validation",
+      "name": "ACM Certificate Validation",
+      "description": "Validate ACM certificate",
+      "terraform_resource": "aws_acm_certificate_validation",
+      "icon": "check-circle",
+      "inputs": {
+        "required": [
+          {"name": "certificate_arn", "type": "string", "description": "Certificate ARN", "reference": "aws_acm_certificate.arn"}
+        ],
+        "optional": [
+          {"name": "validation_record_fqdns", "type": "list(string)", "description": "Validation record FQDNs"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Certificate ARN"},
+        {"name": "certificate_arn", "type": "string", "description": "Certificate ARN"}
+      ]
+    },
+    {
+      "id": "wafv2_web_acl",
+      "name": "WAFv2 Web ACL",
+      "description": "Web Application Firewall access control list",
+      "terraform_resource": "aws_wafv2_web_acl",
+      "icon": "shield",
+      "inputs": {
+        "required": [
+          {"name": "name", "type": "string", "description": "Web ACL name"},
+          {"name": "scope", "type": "string", "description": "Scope", "options": ["CLOUDFRONT", "REGIONAL"]}
+        ],
+        "optional": [
+          {"name": "description", "type": "string", "description": "Web ACL description"},
+          {"name": "custom_response_body", "type": "list(object)", "description": "Custom response bodies"},
+          {"name": "token_domains", "type": "list(string)", "description": "Token domains"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "default_action",
+            "required": true,
+            "nested_blocks": [
+              {
+                "name": "allow",
+                "attributes": []
+              },
+              {
+                "name": "block",
+                "attributes": []
+              }
+            ]
+          },
+          {
+            "name": "rule",
+            "multiple": true,
+            "attributes": [
+              {"name": "name", "type": "string", "required": true},
+              {"name": "priority", "type": "number", "required": true}
+            ],
+            "nested_blocks": [
+              {
+                "name": "action",
+                "nested_blocks": [
+                  {"name": "allow", "attributes": []},
+                  {"name": "block", "attributes": []},
+                  {"name": "count", "attributes": []},
+                  {"name": "captcha", "attributes": []},
+                  {"name": "challenge", "attributes": []}
+                ]
+              },
+              {
+                "name": "override_action",
+                "nested_blocks": [
+                  {"name": "count", "attributes": []},
+                  {"name": "none", "attributes": []}
+                ]
+              },
+              {
+                "name": "statement",
+                "nested_blocks": [
+                  {
+                    "name": "managed_rule_group_statement",
+                    "attributes": [
+                      {"name": "name", "type": "string", "required": true},
+                      {"name": "vendor_name", "type": "string", "required": true},
+                      {"name": "version", "type": "string"}
+                    ]
+                  },
+                  {
+                    "name": "rate_based_statement",
+                    "attributes": [
+                      {"name": "limit", "type": "number", "required": true},
+                      {"name": "aggregate_key_type", "type": "string"}
+                    ]
+                  },
+                  {
+                    "name": "ip_set_reference_statement",
+                    "attributes": [
+                      {"name": "arn", "type": "string", "required": true}
+                    ]
+                  },
+                  {
+                    "name": "geo_match_statement",
+                    "attributes": [
+                      {"name": "country_codes", "type": "list(string)", "required": true}
+                    ]
+                  },
+                  {
+                    "name": "rule_group_reference_statement",
+                    "attributes": [
+                      {"name": "arn", "type": "string", "required": true}
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "visibility_config",
+                "required": true,
+                "attributes": [
+                  {"name": "cloudwatch_metrics_enabled", "type": "bool", "required": true},
+                  {"name": "metric_name", "type": "string", "required": true},
+                  {"name": "sampled_requests_enabled", "type": "bool", "required": true}
+                ]
+              }
+            ]
+          },
+          {
+            "name": "visibility_config",
+            "required": true,
+            "attributes": [
+              {"name": "cloudwatch_metrics_enabled", "type": "bool", "required": true},
+              {"name": "metric_name", "type": "string", "required": true},
+              {"name": "sampled_requests_enabled", "type": "bool", "required": true}
+            ]
+          },
+          {
+            "name": "captcha_config",
+            "nested_blocks": [
+              {
+                "name": "immunity_time_property",
+                "attributes": [
+                  {"name": "immunity_time", "type": "number"}
+                ]
+              }
+            ]
+          },
+          {
+            "name": "challenge_config",
+            "nested_blocks": [
+              {
+                "name": "immunity_time_property",
+                "attributes": [
+                  {"name": "immunity_time", "type": "number"}
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Web ACL ID"},
+        {"name": "arn", "type": "string", "description": "Web ACL ARN"},
+        {"name": "capacity", "type": "number", "description": "Web ACL capacity"},
+        {"name": "lock_token", "type": "string", "description": "Lock token"}
+      ]
+    },
+    {
+      "id": "wafv2_ip_set",
+      "name": "WAFv2 IP Set",
+      "description": "IP address set for WAF rules",
+      "terraform_resource": "aws_wafv2_ip_set",
+      "icon": "list",
+      "inputs": {
+        "required": [
+          {"name": "name", "type": "string", "description": "IP set name"},
+          {"name": "scope", "type": "string", "description": "Scope", "options": ["CLOUDFRONT", "REGIONAL"]},
+          {"name": "ip_address_version", "type": "string", "description": "IP version", "options": ["IPV4", "IPV6"]}
+        ],
+        "optional": [
+          {"name": "description", "type": "string", "description": "IP set description"},
+          {"name": "addresses", "type": "list(string)", "description": "IP addresses in CIDR notation"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "IP set ID"},
+        {"name": "arn", "type": "string", "description": "IP set ARN"},
+        {"name": "lock_token", "type": "string", "description": "Lock token"}
+      ]
+    },
+    {
+      "id": "guardduty_detector",
+      "name": "GuardDuty Detector",
+      "description": "Threat detection service",
+      "terraform_resource": "aws_guardduty_detector",
+      "icon": "eye",
+      "inputs": {
+        "required": [],
+        "optional": [
+          {"name": "enable", "type": "bool", "description": "Enable GuardDuty", "default": true},
+          {"name": "finding_publishing_frequency", "type": "string", "description": "Finding publishing frequency", "options": ["FIFTEEN_MINUTES", "ONE_HOUR", "SIX_HOURS"]},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "datasources",
+            "nested_blocks": [
+              {
+                "name": "kubernetes",
+                "nested_blocks": [
+                  {
+                    "name": "audit_logs",
+                    "attributes": [
+                      {"name": "enable", "type": "bool", "required": true}
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "malware_protection",
+                "nested_blocks": [
+                  {
+                    "name": "scan_ec2_instance_with_findings",
+                    "nested_blocks": [
+                      {
+                        "name": "ebs_volumes",
+                        "attributes": [
+                          {"name": "enable", "type": "bool", "required": true}
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "s3_logs",
+                "attributes": [
+                  {"name": "enable", "type": "bool", "required": true}
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Detector ID"},
+        {"name": "arn", "type": "string", "description": "Detector ARN"},
+        {"name": "account_id", "type": "string", "description": "AWS account ID"}
+      ]
+    },
+    {
+      "id": "security_hub_account",
+      "name": "Security Hub",
+      "description": "Security posture management",
+      "terraform_resource": "aws_securityhub_account",
+      "icon": "shield",
+      "inputs": {
+        "required": [],
+        "optional": [
+          {"name": "enable_default_standards", "type": "bool", "description": "Enable default standards"},
+          {"name": "control_finding_generator", "type": "string", "description": "Control finding generator", "options": ["SECURITY_CONTROL", "STANDARD_CONTROL"]},
+          {"name": "auto_enable_controls", "type": "bool", "description": "Auto enable controls"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "AWS account ID"},
+        {"name": "arn", "type": "string", "description": "Security Hub ARN"}
+      ]
+    },
+    {
+      "id": "inspector2_enabler",
+      "name": "Inspector",
+      "description": "Vulnerability management service",
+      "terraform_resource": "aws_inspector2_enabler",
+      "icon": "search",
+      "inputs": {
+        "required": [
+          {"name": "account_ids", "type": "list(string)", "description": "Account IDs to enable"},
+          {"name": "resource_types", "type": "list(string)", "description": "Resource types", "options": ["EC2", "ECR", "LAMBDA", "LAMBDA_CODE"]}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "ID"}
+      ]
+    }
+  ]
+}
+

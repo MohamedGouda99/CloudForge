@@ -38,7 +38,7 @@ async def get_icon(provider: str, path: str):
     # Map provider to base folder
     provider_base = {
         'aws': 'AWS',
-        'azure': 'Azure/Azure_Public_Service_Icons/Icons',
+        'azure': 'Azure',
         'gcp': 'GCP'
     }
 
@@ -63,6 +63,13 @@ async def get_icon(provider: str, path: str):
             candidates.append(base_path / folder / path)
 
         # Pick the first existing candidate
+        full_path = next((p for p in candidates if p.exists()), candidates[0])
+    elif provider == 'azure':
+        # Try direct path first, then Azure_Public_Service_Icons/Icons subdirectory
+        candidates = [
+            base_path / path,
+            base_path / 'Azure_Public_Service_Icons' / 'Icons' / path
+        ]
         full_path = next((p for p in candidates if p.exists()), candidates[0])
     else:
         full_path = base_path / path

@@ -19,6 +19,7 @@ import {
   LayoutDashboard,
 } from 'lucide-react';
 import { isIconPath } from '../lib/resources/cloudIconsComplete';
+import { resolveResourceIcon } from '../lib/resources/iconResolver';
 
 interface CloudIconProps {
   icon?: string;
@@ -57,7 +58,16 @@ const getLucideIcon = (token?: string): LucideIcon => {
 export default function CloudIcon({ icon, size = 24, className = '' }: CloudIconProps) {
   const [hasError, setHasError] = useState(false);
 
-  const resolvedIcon = useMemo(() => icon || 'lucide:cloud', [icon]);
+  // Resolve gcp: prefixed icons to actual paths
+  const resolvedIcon = useMemo(() => {
+    if (!icon) return 'lucide:cloud';
+    if (icon.startsWith('gcp:')) {
+      // Extract service name and resolve to GCP category icon path
+      return resolveResourceIcon('', icon);
+    }
+    return icon;
+  }, [icon]);
+  
   const fullSize = Math.max(size, 12);
 
   if (!hasError && resolvedIcon && isIconPath(resolvedIcon)) {

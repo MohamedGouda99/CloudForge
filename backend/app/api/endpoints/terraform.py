@@ -249,6 +249,10 @@ def generate_terraform(
 
     for filename, content in terraform_files.items():
         filepath = os.path.join(project_dir, filename)
+        # Create parent directories if they don't exist
+        parent_dir = os.path.dirname(filepath)
+        if parent_dir and not os.path.exists(parent_dir):
+            os.makedirs(parent_dir, exist_ok=True)
         with open(filepath, 'w') as f:
             f.write(content)
 
