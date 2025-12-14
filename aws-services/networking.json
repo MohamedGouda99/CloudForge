@@ -1,0 +1,1432 @@
+{
+  "category": "networking",
+  "services": [
+    {
+      "id": "vpc",
+      "name": "VPC",
+      "description": "Virtual Private Cloud",
+      "terraform_resource": "aws_vpc",
+      "icon": "cloud",
+      "inputs": {
+        "required": [
+          {"name": "cidr_block", "type": "string", "description": "IPv4 CIDR block", "example": "10.0.0.0/16"}
+        ],
+        "optional": [
+          {"name": "instance_tenancy", "type": "string", "description": "Instance tenancy", "options": ["default", "dedicated"], "default": "default"},
+          {"name": "ipv4_ipam_pool_id", "type": "string", "description": "IPAM pool ID for IPv4"},
+          {"name": "ipv4_netmask_length", "type": "number", "description": "Netmask length for IPv4"},
+          {"name": "ipv6_cidr_block", "type": "string", "description": "IPv6 CIDR block"},
+          {"name": "ipv6_ipam_pool_id", "type": "string", "description": "IPAM pool ID for IPv6"},
+          {"name": "ipv6_netmask_length", "type": "number", "description": "Netmask length for IPv6"},
+          {"name": "ipv6_cidr_block_network_border_group", "type": "string", "description": "Network border group"},
+          {"name": "assign_generated_ipv6_cidr_block", "type": "bool", "description": "Request IPv6 CIDR block"},
+          {"name": "enable_dns_support", "type": "bool", "description": "Enable DNS support", "default": true},
+          {"name": "enable_dns_hostnames", "type": "bool", "description": "Enable DNS hostnames", "default": false},
+          {"name": "enable_network_address_usage_metrics", "type": "bool", "description": "Enable network address usage metrics"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "VPC ID"},
+        {"name": "arn", "type": "string", "description": "VPC ARN"},
+        {"name": "cidr_block", "type": "string", "description": "CIDR block"},
+        {"name": "instance_tenancy", "type": "string", "description": "Instance tenancy"},
+        {"name": "enable_dns_support", "type": "bool", "description": "DNS support enabled"},
+        {"name": "enable_dns_hostnames", "type": "bool", "description": "DNS hostnames enabled"},
+        {"name": "main_route_table_id", "type": "string", "description": "Main route table ID"},
+        {"name": "default_network_acl_id", "type": "string", "description": "Default NACL ID"},
+        {"name": "default_security_group_id", "type": "string", "description": "Default SG ID"},
+        {"name": "default_route_table_id", "type": "string", "description": "Default route table ID"},
+        {"name": "ipv6_association_id", "type": "string", "description": "IPv6 association ID"},
+        {"name": "ipv6_cidr_block_network_border_group", "type": "string", "description": "IPv6 network border group"},
+        {"name": "owner_id", "type": "string", "description": "Owner account ID"}
+      ]
+    },
+    {
+      "id": "subnet",
+      "name": "Subnet",
+      "description": "VPC Subnet",
+      "terraform_resource": "aws_subnet",
+      "icon": "layout",
+      "inputs": {
+        "required": [
+          {"name": "vpc_id", "type": "string", "description": "VPC ID", "reference": "aws_vpc.id"}
+        ],
+        "optional": [
+          {"name": "cidr_block", "type": "string", "description": "IPv4 CIDR block"},
+          {"name": "availability_zone", "type": "string", "description": "Availability zone"},
+          {"name": "availability_zone_id", "type": "string", "description": "Availability zone ID"},
+          {"name": "customer_owned_ipv4_pool", "type": "string", "description": "Customer owned IPv4 pool"},
+          {"name": "enable_dns64", "type": "bool", "description": "Enable DNS64"},
+          {"name": "enable_lni_at_device_index", "type": "number", "description": "Enable LNI at device index"},
+          {"name": "enable_resource_name_dns_aaaa_record_on_launch", "type": "bool", "description": "Enable AAAA DNS record on launch"},
+          {"name": "enable_resource_name_dns_a_record_on_launch", "type": "bool", "description": "Enable A DNS record on launch"},
+          {"name": "ipv6_cidr_block", "type": "string", "description": "IPv6 CIDR block"},
+          {"name": "ipv6_native", "type": "bool", "description": "IPv6 native subnet"},
+          {"name": "map_customer_owned_ip_on_launch", "type": "bool", "description": "Map customer owned IP on launch"},
+          {"name": "map_public_ip_on_launch", "type": "bool", "description": "Map public IP on launch"},
+          {"name": "outpost_arn", "type": "string", "description": "Outpost ARN"},
+          {"name": "private_dns_hostname_type_on_launch", "type": "string", "description": "Private DNS hostname type", "options": ["ip-name", "resource-name"]},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Subnet ID"},
+        {"name": "arn", "type": "string", "description": "Subnet ARN"},
+        {"name": "cidr_block", "type": "string", "description": "CIDR block"},
+        {"name": "availability_zone", "type": "string", "description": "Availability zone"},
+        {"name": "availability_zone_id", "type": "string", "description": "Availability zone ID"},
+        {"name": "ipv6_cidr_block_association_id", "type": "string", "description": "IPv6 association ID"},
+        {"name": "owner_id", "type": "string", "description": "Owner account ID"},
+        {"name": "vpc_id", "type": "string", "description": "VPC ID"}
+      ]
+    },
+    {
+      "id": "internet_gateway",
+      "name": "Internet Gateway",
+      "description": "Gateway for internet access",
+      "terraform_resource": "aws_internet_gateway",
+      "icon": "globe",
+      "inputs": {
+        "required": [],
+        "optional": [
+          {"name": "vpc_id", "type": "string", "description": "VPC ID", "reference": "aws_vpc.id"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "IGW ID"},
+        {"name": "arn", "type": "string", "description": "IGW ARN"},
+        {"name": "owner_id", "type": "string", "description": "Owner account ID"}
+      ]
+    },
+    {
+      "id": "nat_gateway",
+      "name": "NAT Gateway",
+      "description": "Network Address Translation gateway",
+      "terraform_resource": "aws_nat_gateway",
+      "icon": "shuffle",
+      "inputs": {
+        "required": [
+          {"name": "subnet_id", "type": "string", "description": "Subnet ID", "reference": "aws_subnet.id"}
+        ],
+        "optional": [
+          {"name": "allocation_id", "type": "string", "description": "EIP allocation ID", "reference": "aws_eip.allocation_id"},
+          {"name": "connectivity_type", "type": "string", "description": "Connectivity type", "options": ["private", "public"], "default": "public"},
+          {"name": "private_ip", "type": "string", "description": "Private IP address"},
+          {"name": "secondary_allocation_ids", "type": "list(string)", "description": "Secondary EIP allocation IDs"},
+          {"name": "secondary_private_ip_address_count", "type": "number", "description": "Secondary private IP count"},
+          {"name": "secondary_private_ip_addresses", "type": "list(string)", "description": "Secondary private IP addresses"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "NAT Gateway ID"},
+        {"name": "allocation_id", "type": "string", "description": "EIP allocation ID"},
+        {"name": "association_id", "type": "string", "description": "EIP association ID"},
+        {"name": "connectivity_type", "type": "string", "description": "Connectivity type"},
+        {"name": "network_interface_id", "type": "string", "description": "Network interface ID"},
+        {"name": "private_ip", "type": "string", "description": "Private IP address"},
+        {"name": "public_ip", "type": "string", "description": "Public IP address"},
+        {"name": "subnet_id", "type": "string", "description": "Subnet ID"}
+      ]
+    },
+    {
+      "id": "route_table",
+      "name": "Route Table",
+      "description": "VPC route table",
+      "terraform_resource": "aws_route_table",
+      "icon": "git-branch",
+      "inputs": {
+        "required": [
+          {"name": "vpc_id", "type": "string", "description": "VPC ID", "reference": "aws_vpc.id"}
+        ],
+        "optional": [
+          {"name": "propagating_vgws", "type": "list(string)", "description": "VPN gateway IDs for propagation"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "route",
+            "multiple": true,
+            "attributes": [
+              {"name": "cidr_block", "type": "string"},
+              {"name": "ipv6_cidr_block", "type": "string"},
+              {"name": "destination_prefix_list_id", "type": "string"},
+              {"name": "carrier_gateway_id", "type": "string"},
+              {"name": "core_network_arn", "type": "string"},
+              {"name": "egress_only_gateway_id", "type": "string"},
+              {"name": "gateway_id", "type": "string"},
+              {"name": "local_gateway_id", "type": "string"},
+              {"name": "nat_gateway_id", "type": "string"},
+              {"name": "network_interface_id", "type": "string"},
+              {"name": "transit_gateway_id", "type": "string"},
+              {"name": "vpc_endpoint_id", "type": "string"},
+              {"name": "vpc_peering_connection_id", "type": "string"}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Route table ID"},
+        {"name": "arn", "type": "string", "description": "Route table ARN"},
+        {"name": "owner_id", "type": "string", "description": "Owner account ID"},
+        {"name": "vpc_id", "type": "string", "description": "VPC ID"}
+      ]
+    },
+    {
+      "id": "route",
+      "name": "Route",
+      "description": "Route in route table",
+      "terraform_resource": "aws_route",
+      "icon": "arrow-right",
+      "inputs": {
+        "required": [
+          {"name": "route_table_id", "type": "string", "description": "Route table ID", "reference": "aws_route_table.id"}
+        ],
+        "optional": [
+          {"name": "destination_cidr_block", "type": "string", "description": "Destination IPv4 CIDR"},
+          {"name": "destination_ipv6_cidr_block", "type": "string", "description": "Destination IPv6 CIDR"},
+          {"name": "destination_prefix_list_id", "type": "string", "description": "Destination prefix list ID"},
+          {"name": "carrier_gateway_id", "type": "string", "description": "Carrier gateway ID"},
+          {"name": "core_network_arn", "type": "string", "description": "Core network ARN"},
+          {"name": "egress_only_gateway_id", "type": "string", "description": "Egress only IGW ID"},
+          {"name": "gateway_id", "type": "string", "description": "Internet gateway ID", "reference": "aws_internet_gateway.id"},
+          {"name": "local_gateway_id", "type": "string", "description": "Local gateway ID"},
+          {"name": "nat_gateway_id", "type": "string", "description": "NAT gateway ID", "reference": "aws_nat_gateway.id"},
+          {"name": "network_interface_id", "type": "string", "description": "Network interface ID"},
+          {"name": "transit_gateway_id", "type": "string", "description": "Transit gateway ID"},
+          {"name": "vpc_endpoint_id", "type": "string", "description": "VPC endpoint ID"},
+          {"name": "vpc_peering_connection_id", "type": "string", "description": "VPC peering connection ID"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Route ID"},
+        {"name": "instance_id", "type": "string", "description": "Instance ID"},
+        {"name": "instance_owner_id", "type": "string", "description": "Instance owner ID"},
+        {"name": "origin", "type": "string", "description": "Route origin"},
+        {"name": "state", "type": "string", "description": "Route state"}
+      ]
+    },
+    {
+      "id": "route_table_association",
+      "name": "Route Table Association",
+      "description": "Associate route table with subnet",
+      "terraform_resource": "aws_route_table_association",
+      "icon": "link",
+      "inputs": {
+        "required": [
+          {"name": "route_table_id", "type": "string", "description": "Route table ID", "reference": "aws_route_table.id"}
+        ],
+        "optional": [
+          {"name": "subnet_id", "type": "string", "description": "Subnet ID", "reference": "aws_subnet.id"},
+          {"name": "gateway_id", "type": "string", "description": "Gateway ID"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Association ID"}
+      ]
+    },
+    {
+      "id": "security_group",
+      "name": "Security Group",
+      "description": "Virtual firewall for instances",
+      "terraform_resource": "aws_security_group",
+      "icon": "shield",
+      "inputs": {
+        "required": [],
+        "optional": [
+          {"name": "name", "type": "string", "description": "Security group name"},
+          {"name": "name_prefix", "type": "string", "description": "Name prefix"},
+          {"name": "description", "type": "string", "description": "Description"},
+          {"name": "vpc_id", "type": "string", "description": "VPC ID", "reference": "aws_vpc.id"},
+          {"name": "revoke_rules_on_delete", "type": "bool", "description": "Revoke rules on delete"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "ingress",
+            "multiple": true,
+            "attributes": [
+              {"name": "from_port", "type": "number", "required": true},
+              {"name": "to_port", "type": "number", "required": true},
+              {"name": "protocol", "type": "string", "required": true},
+              {"name": "cidr_blocks", "type": "list(string)"},
+              {"name": "ipv6_cidr_blocks", "type": "list(string)"},
+              {"name": "prefix_list_ids", "type": "list(string)"},
+              {"name": "security_groups", "type": "list(string)"},
+              {"name": "self", "type": "bool"},
+              {"name": "description", "type": "string"}
+            ]
+          },
+          {
+            "name": "egress",
+            "multiple": true,
+            "attributes": [
+              {"name": "from_port", "type": "number", "required": true},
+              {"name": "to_port", "type": "number", "required": true},
+              {"name": "protocol", "type": "string", "required": true},
+              {"name": "cidr_blocks", "type": "list(string)"},
+              {"name": "ipv6_cidr_blocks", "type": "list(string)"},
+              {"name": "prefix_list_ids", "type": "list(string)"},
+              {"name": "security_groups", "type": "list(string)"},
+              {"name": "self", "type": "bool"},
+              {"name": "description", "type": "string"}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Security group ID"},
+        {"name": "arn", "type": "string", "description": "Security group ARN"},
+        {"name": "name", "type": "string", "description": "Security group name"},
+        {"name": "owner_id", "type": "string", "description": "Owner account ID"},
+        {"name": "vpc_id", "type": "string", "description": "VPC ID"}
+      ]
+    },
+    {
+      "id": "security_group_rule",
+      "name": "Security Group Rule",
+      "description": "Individual security group rule",
+      "terraform_resource": "aws_security_group_rule",
+      "icon": "check",
+      "inputs": {
+        "required": [
+          {"name": "security_group_id", "type": "string", "description": "Security group ID", "reference": "aws_security_group.id"},
+          {"name": "type", "type": "string", "description": "Rule type", "options": ["ingress", "egress"]},
+          {"name": "from_port", "type": "number", "description": "From port"},
+          {"name": "to_port", "type": "number", "description": "To port"},
+          {"name": "protocol", "type": "string", "description": "Protocol", "options": ["tcp", "udp", "icmp", "icmpv6", "-1"]}
+        ],
+        "optional": [
+          {"name": "cidr_blocks", "type": "list(string)", "description": "IPv4 CIDR blocks"},
+          {"name": "ipv6_cidr_blocks", "type": "list(string)", "description": "IPv6 CIDR blocks"},
+          {"name": "prefix_list_ids", "type": "list(string)", "description": "Prefix list IDs"},
+          {"name": "source_security_group_id", "type": "string", "description": "Source security group ID"},
+          {"name": "self", "type": "bool", "description": "Self-referencing rule"},
+          {"name": "description", "type": "string", "description": "Rule description"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Rule ID"},
+        {"name": "security_group_rule_id", "type": "string", "description": "Security group rule ID"}
+      ]
+    },
+    {
+      "id": "network_acl",
+      "name": "Network ACL",
+      "description": "Network Access Control List",
+      "terraform_resource": "aws_network_acl",
+      "icon": "list",
+      "inputs": {
+        "required": [
+          {"name": "vpc_id", "type": "string", "description": "VPC ID", "reference": "aws_vpc.id"}
+        ],
+        "optional": [
+          {"name": "subnet_ids", "type": "list(string)", "description": "Subnet IDs"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "ingress",
+            "multiple": true,
+            "attributes": [
+              {"name": "rule_no", "type": "number", "required": true},
+              {"name": "protocol", "type": "string", "required": true},
+              {"name": "action", "type": "string", "required": true, "options": ["allow", "deny"]},
+              {"name": "from_port", "type": "number"},
+              {"name": "to_port", "type": "number"},
+              {"name": "cidr_block", "type": "string"},
+              {"name": "ipv6_cidr_block", "type": "string"},
+              {"name": "icmp_type", "type": "number"},
+              {"name": "icmp_code", "type": "number"}
+            ]
+          },
+          {
+            "name": "egress",
+            "multiple": true,
+            "attributes": [
+              {"name": "rule_no", "type": "number", "required": true},
+              {"name": "protocol", "type": "string", "required": true},
+              {"name": "action", "type": "string", "required": true, "options": ["allow", "deny"]},
+              {"name": "from_port", "type": "number"},
+              {"name": "to_port", "type": "number"},
+              {"name": "cidr_block", "type": "string"},
+              {"name": "ipv6_cidr_block", "type": "string"},
+              {"name": "icmp_type", "type": "number"},
+              {"name": "icmp_code", "type": "number"}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "NACL ID"},
+        {"name": "arn", "type": "string", "description": "NACL ARN"},
+        {"name": "owner_id", "type": "string", "description": "Owner account ID"},
+        {"name": "vpc_id", "type": "string", "description": "VPC ID"}
+      ]
+    },
+    {
+      "id": "vpc_peering_connection",
+      "name": "VPC Peering Connection",
+      "description": "Peering between two VPCs",
+      "terraform_resource": "aws_vpc_peering_connection",
+      "icon": "link-2",
+      "inputs": {
+        "required": [
+          {"name": "vpc_id", "type": "string", "description": "Requester VPC ID", "reference": "aws_vpc.id"},
+          {"name": "peer_vpc_id", "type": "string", "description": "Peer VPC ID"}
+        ],
+        "optional": [
+          {"name": "peer_owner_id", "type": "string", "description": "Peer owner account ID"},
+          {"name": "peer_region", "type": "string", "description": "Peer region"},
+          {"name": "auto_accept", "type": "bool", "description": "Auto accept peering"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "accepter",
+            "attributes": [
+              {"name": "allow_remote_vpc_dns_resolution", "type": "bool"}
+            ]
+          },
+          {
+            "name": "requester",
+            "attributes": [
+              {"name": "allow_remote_vpc_dns_resolution", "type": "bool"}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Peering connection ID"},
+        {"name": "accept_status", "type": "string", "description": "Accept status"}
+      ]
+    },
+    {
+      "id": "transit_gateway",
+      "name": "Transit Gateway",
+      "description": "Hub for VPC and on-premises networks",
+      "terraform_resource": "aws_ec2_transit_gateway",
+      "icon": "git-merge",
+      "inputs": {
+        "required": [],
+        "optional": [
+          {"name": "amazon_side_asn", "type": "number", "description": "Private ASN"},
+          {"name": "auto_accept_shared_attachments", "type": "string", "description": "Auto accept shared attachments", "options": ["disable", "enable"]},
+          {"name": "default_route_table_association", "type": "string", "description": "Default route table association", "options": ["disable", "enable"]},
+          {"name": "default_route_table_propagation", "type": "string", "description": "Default route table propagation", "options": ["disable", "enable"]},
+          {"name": "description", "type": "string", "description": "Description"},
+          {"name": "dns_support", "type": "string", "description": "DNS support", "options": ["disable", "enable"]},
+          {"name": "multicast_support", "type": "string", "description": "Multicast support", "options": ["disable", "enable"]},
+          {"name": "transit_gateway_cidr_blocks", "type": "list(string)", "description": "Transit Gateway CIDR blocks"},
+          {"name": "vpn_ecmp_support", "type": "string", "description": "VPN ECMP support", "options": ["disable", "enable"]},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Transit Gateway ID"},
+        {"name": "arn", "type": "string", "description": "Transit Gateway ARN"},
+        {"name": "association_default_route_table_id", "type": "string", "description": "Default association route table ID"},
+        {"name": "propagation_default_route_table_id", "type": "string", "description": "Default propagation route table ID"},
+        {"name": "owner_id", "type": "string", "description": "Owner account ID"}
+      ]
+    },
+    {
+      "id": "transit_gateway_vpc_attachment",
+      "name": "Transit Gateway VPC Attachment",
+      "description": "Attach VPC to Transit Gateway",
+      "terraform_resource": "aws_ec2_transit_gateway_vpc_attachment",
+      "icon": "link",
+      "inputs": {
+        "required": [
+          {"name": "subnet_ids", "type": "list(string)", "description": "Subnet IDs", "reference": "aws_subnet.id"},
+          {"name": "transit_gateway_id", "type": "string", "description": "Transit Gateway ID", "reference": "aws_ec2_transit_gateway.id"},
+          {"name": "vpc_id", "type": "string", "description": "VPC ID", "reference": "aws_vpc.id"}
+        ],
+        "optional": [
+          {"name": "appliance_mode_support", "type": "string", "description": "Appliance mode support", "options": ["disable", "enable"]},
+          {"name": "dns_support", "type": "string", "description": "DNS support", "options": ["disable", "enable"]},
+          {"name": "ipv6_support", "type": "string", "description": "IPv6 support", "options": ["disable", "enable"]},
+          {"name": "transit_gateway_default_route_table_association", "type": "bool", "description": "Default route table association"},
+          {"name": "transit_gateway_default_route_table_propagation", "type": "bool", "description": "Default route table propagation"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Attachment ID"},
+        {"name": "vpc_owner_id", "type": "string", "description": "VPC owner account ID"}
+      ]
+    },
+    {
+      "id": "vpn_gateway",
+      "name": "VPN Gateway",
+      "description": "Virtual Private Network gateway",
+      "terraform_resource": "aws_vpn_gateway",
+      "icon": "lock",
+      "inputs": {
+        "required": [],
+        "optional": [
+          {"name": "vpc_id", "type": "string", "description": "VPC ID", "reference": "aws_vpc.id"},
+          {"name": "availability_zone", "type": "string", "description": "Availability zone"},
+          {"name": "amazon_side_asn", "type": "string", "description": "Amazon side ASN"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "VPN Gateway ID"},
+        {"name": "arn", "type": "string", "description": "VPN Gateway ARN"},
+        {"name": "amazon_side_asn", "type": "string", "description": "Amazon side ASN"}
+      ]
+    },
+    {
+      "id": "customer_gateway",
+      "name": "Customer Gateway",
+      "description": "Customer-side VPN gateway",
+      "terraform_resource": "aws_customer_gateway",
+      "icon": "home",
+      "inputs": {
+        "required": [
+          {"name": "bgp_asn", "type": "string", "description": "BGP ASN"},
+          {"name": "type", "type": "string", "description": "Gateway type", "options": ["ipsec.1"]}
+        ],
+        "optional": [
+          {"name": "ip_address", "type": "string", "description": "IP address"},
+          {"name": "certificate_arn", "type": "string", "description": "Certificate ARN"},
+          {"name": "device_name", "type": "string", "description": "Device name"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Customer Gateway ID"},
+        {"name": "arn", "type": "string", "description": "Customer Gateway ARN"}
+      ]
+    },
+    {
+      "id": "vpn_connection",
+      "name": "VPN Connection",
+      "description": "Site-to-site VPN connection",
+      "terraform_resource": "aws_vpn_connection",
+      "icon": "link",
+      "inputs": {
+        "required": [
+          {"name": "customer_gateway_id", "type": "string", "description": "Customer Gateway ID", "reference": "aws_customer_gateway.id"},
+          {"name": "type", "type": "string", "description": "Connection type", "options": ["ipsec.1"]}
+        ],
+        "optional": [
+          {"name": "vpn_gateway_id", "type": "string", "description": "VPN Gateway ID", "reference": "aws_vpn_gateway.id"},
+          {"name": "transit_gateway_id", "type": "string", "description": "Transit Gateway ID"},
+          {"name": "enable_acceleration", "type": "bool", "description": "Enable acceleration"},
+          {"name": "local_ipv4_network_cidr", "type": "string", "description": "Local IPv4 CIDR"},
+          {"name": "local_ipv6_network_cidr", "type": "string", "description": "Local IPv6 CIDR"},
+          {"name": "outside_ip_address_type", "type": "string", "description": "Outside IP address type"},
+          {"name": "remote_ipv4_network_cidr", "type": "string", "description": "Remote IPv4 CIDR"},
+          {"name": "remote_ipv6_network_cidr", "type": "string", "description": "Remote IPv6 CIDR"},
+          {"name": "static_routes_only", "type": "bool", "description": "Use static routes only"},
+          {"name": "transport_transit_gateway_attachment_id", "type": "string", "description": "Transit Gateway attachment ID"},
+          {"name": "tunnel_inside_ip_version", "type": "string", "description": "Tunnel IP version", "options": ["ipv4", "ipv6"]},
+          {"name": "tunnel1_dpd_timeout_action", "type": "string", "description": "Tunnel 1 DPD timeout action"},
+          {"name": "tunnel1_dpd_timeout_seconds", "type": "number", "description": "Tunnel 1 DPD timeout"},
+          {"name": "tunnel1_enable_tunnel_lifecycle_control", "type": "bool", "description": "Tunnel 1 lifecycle control"},
+          {"name": "tunnel1_ike_versions", "type": "list(string)", "description": "Tunnel 1 IKE versions"},
+          {"name": "tunnel1_inside_cidr", "type": "string", "description": "Tunnel 1 inside CIDR"},
+          {"name": "tunnel1_inside_ipv6_cidr", "type": "string", "description": "Tunnel 1 inside IPv6 CIDR"},
+          {"name": "tunnel1_phase1_dh_group_numbers", "type": "list(number)", "description": "Tunnel 1 phase 1 DH groups"},
+          {"name": "tunnel1_phase1_encryption_algorithms", "type": "list(string)", "description": "Tunnel 1 phase 1 encryption"},
+          {"name": "tunnel1_phase1_integrity_algorithms", "type": "list(string)", "description": "Tunnel 1 phase 1 integrity"},
+          {"name": "tunnel1_phase1_lifetime_seconds", "type": "number", "description": "Tunnel 1 phase 1 lifetime"},
+          {"name": "tunnel1_phase2_dh_group_numbers", "type": "list(number)", "description": "Tunnel 1 phase 2 DH groups"},
+          {"name": "tunnel1_phase2_encryption_algorithms", "type": "list(string)", "description": "Tunnel 1 phase 2 encryption"},
+          {"name": "tunnel1_phase2_integrity_algorithms", "type": "list(string)", "description": "Tunnel 1 phase 2 integrity"},
+          {"name": "tunnel1_phase2_lifetime_seconds", "type": "number", "description": "Tunnel 1 phase 2 lifetime"},
+          {"name": "tunnel1_preshared_key", "type": "string", "description": "Tunnel 1 preshared key", "sensitive": true},
+          {"name": "tunnel1_rekey_fuzz_percentage", "type": "number", "description": "Tunnel 1 rekey fuzz percentage"},
+          {"name": "tunnel1_rekey_margin_time_seconds", "type": "number", "description": "Tunnel 1 rekey margin time"},
+          {"name": "tunnel1_replay_window_size", "type": "number", "description": "Tunnel 1 replay window size"},
+          {"name": "tunnel1_startup_action", "type": "string", "description": "Tunnel 1 startup action"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "tunnel1_log_options",
+            "nested_blocks": [
+              {
+                "name": "cloudwatch_log_options",
+                "attributes": [
+                  {"name": "log_enabled", "type": "bool"},
+                  {"name": "log_group_arn", "type": "string"},
+                  {"name": "log_output_format", "type": "string"}
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "VPN Connection ID"},
+        {"name": "arn", "type": "string", "description": "VPN Connection ARN"},
+        {"name": "core_network_arn", "type": "string", "description": "Core network ARN"},
+        {"name": "core_network_attachment_arn", "type": "string", "description": "Core network attachment ARN"},
+        {"name": "customer_gateway_configuration", "type": "string", "description": "Customer gateway configuration"},
+        {"name": "routes", "type": "list(object)", "description": "Static routes"},
+        {"name": "transit_gateway_attachment_id", "type": "string", "description": "Transit Gateway attachment ID"},
+        {"name": "tunnel1_address", "type": "string", "description": "Tunnel 1 outside IP"},
+        {"name": "tunnel1_bgp_asn", "type": "string", "description": "Tunnel 1 BGP ASN"},
+        {"name": "tunnel1_bgp_holdtime", "type": "number", "description": "Tunnel 1 BGP hold time"},
+        {"name": "tunnel1_cgw_inside_address", "type": "string", "description": "Tunnel 1 CGW inside address"},
+        {"name": "tunnel1_preshared_key", "type": "string", "description": "Tunnel 1 preshared key"},
+        {"name": "tunnel1_vgw_inside_address", "type": "string", "description": "Tunnel 1 VGW inside address"},
+        {"name": "vgw_telemetry", "type": "list(object)", "description": "VGW telemetry"}
+      ]
+    },
+    {
+      "id": "vpc_endpoint",
+      "name": "VPC Endpoint",
+      "description": "Private connection to AWS services",
+      "terraform_resource": "aws_vpc_endpoint",
+      "icon": "target",
+      "inputs": {
+        "required": [
+          {"name": "vpc_id", "type": "string", "description": "VPC ID", "reference": "aws_vpc.id"},
+          {"name": "service_name", "type": "string", "description": "AWS service name"}
+        ],
+        "optional": [
+          {"name": "vpc_endpoint_type", "type": "string", "description": "Endpoint type", "options": ["Gateway", "Interface", "GatewayLoadBalancer"]},
+          {"name": "auto_accept", "type": "bool", "description": "Auto accept endpoint connection"},
+          {"name": "policy", "type": "string", "description": "Endpoint policy JSON"},
+          {"name": "private_dns_enabled", "type": "bool", "description": "Enable private DNS"},
+          {"name": "ip_address_type", "type": "string", "description": "IP address type", "options": ["ipv4", "dualstack", "ipv6"]},
+          {"name": "route_table_ids", "type": "list(string)", "description": "Route table IDs for Gateway endpoints"},
+          {"name": "subnet_ids", "type": "list(string)", "description": "Subnet IDs for Interface endpoints"},
+          {"name": "security_group_ids", "type": "list(string)", "description": "Security group IDs"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "dns_options",
+            "attributes": [
+              {"name": "dns_record_ip_type", "type": "string"},
+              {"name": "private_dns_only_for_inbound_resolver_endpoint", "type": "bool"}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Endpoint ID"},
+        {"name": "arn", "type": "string", "description": "Endpoint ARN"},
+        {"name": "cidr_blocks", "type": "list(string)", "description": "CIDR blocks for Gateway endpoints"},
+        {"name": "dns_entry", "type": "list(object)", "description": "DNS entries"},
+        {"name": "network_interface_ids", "type": "list(string)", "description": "Network interface IDs"},
+        {"name": "owner_id", "type": "string", "description": "Owner account ID"},
+        {"name": "prefix_list_id", "type": "string", "description": "Prefix list ID"},
+        {"name": "requester_managed", "type": "bool", "description": "Is requester managed"},
+        {"name": "state", "type": "string", "description": "Endpoint state"}
+      ]
+    },
+    {
+      "id": "network_interface",
+      "name": "Network Interface",
+      "description": "Elastic Network Interface",
+      "terraform_resource": "aws_network_interface",
+      "icon": "wifi",
+      "inputs": {
+        "required": [
+          {"name": "subnet_id", "type": "string", "description": "Subnet ID", "reference": "aws_subnet.id"}
+        ],
+        "optional": [
+          {"name": "description", "type": "string", "description": "Description"},
+          {"name": "interface_type", "type": "string", "description": "Interface type", "options": ["efa", "interface"]},
+          {"name": "ipv4_prefix_count", "type": "number", "description": "IPv4 prefix count"},
+          {"name": "ipv4_prefixes", "type": "list(string)", "description": "IPv4 prefixes"},
+          {"name": "ipv6_address_count", "type": "number", "description": "IPv6 address count"},
+          {"name": "ipv6_address_list", "type": "list(string)", "description": "IPv6 addresses"},
+          {"name": "ipv6_address_list_enabled", "type": "bool", "description": "Enable IPv6 address list"},
+          {"name": "ipv6_prefix_count", "type": "number", "description": "IPv6 prefix count"},
+          {"name": "ipv6_prefixes", "type": "list(string)", "description": "IPv6 prefixes"},
+          {"name": "private_ip", "type": "string", "description": "Primary private IP"},
+          {"name": "private_ip_list", "type": "list(string)", "description": "Private IP list"},
+          {"name": "private_ip_list_enabled", "type": "bool", "description": "Enable private IP list"},
+          {"name": "private_ips", "type": "list(string)", "description": "Secondary private IPs"},
+          {"name": "private_ips_count", "type": "number", "description": "Secondary private IP count"},
+          {"name": "security_groups", "type": "list(string)", "description": "Security group IDs"},
+          {"name": "source_dest_check", "type": "bool", "description": "Enable source/dest check"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "attachment",
+            "multiple": true,
+            "attributes": [
+              {"name": "instance", "type": "string", "required": true},
+              {"name": "device_index", "type": "number", "required": true}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "ENI ID"},
+        {"name": "arn", "type": "string", "description": "ENI ARN"},
+        {"name": "mac_address", "type": "string", "description": "MAC address"},
+        {"name": "owner_id", "type": "string", "description": "Owner account ID"},
+        {"name": "private_dns_name", "type": "string", "description": "Private DNS name"}
+      ]
+    },
+    {
+      "id": "lb",
+      "name": "Load Balancer",
+      "description": "Application/Network Load Balancer",
+      "terraform_resource": "aws_lb",
+      "icon": "server",
+      "inputs": {
+        "required": [],
+        "optional": [
+          {"name": "name", "type": "string", "description": "Load balancer name"},
+          {"name": "name_prefix", "type": "string", "description": "Name prefix"},
+          {"name": "internal", "type": "bool", "description": "Is internal", "default": false},
+          {"name": "load_balancer_type", "type": "string", "description": "Load balancer type", "options": ["application", "network", "gateway"], "default": "application"},
+          {"name": "security_groups", "type": "list(string)", "description": "Security group IDs"},
+          {"name": "subnets", "type": "list(string)", "description": "Subnet IDs"},
+          {"name": "enable_deletion_protection", "type": "bool", "description": "Enable deletion protection"},
+          {"name": "enable_cross_zone_load_balancing", "type": "bool", "description": "Enable cross-zone load balancing"},
+          {"name": "enable_http2", "type": "bool", "description": "Enable HTTP/2"},
+          {"name": "enable_waf_fail_open", "type": "bool", "description": "Enable WAF fail open"},
+          {"name": "idle_timeout", "type": "number", "description": "Idle timeout in seconds"},
+          {"name": "ip_address_type", "type": "string", "description": "IP address type", "options": ["ipv4", "dualstack"]},
+          {"name": "preserve_host_header", "type": "bool", "description": "Preserve host header"},
+          {"name": "customer_owned_ipv4_pool", "type": "string", "description": "Customer owned IPv4 pool"},
+          {"name": "desync_mitigation_mode", "type": "string", "description": "Desync mitigation mode", "options": ["defensive", "strictest", "monitor"]},
+          {"name": "drop_invalid_header_fields", "type": "bool", "description": "Drop invalid header fields"},
+          {"name": "enable_tls_version_and_cipher_suite_headers", "type": "bool", "description": "Enable TLS headers"},
+          {"name": "enable_xff_client_port", "type": "bool", "description": "Enable XFF client port"},
+          {"name": "xff_header_processing_mode", "type": "string", "description": "XFF header processing mode"},
+          {"name": "enforce_security_group_inbound_rules_on_private_link_traffic", "type": "string", "description": "Enforce SG rules on Private Link"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "access_logs",
+            "attributes": [
+              {"name": "bucket", "type": "string", "required": true},
+              {"name": "enabled", "type": "bool"},
+              {"name": "prefix", "type": "string"}
+            ]
+          },
+          {
+            "name": "connection_logs",
+            "attributes": [
+              {"name": "bucket", "type": "string", "required": true},
+              {"name": "enabled", "type": "bool"},
+              {"name": "prefix", "type": "string"}
+            ]
+          },
+          {
+            "name": "subnet_mapping",
+            "multiple": true,
+            "attributes": [
+              {"name": "subnet_id", "type": "string", "required": true},
+              {"name": "allocation_id", "type": "string"},
+              {"name": "ipv6_address", "type": "string"},
+              {"name": "private_ipv4_address", "type": "string"}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Load balancer ID"},
+        {"name": "arn", "type": "string", "description": "Load balancer ARN"},
+        {"name": "arn_suffix", "type": "string", "description": "ARN suffix"},
+        {"name": "dns_name", "type": "string", "description": "DNS name"},
+        {"name": "zone_id", "type": "string", "description": "Route 53 zone ID"},
+        {"name": "vpc_id", "type": "string", "description": "VPC ID"}
+      ]
+    },
+    {
+      "id": "lb_target_group",
+      "name": "Target Group",
+      "description": "Load balancer target group",
+      "terraform_resource": "aws_lb_target_group",
+      "icon": "target",
+      "inputs": {
+        "required": [],
+        "optional": [
+          {"name": "name", "type": "string", "description": "Target group name"},
+          {"name": "name_prefix", "type": "string", "description": "Name prefix"},
+          {"name": "port", "type": "number", "description": "Port"},
+          {"name": "protocol", "type": "string", "description": "Protocol", "options": ["HTTP", "HTTPS", "TCP", "TLS", "UDP", "TCP_UDP", "GENEVE"]},
+          {"name": "protocol_version", "type": "string", "description": "Protocol version", "options": ["HTTP1", "HTTP2", "GRPC"]},
+          {"name": "vpc_id", "type": "string", "description": "VPC ID"},
+          {"name": "target_type", "type": "string", "description": "Target type", "options": ["instance", "ip", "lambda", "alb"]},
+          {"name": "connection_termination", "type": "bool", "description": "Connection termination"},
+          {"name": "deregistration_delay", "type": "string", "description": "Deregistration delay"},
+          {"name": "ip_address_type", "type": "string", "description": "IP address type", "options": ["ipv4", "ipv6"]},
+          {"name": "lambda_multi_value_headers_enabled", "type": "bool", "description": "Enable multi-value headers for Lambda"},
+          {"name": "load_balancing_algorithm_type", "type": "string", "description": "Load balancing algorithm", "options": ["round_robin", "least_outstanding_requests", "weighted_random"]},
+          {"name": "load_balancing_anomaly_mitigation", "type": "string", "description": "Anomaly mitigation", "options": ["on", "off"]},
+          {"name": "load_balancing_cross_zone_enabled", "type": "string", "description": "Cross-zone load balancing", "options": ["true", "false", "use_load_balancer_configuration"]},
+          {"name": "preserve_client_ip", "type": "string", "description": "Preserve client IP"},
+          {"name": "proxy_protocol_v2", "type": "bool", "description": "Enable proxy protocol v2"},
+          {"name": "slow_start", "type": "number", "description": "Slow start duration"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "health_check",
+            "attributes": [
+              {"name": "enabled", "type": "bool"},
+              {"name": "healthy_threshold", "type": "number"},
+              {"name": "interval", "type": "number"},
+              {"name": "matcher", "type": "string"},
+              {"name": "path", "type": "string"},
+              {"name": "port", "type": "string"},
+              {"name": "protocol", "type": "string"},
+              {"name": "timeout", "type": "number"},
+              {"name": "unhealthy_threshold", "type": "number"}
+            ]
+          },
+          {
+            "name": "stickiness",
+            "attributes": [
+              {"name": "type", "type": "string", "required": true, "options": ["lb_cookie", "app_cookie", "source_ip", "source_ip_dest_ip", "source_ip_dest_ip_proto"]},
+              {"name": "cookie_duration", "type": "number"},
+              {"name": "cookie_name", "type": "string"},
+              {"name": "enabled", "type": "bool"}
+            ]
+          },
+          {
+            "name": "target_failover",
+            "multiple": true,
+            "attributes": [
+              {"name": "on_deregistration", "type": "string", "required": true},
+              {"name": "on_unhealthy", "type": "string", "required": true}
+            ]
+          },
+          {
+            "name": "target_health_state",
+            "multiple": true,
+            "attributes": [
+              {"name": "enable_unhealthy_connection_termination", "type": "bool", "required": true}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Target group ID"},
+        {"name": "arn", "type": "string", "description": "Target group ARN"},
+        {"name": "arn_suffix", "type": "string", "description": "ARN suffix"},
+        {"name": "name", "type": "string", "description": "Target group name"},
+        {"name": "load_balancer_arns", "type": "list(string)", "description": "Load balancer ARNs"}
+      ]
+    },
+    {
+      "id": "lb_listener",
+      "name": "LB Listener",
+      "description": "Load balancer listener",
+      "terraform_resource": "aws_lb_listener",
+      "icon": "headphones",
+      "inputs": {
+        "required": [
+          {"name": "load_balancer_arn", "type": "string", "description": "Load balancer ARN", "reference": "aws_lb.arn"}
+        ],
+        "optional": [
+          {"name": "port", "type": "number", "description": "Port"},
+          {"name": "protocol", "type": "string", "description": "Protocol", "options": ["HTTP", "HTTPS", "TCP", "TLS", "UDP", "TCP_UDP"]},
+          {"name": "alpn_policy", "type": "string", "description": "ALPN policy"},
+          {"name": "certificate_arn", "type": "string", "description": "SSL certificate ARN"},
+          {"name": "ssl_policy", "type": "string", "description": "SSL policy"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "default_action",
+            "required": true,
+            "multiple": true,
+            "attributes": [
+              {"name": "type", "type": "string", "required": true, "options": ["forward", "redirect", "fixed-response", "authenticate-cognito", "authenticate-oidc"]},
+              {"name": "order", "type": "number"},
+              {"name": "target_group_arn", "type": "string"}
+            ],
+            "nested_blocks": [
+              {
+                "name": "forward",
+                "attributes": [
+                  {"name": "target_group", "type": "list(object)"},
+                  {"name": "stickiness", "type": "object"}
+                ]
+              },
+              {
+                "name": "redirect",
+                "attributes": [
+                  {"name": "status_code", "type": "string", "required": true},
+                  {"name": "host", "type": "string"},
+                  {"name": "path", "type": "string"},
+                  {"name": "port", "type": "string"},
+                  {"name": "protocol", "type": "string"},
+                  {"name": "query", "type": "string"}
+                ]
+              },
+              {
+                "name": "fixed_response",
+                "attributes": [
+                  {"name": "content_type", "type": "string", "required": true},
+                  {"name": "message_body", "type": "string"},
+                  {"name": "status_code", "type": "string"}
+                ]
+              },
+              {
+                "name": "authenticate_cognito",
+                "attributes": [
+                  {"name": "user_pool_arn", "type": "string", "required": true},
+                  {"name": "user_pool_client_id", "type": "string", "required": true},
+                  {"name": "user_pool_domain", "type": "string", "required": true},
+                  {"name": "authentication_request_extra_params", "type": "map(string)"},
+                  {"name": "on_unauthenticated_request", "type": "string"},
+                  {"name": "scope", "type": "string"},
+                  {"name": "session_cookie_name", "type": "string"},
+                  {"name": "session_timeout", "type": "number"}
+                ]
+              },
+              {
+                "name": "authenticate_oidc",
+                "attributes": [
+                  {"name": "authorization_endpoint", "type": "string", "required": true},
+                  {"name": "client_id", "type": "string", "required": true},
+                  {"name": "client_secret", "type": "string", "required": true},
+                  {"name": "issuer", "type": "string", "required": true},
+                  {"name": "token_endpoint", "type": "string", "required": true},
+                  {"name": "user_info_endpoint", "type": "string", "required": true},
+                  {"name": "authentication_request_extra_params", "type": "map(string)"},
+                  {"name": "on_unauthenticated_request", "type": "string"},
+                  {"name": "scope", "type": "string"},
+                  {"name": "session_cookie_name", "type": "string"},
+                  {"name": "session_timeout", "type": "number"}
+                ]
+              }
+            ]
+          },
+          {
+            "name": "mutual_authentication",
+            "attributes": [
+              {"name": "mode", "type": "string", "required": true, "options": ["off", "verify", "passthrough"]},
+              {"name": "trust_store_arn", "type": "string"},
+              {"name": "ignore_client_certificate_expiry", "type": "bool"}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Listener ID"},
+        {"name": "arn", "type": "string", "description": "Listener ARN"}
+      ]
+    },
+    {
+      "id": "lb_listener_rule",
+      "name": "LB Listener Rule",
+      "description": "Load balancer listener rule",
+      "terraform_resource": "aws_lb_listener_rule",
+      "icon": "filter",
+      "inputs": {
+        "required": [
+          {"name": "listener_arn", "type": "string", "description": "Listener ARN", "reference": "aws_lb_listener.arn"}
+        ],
+        "optional": [
+          {"name": "priority", "type": "number", "description": "Rule priority"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "action",
+            "required": true,
+            "multiple": true,
+            "attributes": [
+              {"name": "type", "type": "string", "required": true},
+              {"name": "order", "type": "number"},
+              {"name": "target_group_arn", "type": "string"}
+            ]
+          },
+          {
+            "name": "condition",
+            "required": true,
+            "multiple": true,
+            "nested_blocks": [
+              {
+                "name": "host_header",
+                "attributes": [
+                  {"name": "values", "type": "list(string)", "required": true}
+                ]
+              },
+              {
+                "name": "http_header",
+                "attributes": [
+                  {"name": "http_header_name", "type": "string", "required": true},
+                  {"name": "values", "type": "list(string)", "required": true}
+                ]
+              },
+              {
+                "name": "http_request_method",
+                "attributes": [
+                  {"name": "values", "type": "list(string)", "required": true}
+                ]
+              },
+              {
+                "name": "path_pattern",
+                "attributes": [
+                  {"name": "values", "type": "list(string)", "required": true}
+                ]
+              },
+              {
+                "name": "query_string",
+                "multiple": true,
+                "attributes": [
+                  {"name": "key", "type": "string"},
+                  {"name": "value", "type": "string", "required": true}
+                ]
+              },
+              {
+                "name": "source_ip",
+                "attributes": [
+                  {"name": "values", "type": "list(string)", "required": true}
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Rule ID"},
+        {"name": "arn", "type": "string", "description": "Rule ARN"}
+      ]
+    },
+    {
+      "id": "route53_zone",
+      "name": "Route 53 Zone",
+      "description": "DNS hosted zone",
+      "terraform_resource": "aws_route53_zone",
+      "icon": "globe",
+      "inputs": {
+        "required": [
+          {"name": "name", "type": "string", "description": "Domain name"}
+        ],
+        "optional": [
+          {"name": "comment", "type": "string", "description": "Zone comment"},
+          {"name": "delegation_set_id", "type": "string", "description": "Delegation set ID"},
+          {"name": "force_destroy", "type": "bool", "description": "Force destroy"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "vpc",
+            "multiple": true,
+            "attributes": [
+              {"name": "vpc_id", "type": "string", "required": true},
+              {"name": "vpc_region", "type": "string"}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "zone_id", "type": "string", "description": "Zone ID"},
+        {"name": "arn", "type": "string", "description": "Zone ARN"},
+        {"name": "name", "type": "string", "description": "Domain name"},
+        {"name": "name_servers", "type": "list(string)", "description": "Name servers"},
+        {"name": "primary_name_server", "type": "string", "description": "Primary name server"}
+      ]
+    },
+    {
+      "id": "route53_record",
+      "name": "Route 53 Record",
+      "description": "DNS record",
+      "terraform_resource": "aws_route53_record",
+      "icon": "file-text",
+      "inputs": {
+        "required": [
+          {"name": "zone_id", "type": "string", "description": "Hosted zone ID", "reference": "aws_route53_zone.zone_id"},
+          {"name": "name", "type": "string", "description": "Record name"},
+          {"name": "type", "type": "string", "description": "Record type", "options": ["A", "AAAA", "CAA", "CNAME", "DS", "MX", "NAPTR", "NS", "PTR", "SOA", "SPF", "SRV", "TXT"]}
+        ],
+        "optional": [
+          {"name": "ttl", "type": "number", "description": "TTL in seconds"},
+          {"name": "records", "type": "list(string)", "description": "Record values"},
+          {"name": "set_identifier", "type": "string", "description": "Set identifier for routing"},
+          {"name": "health_check_id", "type": "string", "description": "Health check ID"},
+          {"name": "multivalue_answer_routing_policy", "type": "bool", "description": "Enable multivalue answer routing"},
+          {"name": "allow_overwrite", "type": "bool", "description": "Allow overwriting existing records"}
+        ],
+        "blocks": [
+          {
+            "name": "alias",
+            "attributes": [
+              {"name": "name", "type": "string", "required": true},
+              {"name": "zone_id", "type": "string", "required": true},
+              {"name": "evaluate_target_health", "type": "bool", "required": true}
+            ]
+          },
+          {
+            "name": "failover_routing_policy",
+            "attributes": [
+              {"name": "type", "type": "string", "required": true, "options": ["PRIMARY", "SECONDARY"]}
+            ]
+          },
+          {
+            "name": "geolocation_routing_policy",
+            "attributes": [
+              {"name": "continent", "type": "string"},
+              {"name": "country", "type": "string"},
+              {"name": "subdivision", "type": "string"}
+            ]
+          },
+          {
+            "name": "geoproximity_routing_policy",
+            "attributes": [
+              {"name": "aws_region", "type": "string"},
+              {"name": "bias", "type": "number"},
+              {"name": "local_zone_group", "type": "string"}
+            ],
+            "nested_blocks": [
+              {
+                "name": "coordinates",
+                "attributes": [
+                  {"name": "latitude", "type": "string", "required": true},
+                  {"name": "longitude", "type": "string", "required": true}
+                ]
+              }
+            ]
+          },
+          {
+            "name": "latency_routing_policy",
+            "attributes": [
+              {"name": "region", "type": "string", "required": true}
+            ]
+          },
+          {
+            "name": "weighted_routing_policy",
+            "attributes": [
+              {"name": "weight", "type": "number", "required": true}
+            ]
+          },
+          {
+            "name": "cidr_routing_policy",
+            "attributes": [
+              {"name": "collection_id", "type": "string", "required": true},
+              {"name": "location_name", "type": "string", "required": true}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "name", "type": "string", "description": "Record name"},
+        {"name": "fqdn", "type": "string", "description": "FQDN"}
+      ]
+    },
+    {
+      "id": "cloudfront_distribution",
+      "name": "CloudFront Distribution",
+      "description": "Content delivery network",
+      "terraform_resource": "aws_cloudfront_distribution",
+      "icon": "globe",
+      "inputs": {
+        "required": [
+          {"name": "enabled", "type": "bool", "description": "Enable distribution"}
+        ],
+        "optional": [
+          {"name": "aliases", "type": "list(string)", "description": "Alternate domain names"},
+          {"name": "comment", "type": "string", "description": "Distribution comment"},
+          {"name": "continuous_deployment_policy_id", "type": "string", "description": "Continuous deployment policy ID"},
+          {"name": "default_root_object", "type": "string", "description": "Default root object"},
+          {"name": "http_version", "type": "string", "description": "HTTP version", "options": ["http1.1", "http2", "http2and3", "http3"]},
+          {"name": "is_ipv6_enabled", "type": "bool", "description": "Enable IPv6"},
+          {"name": "price_class", "type": "string", "description": "Price class", "options": ["PriceClass_All", "PriceClass_200", "PriceClass_100"]},
+          {"name": "retain_on_delete", "type": "bool", "description": "Retain on delete"},
+          {"name": "staging", "type": "bool", "description": "Is staging distribution"},
+          {"name": "wait_for_deployment", "type": "bool", "description": "Wait for deployment"},
+          {"name": "web_acl_id", "type": "string", "description": "WAF Web ACL ID"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "origin",
+            "required": true,
+            "multiple": true,
+            "attributes": [
+              {"name": "domain_name", "type": "string", "required": true},
+              {"name": "origin_id", "type": "string", "required": true},
+              {"name": "connection_attempts", "type": "number"},
+              {"name": "connection_timeout", "type": "number"},
+              {"name": "origin_access_control_id", "type": "string"},
+              {"name": "origin_path", "type": "string"}
+            ],
+            "nested_blocks": [
+              {
+                "name": "custom_header",
+                "multiple": true,
+                "attributes": [
+                  {"name": "name", "type": "string", "required": true},
+                  {"name": "value", "type": "string", "required": true}
+                ]
+              },
+              {
+                "name": "custom_origin_config",
+                "attributes": [
+                  {"name": "http_port", "type": "number", "required": true},
+                  {"name": "https_port", "type": "number", "required": true},
+                  {"name": "origin_protocol_policy", "type": "string", "required": true},
+                  {"name": "origin_ssl_protocols", "type": "list(string)", "required": true},
+                  {"name": "origin_keepalive_timeout", "type": "number"},
+                  {"name": "origin_read_timeout", "type": "number"}
+                ]
+              },
+              {
+                "name": "s3_origin_config",
+                "attributes": [
+                  {"name": "origin_access_identity", "type": "string", "required": true}
+                ]
+              },
+              {
+                "name": "origin_shield",
+                "attributes": [
+                  {"name": "enabled", "type": "bool", "required": true},
+                  {"name": "origin_shield_region", "type": "string"}
+                ]
+              }
+            ]
+          },
+          {
+            "name": "default_cache_behavior",
+            "required": true,
+            "attributes": [
+              {"name": "allowed_methods", "type": "list(string)", "required": true},
+              {"name": "cached_methods", "type": "list(string)", "required": true},
+              {"name": "target_origin_id", "type": "string", "required": true},
+              {"name": "viewer_protocol_policy", "type": "string", "required": true, "options": ["allow-all", "https-only", "redirect-to-https"]},
+              {"name": "cache_policy_id", "type": "string"},
+              {"name": "compress", "type": "bool"},
+              {"name": "default_ttl", "type": "number"},
+              {"name": "field_level_encryption_id", "type": "string"},
+              {"name": "max_ttl", "type": "number"},
+              {"name": "min_ttl", "type": "number"},
+              {"name": "origin_request_policy_id", "type": "string"},
+              {"name": "realtime_log_config_arn", "type": "string"},
+              {"name": "response_headers_policy_id", "type": "string"},
+              {"name": "smooth_streaming", "type": "bool"},
+              {"name": "trusted_key_groups", "type": "list(string)"},
+              {"name": "trusted_signers", "type": "list(string)"}
+            ],
+            "nested_blocks": [
+              {
+                "name": "forwarded_values",
+                "attributes": [
+                  {"name": "query_string", "type": "bool", "required": true},
+                  {"name": "headers", "type": "list(string)"},
+                  {"name": "query_string_cache_keys", "type": "list(string)"}
+                ],
+                "nested_blocks": [
+                  {
+                    "name": "cookies",
+                    "attributes": [
+                      {"name": "forward", "type": "string", "required": true},
+                      {"name": "whitelisted_names", "type": "list(string)"}
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "lambda_function_association",
+                "multiple": true,
+                "attributes": [
+                  {"name": "event_type", "type": "string", "required": true},
+                  {"name": "lambda_arn", "type": "string", "required": true},
+                  {"name": "include_body", "type": "bool"}
+                ]
+              },
+              {
+                "name": "function_association",
+                "multiple": true,
+                "attributes": [
+                  {"name": "event_type", "type": "string", "required": true},
+                  {"name": "function_arn", "type": "string", "required": true}
+                ]
+              }
+            ]
+          },
+          {
+            "name": "ordered_cache_behavior",
+            "multiple": true,
+            "attributes": [
+              {"name": "path_pattern", "type": "string", "required": true},
+              {"name": "allowed_methods", "type": "list(string)", "required": true},
+              {"name": "cached_methods", "type": "list(string)", "required": true},
+              {"name": "target_origin_id", "type": "string", "required": true},
+              {"name": "viewer_protocol_policy", "type": "string", "required": true}
+            ]
+          },
+          {
+            "name": "restrictions",
+            "required": true,
+            "nested_blocks": [
+              {
+                "name": "geo_restriction",
+                "required": true,
+                "attributes": [
+                  {"name": "restriction_type", "type": "string", "required": true, "options": ["whitelist", "blacklist", "none"]},
+                  {"name": "locations", "type": "list(string)"}
+                ]
+              }
+            ]
+          },
+          {
+            "name": "viewer_certificate",
+            "required": true,
+            "attributes": [
+              {"name": "acm_certificate_arn", "type": "string"},
+              {"name": "cloudfront_default_certificate", "type": "bool"},
+              {"name": "iam_certificate_id", "type": "string"},
+              {"name": "minimum_protocol_version", "type": "string"},
+              {"name": "ssl_support_method", "type": "string"}
+            ]
+          },
+          {
+            "name": "custom_error_response",
+            "multiple": true,
+            "attributes": [
+              {"name": "error_code", "type": "number", "required": true},
+              {"name": "error_caching_min_ttl", "type": "number"},
+              {"name": "response_code", "type": "number"},
+              {"name": "response_page_path", "type": "string"}
+            ]
+          },
+          {
+            "name": "logging_config",
+            "attributes": [
+              {"name": "bucket", "type": "string", "required": true},
+              {"name": "include_cookies", "type": "bool"},
+              {"name": "prefix", "type": "string"}
+            ]
+          },
+          {
+            "name": "origin_group",
+            "multiple": true,
+            "attributes": [
+              {"name": "origin_id", "type": "string", "required": true}
+            ],
+            "nested_blocks": [
+              {
+                "name": "failover_criteria",
+                "required": true,
+                "attributes": [
+                  {"name": "status_codes", "type": "list(number)", "required": true}
+                ]
+              },
+              {
+                "name": "member",
+                "required": true,
+                "multiple": true,
+                "attributes": [
+                  {"name": "origin_id", "type": "string", "required": true}
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "Distribution ID"},
+        {"name": "arn", "type": "string", "description": "Distribution ARN"},
+        {"name": "caller_reference", "type": "string", "description": "Caller reference"},
+        {"name": "domain_name", "type": "string", "description": "Domain name"},
+        {"name": "etag", "type": "string", "description": "ETag"},
+        {"name": "hosted_zone_id", "type": "string", "description": "Route 53 zone ID"},
+        {"name": "in_progress_validation_batches", "type": "number", "description": "In-progress validation batches"},
+        {"name": "last_modified_time", "type": "string", "description": "Last modified time"},
+        {"name": "status", "type": "string", "description": "Distribution status"},
+        {"name": "trusted_key_groups", "type": "list(object)", "description": "Trusted key groups"},
+        {"name": "trusted_signers", "type": "list(object)", "description": "Trusted signers"}
+      ]
+    },
+    {
+      "id": "api_gateway_rest_api",
+      "name": "API Gateway REST API",
+      "description": "RESTful API gateway",
+      "terraform_resource": "aws_api_gateway_rest_api",
+      "icon": "server",
+      "inputs": {
+        "required": [
+          {"name": "name", "type": "string", "description": "API name"}
+        ],
+        "optional": [
+          {"name": "description", "type": "string", "description": "API description"},
+          {"name": "api_key_source", "type": "string", "description": "API key source", "options": ["HEADER", "AUTHORIZER"]},
+          {"name": "binary_media_types", "type": "list(string)", "description": "Binary media types"},
+          {"name": "body", "type": "string", "description": "OpenAPI specification"},
+          {"name": "disable_execute_api_endpoint", "type": "bool", "description": "Disable execute-api endpoint"},
+          {"name": "fail_on_warnings", "type": "bool", "description": "Fail on warnings"},
+          {"name": "minimum_compression_size", "type": "number", "description": "Minimum compression size"},
+          {"name": "parameters", "type": "map(string)", "description": "API parameters"},
+          {"name": "policy", "type": "string", "description": "Resource policy"},
+          {"name": "put_rest_api_mode", "type": "string", "description": "Put mode", "options": ["merge", "overwrite"]},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "endpoint_configuration",
+            "attributes": [
+              {"name": "types", "type": "list(string)", "required": true, "options": ["EDGE", "REGIONAL", "PRIVATE"]},
+              {"name": "vpc_endpoint_ids", "type": "list(string)"}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "API ID"},
+        {"name": "arn", "type": "string", "description": "API ARN"},
+        {"name": "root_resource_id", "type": "string", "description": "Root resource ID"},
+        {"name": "created_date", "type": "string", "description": "Creation date"},
+        {"name": "execution_arn", "type": "string", "description": "Execution ARN"}
+      ]
+    },
+    {
+      "id": "apigatewayv2_api",
+      "name": "API Gateway V2 API",
+      "description": "HTTP/WebSocket API",
+      "terraform_resource": "aws_apigatewayv2_api",
+      "icon": "zap",
+      "inputs": {
+        "required": [
+          {"name": "name", "type": "string", "description": "API name"},
+          {"name": "protocol_type", "type": "string", "description": "Protocol type", "options": ["HTTP", "WEBSOCKET"]}
+        ],
+        "optional": [
+          {"name": "api_key_selection_expression", "type": "string", "description": "API key selection expression"},
+          {"name": "body", "type": "string", "description": "OpenAPI specification"},
+          {"name": "credentials_arn", "type": "string", "description": "Credentials ARN"},
+          {"name": "description", "type": "string", "description": "API description"},
+          {"name": "disable_execute_api_endpoint", "type": "bool", "description": "Disable execute-api endpoint"},
+          {"name": "fail_on_warnings", "type": "bool", "description": "Fail on warnings"},
+          {"name": "route_key", "type": "string", "description": "Route key for quick create"},
+          {"name": "route_selection_expression", "type": "string", "description": "Route selection expression"},
+          {"name": "target", "type": "string", "description": "Target for quick create"},
+          {"name": "version", "type": "string", "description": "API version"},
+          {"name": "tags", "type": "map(string)", "description": "Tags"}
+        ],
+        "blocks": [
+          {
+            "name": "cors_configuration",
+            "attributes": [
+              {"name": "allow_credentials", "type": "bool"},
+              {"name": "allow_headers", "type": "list(string)"},
+              {"name": "allow_methods", "type": "list(string)"},
+              {"name": "allow_origins", "type": "list(string)"},
+              {"name": "expose_headers", "type": "list(string)"},
+              {"name": "max_age", "type": "number"}
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        {"name": "id", "type": "string", "description": "API ID"},
+        {"name": "arn", "type": "string", "description": "API ARN"},
+        {"name": "api_endpoint", "type": "string", "description": "API endpoint"},
+        {"name": "execution_arn", "type": "string", "description": "Execution ARN"}
+      ]
+    }
+  ]
+}
+

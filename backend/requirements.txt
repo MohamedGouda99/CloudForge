@@ -4,6 +4,7 @@ uvicorn[standard]==0.24.0
 python-multipart==0.0.6
 python-socketio==5.10.0
 python-engineio==4.8.0
+slowapi==0.1.9
 
 # Database
 sqlalchemy==2.0.23

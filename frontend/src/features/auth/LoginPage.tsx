@@ -14,7 +14,9 @@ export default function LoginPage() {
 
   const navigate = useNavigate();
   const setAuth = useAuthStore((state) => state.setAuth);
-  const { isDarkMode, toggleTheme } = useThemeStore();
+  const theme = useThemeStore((state) => state.theme);
+  const toggleTheme = useThemeStore((state) => state.toggleTheme);
+  const isDarkMode = theme === 'dark';
   const googleButtonRef = useRef<HTMLDivElement | null>(null);
   const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const hasGoogle = Boolean(GOOGLE_CLIENT_ID);
@@ -44,7 +46,14 @@ export default function LoginPage() {
       setAuth(access_token, userRes.data);
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Login failed');
+      const detail = err.response?.data?.detail;
+      if (typeof detail === 'string') {
+        setError(detail);
+      } else if (Array.isArray(detail)) {
+        setError(detail.map((d: any) => d.msg).join(', '));
+      } else {
+        setError('Login failed');
+      }
     } finally {
       setLoading(false);
     }

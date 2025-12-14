@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 from app.api.endpoints.auth import get_current_user
 from app.core.database import get_db
 from app.models import Project, User
-from app.services.ai.claude import (
-    format_claude_error,
+from app.services.ai.gemini import (
+    format_gemini_error,
     generate_completion,
     generate_framework_plan,
 )
@@ -267,7 +267,57 @@ def assistant_complete(
         output = generate_completion(body.prompt, model_name=body.model)
         return {"output": output}
     except Exception as exc:  # noqa: BLE001
-        detail = format_claude_error(exc)
+        detail = format_gemini_error(exc)
+        status_code = status.HTTP_429_TOO_MANY_REQUESTS if "quota" in detail.lower() else status.HTTP_502_BAD_GATEWAY
+        raise HTTPException(status_code=status_code, detail=detail)
+
+
+@router.post("/terraform")
+def generate_terraform(
+    body: DesignRequest,
+    current_user: User = Depends(get_current_user),
+    _db: Session = Depends(get_db),
+):
+    """Generate Terraform code from a natural language prompt."""
+    if not body.prompt.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Prompt is required")
+
+    try:
+        plan = generate_framework_plan(body.prompt, cloud_provider=body.provider, model_name=body.model)
+
+        # Generate Terraform code from the plan
+        code_lines = []
+        resources = _extract_resources(plan) or _default_fallback()
+
+        for res in resources:
+            res_type = res.get("type", "aws_resource")
+            res_name = res.get("name", "resource")
+            config = res.get("config", {})
+
+            code_lines.append(f'resource "{res_type}" "{res_name}" {{')
+            for key, value in config.items():
+                if isinstance(value, str):
+                    code_lines.append(f'  {key} = "{value}"')
+                elif isinstance(value, bool):
+                    code_lines.append(f'  {key} = {str(value).lower()}')
+                elif isinstance(value, (int, float)):
+                    code_lines.append(f'  {key} = {value}')
+                elif isinstance(value, list):
+                    code_lines.append(f'  {key} = {value}')
+                elif isinstance(value, dict):
+                    code_lines.append(f'  {key} = {{')
+                    for k, v in value.items():
+                        if isinstance(v, str):
+                            code_lines.append(f'    {k} = "{v}"')
+                        else:
+                            code_lines.append(f'    {k} = {v}')
+                    code_lines.append('  }')
+            code_lines.append('}\n')
+
+        terraform_code = '\n'.join(code_lines)
+        return {"code": terraform_code, "plan": plan}
+    except Exception as exc:  # noqa: BLE001
+        detail = format_gemini_error(exc)
         status_code = status.HTTP_429_TOO_MANY_REQUESTS if "quota" in detail.lower() else status.HTTP_502_BAD_GATEWAY
         raise HTTPException(status_code=status_code, detail=detail)
 
@@ -298,7 +348,7 @@ def assistant_design(
     except Exception as exc:  # noqa: BLE001
         # Fall back to a simple diagram to avoid breaking UX when the API quota is hit
         fallback_diagram = _plan_to_diagram({})
-        detail = format_claude_error(exc)
+        detail = format_gemini_error(exc)
         status_code = status.HTTP_429_TOO_MANY_REQUESTS if "quota" in detail.lower() else status.HTTP_502_BAD_GATEWAY
         raise HTTPException(
             status_code=status_code,

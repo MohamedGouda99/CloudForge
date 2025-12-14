@@ -1,45 +1,53 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './lib/store/authStore';
-import LoginPage from './features/auth/LoginPage';
+import VodafoneLoginPage from './features/auth/VodafoneLoginPage';
 import RegisterPage from './features/auth/RegisterPage';
-import DashboardPage from './features/dashboard/DashboardPage';
-import NewProjectPage from './features/projects/NewProjectPage';
+import { VodafoneLandingPage } from './features/landing';
+import EnhancedDashboard from './features/dashboard/EnhancedDashboard';
+import EnhancedNewProjectPage from './features/projects/EnhancedNewProjectPage';
 import DesignerPageFinal from './features/designer/DesignerPageFinal';
-import DesignerPageEnhanced from './features/designer/DesignerPageEnhanced';
 import AssistantPage from './features/assistant/AssistantPage';
-import Layout from './components/Layout';
+import VodafoneLayout from './components/VodafoneLayout';
+import ErrorBoundary from './components/ErrorBoundary';
+import { ToastContainer } from './components/Toast';
 
 function App() {
   const token = useAuthStore((state) => state.token);
 
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Public routes */}
-        <Route
-          path="/login"
-          element={token ? <Navigate to="/dashboard" /> : <LoginPage />}
-        />
-        <Route
-          path="/register"
-          element={token ? <Navigate to="/dashboard" /> : <RegisterPage />}
-        />
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Routes>
+          {/* Public routes */}
+          <Route
+            path="/"
+            element={token ? <Navigate to="/dashboard" /> : <VodafoneLandingPage />}
+          />
+          <Route
+            path="/login"
+            element={token ? <Navigate to="/dashboard" /> : <VodafoneLoginPage />}
+          />
+          <Route
+            path="/register"
+            element={token ? <Navigate to="/dashboard" /> : <RegisterPage />}
+          />
 
-        {/* Protected routes */}
-        {token ? (
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Navigate to="/dashboard" />} />
-            <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="projects/new" element={<NewProjectPage />} />
-            <Route path="projects/:projectId" element={<DesignerPageFinal />} />
-            <Route path="projects/:projectId/enhanced" element={<DesignerPageEnhanced />} />
-            <Route path="assistant" element={<AssistantPage />} />
-          </Route>
-        ) : (
-          <Route path="*" element={<Navigate to="/login" />} />
-        )}
-      </Routes>
-    </BrowserRouter>
+          {/* Protected routes */}
+          {token ? (
+            <Route path="/" element={<VodafoneLayout />}>
+              <Route index element={<Navigate to="/dashboard" />} />
+              <Route path="dashboard" element={<EnhancedDashboard />} />
+              <Route path="projects/new" element={<EnhancedNewProjectPage />} />
+              <Route path="projects/:projectId" element={<DesignerPageFinal />} />
+              <Route path="assistant" element={<AssistantPage />} />
+            </Route>
+          ) : (
+            <Route path="*" element={<Navigate to="/login" />} />
+          )}
+        </Routes>
+        <ToastContainer />
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
 
