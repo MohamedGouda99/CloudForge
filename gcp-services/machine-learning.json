@@ -1,0 +1,369 @@
+{
+  "category": "machine-learning",
+  "categoryName": "Machine Learning",
+  "services": [
+    {
+      "id": "vertex_ai_dataset",
+      "name": "Vertex AI Dataset",
+      "description": "Vertex AI dataset",
+      "terraform_resource": "google_vertex_ai_dataset",
+      "icon": "database",
+      "inputs": {
+        "required": [
+          { "name": "display_name", "type": "string", "description": "Display name" },
+          { "name": "metadata_schema_uri", "type": "string", "description": "Metadata schema URI" }
+        ],
+        "optional": [
+          { "name": "project", "type": "string", "description": "Project ID" },
+          { "name": "region", "type": "string", "description": "Region" },
+          { "name": "labels", "type": "map", "description": "Labels" }
+        ],
+        "blocks": [
+          {
+            "name": "encryption_spec",
+            "required": false,
+            "attributes": [
+              { "name": "kms_key_name", "type": "string" }
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        { "name": "id", "type": "string", "description": "Dataset ID" },
+        { "name": "name", "type": "string", "description": "Dataset name" },
+        { "name": "create_time", "type": "string", "description": "Create time" },
+        { "name": "update_time", "type": "string", "description": "Update time" }
+      ]
+    },
+    {
+      "id": "vertex_ai_endpoint",
+      "name": "Vertex AI Endpoint",
+      "description": "Vertex AI online prediction endpoint",
+      "terraform_resource": "google_vertex_ai_endpoint",
+      "icon": "target",
+      "inputs": {
+        "required": [
+          { "name": "name", "type": "string", "description": "Endpoint name" },
+          { "name": "display_name", "type": "string", "description": "Display name" },
+          { "name": "location", "type": "string", "description": "Location" }
+        ],
+        "optional": [
+          { "name": "project", "type": "string", "description": "Project ID" },
+          { "name": "description", "type": "string", "description": "Description" },
+          { "name": "labels", "type": "map", "description": "Labels" },
+          { "name": "network", "type": "string", "description": "VPC network" },
+          { "name": "region", "type": "string", "description": "Region" }
+        ],
+        "blocks": [
+          {
+            "name": "encryption_spec",
+            "required": false,
+            "attributes": [
+              { "name": "kms_key_name", "type": "string", "required": true }
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        { "name": "id", "type": "string", "description": "Endpoint ID" },
+        { "name": "name", "type": "string", "description": "Endpoint name" },
+        { "name": "create_time", "type": "string", "description": "Create time" },
+        { "name": "update_time", "type": "string", "description": "Update time" },
+        { "name": "model_deployment_monitoring_job", "type": "string", "description": "Monitoring job" },
+        { "name": "deployed_models", "type": "list", "description": "Deployed models" }
+      ]
+    },
+    {
+      "id": "vertex_ai_featurestore",
+      "name": "Vertex AI Feature Store",
+      "description": "Vertex AI Feature Store",
+      "terraform_resource": "google_vertex_ai_featurestore",
+      "icon": "layers",
+      "inputs": {
+        "required": [
+          { "name": "name", "type": "string", "description": "Feature store name" }
+        ],
+        "optional": [
+          { "name": "project", "type": "string", "description": "Project ID" },
+          { "name": "region", "type": "string", "description": "Region" },
+          { "name": "labels", "type": "map", "description": "Labels" },
+          { "name": "force_destroy", "type": "bool", "description": "Force destroy" }
+        ],
+        "blocks": [
+          {
+            "name": "online_serving_config",
+            "required": false,
+            "attributes": [
+              { "name": "fixed_node_count", "type": "number" }
+            ],
+            "blocks": [
+              {
+                "name": "scaling",
+                "attributes": [
+                  { "name": "min_node_count", "type": "number", "required": true },
+                  { "name": "max_node_count", "type": "number", "required": true }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "encryption_spec",
+            "required": false,
+            "attributes": [
+              { "name": "kms_key_name", "type": "string", "required": true }
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        { "name": "id", "type": "string", "description": "Feature store ID" },
+        { "name": "name", "type": "string", "description": "Feature store name" },
+        { "name": "create_time", "type": "string", "description": "Create time" },
+        { "name": "update_time", "type": "string", "description": "Update time" },
+        { "name": "etag", "type": "string", "description": "Etag" }
+      ]
+    },
+    {
+      "id": "notebooks_instance",
+      "name": "Vertex AI Workbench Instance",
+      "description": "Vertex AI Workbench managed notebook instance",
+      "terraform_resource": "google_notebooks_instance",
+      "icon": "book-open",
+      "inputs": {
+        "required": [
+          { "name": "name", "type": "string", "description": "Instance name" },
+          { "name": "location", "type": "string", "description": "Zone" },
+          { "name": "machine_type", "type": "string", "description": "Machine type" }
+        ],
+        "optional": [
+          { "name": "project", "type": "string", "description": "Project ID" },
+          { "name": "post_startup_script", "type": "string", "description": "Post startup script" },
+          { "name": "instance_owners", "type": "list", "description": "Instance owners" },
+          { "name": "service_account", "type": "string", "description": "Service account" },
+          { "name": "service_account_scopes", "type": "list", "description": "Service account scopes" },
+          { "name": "install_gpu_driver", "type": "bool", "description": "Install GPU driver" },
+          { "name": "custom_gpu_driver_path", "type": "string", "description": "Custom GPU driver path" },
+          { "name": "boot_disk_type", "type": "string", "description": "Boot disk type", "options": ["PD_STANDARD", "PD_SSD", "PD_BALANCED", "PD_EXTREME"] },
+          { "name": "boot_disk_size_gb", "type": "number", "description": "Boot disk size GB" },
+          { "name": "data_disk_type", "type": "string", "description": "Data disk type", "options": ["PD_STANDARD", "PD_SSD", "PD_BALANCED", "PD_EXTREME"] },
+          { "name": "data_disk_size_gb", "type": "number", "description": "Data disk size GB" },
+          { "name": "no_remove_data_disk", "type": "bool", "description": "Keep data disk on delete" },
+          { "name": "disk_encryption", "type": "string", "description": "Disk encryption", "options": ["GMEK", "CMEK"] },
+          { "name": "kms_key", "type": "string", "description": "KMS key" },
+          { "name": "no_public_ip", "type": "bool", "description": "No public IP" },
+          { "name": "no_proxy_access", "type": "bool", "description": "No proxy access" },
+          { "name": "network", "type": "string", "description": "Network" },
+          { "name": "subnet", "type": "string", "description": "Subnet" },
+          { "name": "labels", "type": "map", "description": "Labels" },
+          { "name": "tags", "type": "list", "description": "Network tags" },
+          { "name": "metadata", "type": "map", "description": "Metadata" },
+          { "name": "nic_type", "type": "string", "description": "NIC type", "options": ["UNSPECIFIED_NIC_TYPE", "VIRTIO_NET", "GVNIC"] },
+          { "name": "desired_state", "type": "string", "description": "Desired state", "options": ["ACTIVE", "STOPPED"] }
+        ],
+        "blocks": [
+          {
+            "name": "accelerator_config",
+            "required": false,
+            "attributes": [
+              { "name": "type", "type": "string", "required": true, "options": ["ACCELERATOR_TYPE_UNSPECIFIED", "NVIDIA_TESLA_K80", "NVIDIA_TESLA_P100", "NVIDIA_TESLA_V100", "NVIDIA_TESLA_P4", "NVIDIA_TESLA_T4", "NVIDIA_TESLA_A100", "NVIDIA_L4", "NVIDIA_A100_80GB", "NVIDIA_TESLA_T4_VWS", "NVIDIA_TESLA_P100_VWS", "NVIDIA_TESLA_P4_VWS", "TPU_V2", "TPU_V3"] },
+              { "name": "core_count", "type": "number", "required": true }
+            ]
+          },
+          {
+            "name": "shielded_instance_config",
+            "required": false,
+            "attributes": [
+              { "name": "enable_integrity_monitoring", "type": "bool" },
+              { "name": "enable_secure_boot", "type": "bool" },
+              { "name": "enable_vtpm", "type": "bool" }
+            ]
+          },
+          {
+            "name": "vm_image",
+            "required": false,
+            "attributes": [
+              { "name": "project", "type": "string", "required": true },
+              { "name": "image_family", "type": "string" },
+              { "name": "image_name", "type": "string" }
+            ]
+          },
+          {
+            "name": "container_image",
+            "required": false,
+            "attributes": [
+              { "name": "repository", "type": "string", "required": true },
+              { "name": "tag", "type": "string" }
+            ]
+          },
+          {
+            "name": "reservation_affinity",
+            "required": false,
+            "attributes": [
+              { "name": "consume_reservation_type", "type": "string", "required": true, "options": ["TYPE_UNSPECIFIED", "NO_RESERVATION", "ANY_RESERVATION", "SPECIFIC_RESERVATION"] },
+              { "name": "key", "type": "string" },
+              { "name": "values", "type": "list" }
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        { "name": "id", "type": "string", "description": "Instance ID" },
+        { "name": "proxy_uri", "type": "string", "description": "Proxy URI" },
+        { "name": "state", "type": "string", "description": "Instance state" },
+        { "name": "create_time", "type": "string", "description": "Create time" },
+        { "name": "update_time", "type": "string", "description": "Update time" }
+      ]
+    },
+    {
+      "id": "ml_engine_model",
+      "name": "AI Platform Model",
+      "description": "AI Platform model",
+      "terraform_resource": "google_ml_engine_model",
+      "icon": "box",
+      "inputs": {
+        "required": [
+          { "name": "name", "type": "string", "description": "Model name" }
+        ],
+        "optional": [
+          { "name": "project", "type": "string", "description": "Project ID" },
+          { "name": "description", "type": "string", "description": "Description" },
+          { "name": "regions", "type": "list", "description": "Regions" },
+          { "name": "online_prediction_logging", "type": "bool", "description": "Enable prediction logging" },
+          { "name": "online_prediction_console_logging", "type": "bool", "description": "Enable console logging" },
+          { "name": "labels", "type": "map", "description": "Labels" }
+        ],
+        "blocks": [
+          {
+            "name": "default_version",
+            "required": false,
+            "attributes": [
+              { "name": "name", "type": "string", "required": true }
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        { "name": "id", "type": "string", "description": "Model ID" },
+        { "name": "name", "type": "string", "description": "Model name" }
+      ]
+    },
+    {
+      "id": "dialogflow_agent",
+      "name": "Dialogflow Agent",
+      "description": "Dialogflow ES agent",
+      "terraform_resource": "google_dialogflow_agent",
+      "icon": "message-circle",
+      "inputs": {
+        "required": [
+          { "name": "display_name", "type": "string", "description": "Display name" },
+          { "name": "default_language_code", "type": "string", "description": "Default language code" },
+          { "name": "time_zone", "type": "string", "description": "Time zone" }
+        ],
+        "optional": [
+          { "name": "project", "type": "string", "description": "Project ID" },
+          { "name": "supported_language_codes", "type": "list", "description": "Supported languages" },
+          { "name": "description", "type": "string", "description": "Description" },
+          { "name": "avatar_uri", "type": "string", "description": "Avatar URI" },
+          { "name": "enable_logging", "type": "bool", "description": "Enable logging" },
+          { "name": "match_mode", "type": "string", "description": "Match mode", "options": ["MATCH_MODE_HYBRID", "MATCH_MODE_ML_ONLY"] },
+          { "name": "classification_threshold", "type": "number", "description": "Classification threshold" },
+          { "name": "api_version", "type": "string", "description": "API version", "options": ["API_VERSION_V1", "API_VERSION_V2", "API_VERSION_V2_BETA_1"] },
+          { "name": "tier", "type": "string", "description": "Tier", "options": ["TIER_STANDARD", "TIER_ENTERPRISE", "TIER_ENTERPRISE_PLUS"] }
+        ]
+      },
+      "outputs": [
+        { "name": "id", "type": "string", "description": "Agent ID" },
+        { "name": "avatar_uri_backend", "type": "string", "description": "Avatar URI backend" }
+      ]
+    },
+    {
+      "id": "dialogflow_cx_agent",
+      "name": "Dialogflow CX Agent",
+      "description": "Dialogflow CX agent",
+      "terraform_resource": "google_dialogflow_cx_agent",
+      "icon": "message-square",
+      "inputs": {
+        "required": [
+          { "name": "display_name", "type": "string", "description": "Display name" },
+          { "name": "location", "type": "string", "description": "Location" },
+          { "name": "default_language_code", "type": "string", "description": "Default language code" },
+          { "name": "time_zone", "type": "string", "description": "Time zone" }
+        ],
+        "optional": [
+          { "name": "project", "type": "string", "description": "Project ID" },
+          { "name": "supported_language_codes", "type": "list", "description": "Supported languages" },
+          { "name": "description", "type": "string", "description": "Description" },
+          { "name": "avatar_uri", "type": "string", "description": "Avatar URI" },
+          { "name": "enable_stackdriver_logging", "type": "bool", "description": "Enable Stackdriver logging" },
+          { "name": "enable_spell_correction", "type": "bool", "description": "Enable spell correction" },
+          { "name": "security_settings", "type": "string", "description": "Security settings" }
+        ],
+        "blocks": [
+          {
+            "name": "speech_to_text_settings",
+            "required": false,
+            "attributes": [
+              { "name": "enable_speech_adaptation", "type": "bool" }
+            ]
+          },
+          {
+            "name": "advanced_settings",
+            "required": false,
+            "blocks": [
+              {
+                "name": "audio_export_gcs_destination",
+                "attributes": [
+                  { "name": "uri", "type": "string" }
+                ]
+              },
+              {
+                "name": "dtmf_settings",
+                "attributes": [
+                  { "name": "enabled", "type": "bool" },
+                  { "name": "max_digits", "type": "number" },
+                  { "name": "finish_digit", "type": "string" }
+                ]
+              },
+              {
+                "name": "logging_settings",
+                "attributes": [
+                  { "name": "enable_stackdriver_logging", "type": "bool" },
+                  { "name": "enable_interaction_logging", "type": "bool" }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "git_integration_settings",
+            "required": false,
+            "blocks": [
+              {
+                "name": "github_settings",
+                "attributes": [
+                  { "name": "display_name", "type": "string" },
+                  { "name": "repository_uri", "type": "string" },
+                  { "name": "tracking_branch", "type": "string" },
+                  { "name": "access_token", "type": "string", "sensitive": true },
+                  { "name": "branches", "type": "list" }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "text_to_speech_settings",
+            "required": false,
+            "attributes": [
+              { "name": "synthesize_speech_configs", "type": "string" }
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        { "name": "id", "type": "string", "description": "Agent ID" },
+        { "name": "name", "type": "string", "description": "Agent name" },
+        { "name": "start_flow", "type": "string", "description": "Start flow" }
+      ]
+    }
+  ]
+}
+
