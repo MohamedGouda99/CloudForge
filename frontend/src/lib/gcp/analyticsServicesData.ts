@@ -1,0 +1,906 @@
+/**
+ * GCP Analytics Services Data - Complete definitions from analytics.json
+ * This file contains ALL 5 analytics services with ALL their properties
+ * 
+ * Services included:
+ * 1. BigQuery Dataset (google_bigquery_dataset)
+ * 2. BigQuery Table (google_bigquery_table)
+ * 3. Dataproc Cluster (google_dataproc_cluster)
+ * 4. Dataflow Job (google_dataflow_job)
+ * 5. Data Catalog Entry (google_data_catalog_entry)
+ */
+
+// Type definitions
+export interface ServiceInput {
+  name: string;
+  type: string;
+  description?: string;
+  example?: string;
+  default?: unknown;
+  options?: string[];
+  reference?: string;
+  required?: boolean;
+  sensitive?: boolean;
+}
+
+export interface BlockAttribute {
+  name: string;
+  type: string;
+  description?: string;
+  options?: string[];
+  default?: unknown;
+  required?: boolean;
+  sensitive?: boolean;
+}
+
+export interface ServiceBlock {
+  name: string;
+  description?: string;
+  multiple?: boolean;
+  required?: boolean;
+  attributes: BlockAttribute[];
+  nested_blocks?: ServiceBlock[];
+  blocks?: ServiceBlock[];
+}
+
+export interface ServiceOutput {
+  name: string;
+  type: string;
+  description?: string;
+  sensitive?: boolean;
+}
+
+// GCP Analytics service icon mappings - using GCP core products and legacy icons
+export const ANALYTICS_ICONS: Record<string, string> = {
+  'google_bigquery_dataset': '/api/icons/gcp/core-products-icons/Unique Icons/BigQuery/SVG/BigQuery-512-color.svg',
+  'google_bigquery_table': '/api/icons/gcp/core-products-icons/Unique Icons/BigQuery/SVG/BigQuery-512-color.svg',
+  'google_dataproc_cluster': '/api/icons/gcp/google-cloud-legacy-icons/dataproc/dataproc.svg',
+  'google_dataflow_job': '/api/icons/gcp/google-cloud-legacy-icons/dataflow/dataflow.svg',
+  'google_data_catalog_entry': '/api/icons/gcp/google-cloud-legacy-icons/data_catalog/data_catalog.svg',
+};
+
+// Analytics service definition interface
+export interface AnalyticsServiceDefinition {
+  id: string;
+  name: string;
+  description: string;
+  terraform_resource: string;
+  icon: string;
+  inputs: {
+    required: ServiceInput[];
+    optional: ServiceInput[];
+    blocks?: ServiceBlock[];
+  };
+  outputs: ServiceOutput[];
+}
+
+// Helper function to convert JSON blocks to ServiceBlock format
+function convertBlock(block: any): ServiceBlock {
+  return {
+    name: block.name,
+    required: block.required || false,
+    multiple: block.multiple || false,
+    attributes: (block.attributes || []).map((attr: any) => ({
+      name: attr.name,
+      type: attr.type,
+      description: attr.description,
+      options: attr.options,
+      default: attr.default,
+      required: attr.required || false,
+      sensitive: attr.sensitive || false,
+    })),
+    blocks: block.blocks ? block.blocks.map(convertBlock) : undefined,
+  };
+}
+
+// Complete analytics services data from analytics.json
+export const ANALYTICS_SERVICES: AnalyticsServiceDefinition[] = [
+  {
+    id: "bigquery_dataset",
+    name: "BigQuery Dataset",
+    description: "BigQuery dataset",
+    terraform_resource: "google_bigquery_dataset",
+    icon: ANALYTICS_ICONS['google_bigquery_dataset'],
+    inputs: {
+      required: [
+        { name: "dataset_id", type: "string", description: "Dataset ID" }
+      ],
+      optional: [
+        { name: "project", type: "string", description: "Project ID" },
+        { name: "friendly_name", type: "string", description: "Friendly name" },
+        { name: "description", type: "string", description: "Description" },
+        { name: "location", type: "string", description: "Location", default: "US" },
+        { name: "default_table_expiration_ms", type: "number", description: "Default table expiration" },
+        { name: "default_partition_expiration_ms", type: "number", description: "Default partition expiration" },
+        { name: "default_collation", type: "string", description: "Default collation" },
+        { name: "max_time_travel_hours", type: "string", description: "Max time travel hours" },
+        { name: "storage_billing_model", type: "string", description: "Storage billing model", options: ["LOGICAL", "PHYSICAL"] },
+        { name: "is_case_insensitive", type: "bool", description: "Case insensitive" },
+        { name: "delete_contents_on_destroy", type: "bool", description: "Delete contents on destroy" },
+        { name: "labels", type: "map", description: "Labels" }
+      ],
+      blocks: [
+        {
+          name: "access",
+          required: false,
+          multiple: true,
+          attributes: [
+            { name: "role", type: "string" },
+            { name: "user_by_email", type: "string" },
+            { name: "group_by_email", type: "string" },
+            { name: "domain", type: "string" },
+            { name: "special_group", type: "string" },
+            { name: "iam_member", type: "string" }
+          ],
+          blocks: [
+            {
+              name: "dataset",
+              attributes: [
+                { name: "target_types", type: "list", required: true }
+              ],
+              blocks: [
+                {
+                  name: "dataset",
+                  required: true,
+                  attributes: [
+                    { name: "dataset_id", type: "string", required: true },
+                    { name: "project_id", type: "string", required: true }
+                  ]
+                }
+              ]
+            },
+            {
+              name: "routine",
+              attributes: [
+                { name: "dataset_id", type: "string", required: true },
+                { name: "project_id", type: "string", required: true },
+                { name: "routine_id", type: "string", required: true }
+              ]
+            },
+            {
+              name: "view",
+              attributes: [
+                { name: "dataset_id", type: "string", required: true },
+                { name: "project_id", type: "string", required: true },
+                { name: "table_id", type: "string", required: true }
+              ]
+            }
+          ]
+        },
+        {
+          name: "default_encryption_configuration",
+          required: false,
+          attributes: [
+            { name: "kms_key_name", type: "string", required: true }
+          ]
+        },
+        {
+          name: "external_dataset_reference",
+          required: false,
+          attributes: [
+            { name: "external_source", type: "string", required: true },
+            { name: "connection", type: "string", required: true }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Dataset ID" },
+      { name: "self_link", type: "string", description: "Self link" },
+      { name: "etag", type: "string", description: "Etag" },
+      { name: "creation_time", type: "number", description: "Creation time" },
+      { name: "last_modified_time", type: "number", description: "Last modified time" }
+    ]
+  },
+  {
+    id: "bigquery_table",
+    name: "BigQuery Table",
+    description: "BigQuery table",
+    terraform_resource: "google_bigquery_table",
+    icon: ANALYTICS_ICONS['google_bigquery_table'],
+    inputs: {
+      required: [
+        { name: "dataset_id", type: "string", description: "Dataset ID" },
+        { name: "table_id", type: "string", description: "Table ID" }
+      ],
+      optional: [
+        { name: "project", type: "string", description: "Project ID" },
+        { name: "friendly_name", type: "string", description: "Friendly name" },
+        { name: "description", type: "string", description: "Description" },
+        { name: "schema", type: "string", description: "Schema JSON" },
+        { name: "clustering", type: "list", description: "Clustering fields" },
+        { name: "expiration_time", type: "number", description: "Expiration time" },
+        { name: "max_staleness", type: "string", description: "Max staleness" },
+        { name: "deletion_protection", type: "bool", description: "Deletion protection" },
+        { name: "labels", type: "map", description: "Labels" }
+      ],
+      blocks: [
+        {
+          name: "time_partitioning",
+          required: false,
+          attributes: [
+            { name: "type", type: "string", required: true, options: ["DAY", "HOUR", "MONTH", "YEAR"] },
+            { name: "expiration_ms", type: "number" },
+            { name: "field", type: "string" },
+            { name: "require_partition_filter", type: "bool" }
+          ]
+        },
+        {
+          name: "range_partitioning",
+          required: false,
+          attributes: [
+            { name: "field", type: "string", required: true }
+          ],
+          blocks: [
+            {
+              name: "range",
+              required: true,
+              attributes: [
+                { name: "start", type: "number", required: true },
+                { name: "end", type: "number", required: true },
+                { name: "interval", type: "number", required: true }
+              ]
+            }
+          ]
+        },
+        {
+          name: "encryption_configuration",
+          required: false,
+          attributes: [
+            { name: "kms_key_name", type: "string", required: true }
+          ]
+        },
+        {
+          name: "view",
+          required: false,
+          attributes: [
+            { name: "query", type: "string", required: true },
+            { name: "use_legacy_sql", type: "bool" }
+          ]
+        },
+        {
+          name: "materialized_view",
+          required: false,
+          attributes: [
+            { name: "query", type: "string", required: true },
+            { name: "enable_refresh", type: "bool", default: true },
+            { name: "refresh_interval_ms", type: "number" },
+            { name: "allow_non_incremental_definition", type: "bool" }
+          ]
+        },
+        {
+          name: "external_data_configuration",
+          required: false,
+          attributes: [
+            { name: "autodetect", type: "bool", required: true },
+            { name: "source_uris", type: "list", required: true },
+            { name: "source_format", type: "string", options: ["AVRO", "BIGTABLE", "CSV", "DATASTORE_BACKUP", "GOOGLE_SHEETS", "JSON", "NEWLINE_DELIMITED_JSON", "ORC", "PARQUET"] },
+            { name: "compression", type: "string" },
+            { name: "connection_id", type: "string" },
+            { name: "file_set_spec_type", type: "string" },
+            { name: "ignore_unknown_values", type: "bool" },
+            { name: "max_bad_records", type: "number" },
+            { name: "schema", type: "string" },
+            { name: "metadata_cache_mode", type: "string", options: ["AUTOMATIC", "MANUAL"] },
+            { name: "object_metadata", type: "string" },
+            { name: "reference_file_schema_uri", type: "string" }
+          ],
+          blocks: [
+            {
+              name: "csv_options",
+              attributes: [
+                { name: "quote", type: "string", required: true },
+                { name: "allow_jagged_rows", type: "bool" },
+                { name: "allow_quoted_newlines", type: "bool" },
+                { name: "encoding", type: "string" },
+                { name: "field_delimiter", type: "string" },
+                { name: "skip_leading_rows", type: "number" },
+                { name: "null_marker", type: "string" },
+                { name: "preserve_ascii_control_characters", type: "bool" }
+              ]
+            },
+            {
+              name: "google_sheets_options",
+              attributes: [
+                { name: "range", type: "string" },
+                { name: "skip_leading_rows", type: "number" }
+              ]
+            },
+            {
+              name: "hive_partitioning_options",
+              attributes: [
+                { name: "mode", type: "string" },
+                { name: "require_partition_filter", type: "bool" },
+                { name: "source_uri_prefix", type: "string" }
+              ]
+            },
+            {
+              name: "avro_options",
+              attributes: [
+                { name: "use_avro_logical_types", type: "bool", required: true }
+              ]
+            },
+            {
+              name: "json_options",
+              attributes: [
+                { name: "encoding", type: "string" }
+              ]
+            },
+            {
+              name: "parquet_options",
+              attributes: [
+                { name: "enum_as_string", type: "bool" },
+                { name: "enable_list_inference", type: "bool" }
+              ]
+            },
+            {
+              name: "bigtable_options",
+              attributes: [],
+              blocks: [
+                {
+                  name: "column_family",
+                  multiple: true,
+                  attributes: [
+                    { name: "family_id", type: "string" },
+                    { name: "encoding", type: "string" },
+                    { name: "only_read_latest", type: "bool" },
+                    { name: "type", type: "string" }
+                  ],
+                  blocks: [
+                    {
+                      name: "column",
+                      multiple: true,
+                      attributes: [
+                        { name: "qualifier_encoded", type: "string" },
+                        { name: "qualifier_string", type: "string" },
+                        { name: "field_name", type: "string" },
+                        { name: "encoding", type: "string" },
+                        { name: "only_read_latest", type: "bool" },
+                        { name: "type", type: "string" }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          name: "table_constraints",
+          required: false,
+          attributes: [],
+          blocks: [
+            {
+              name: "primary_key",
+              attributes: [
+                { name: "columns", type: "list", required: true }
+              ]
+            },
+            {
+              name: "foreign_keys",
+              multiple: true,
+              attributes: [
+                { name: "name", type: "string" }
+              ],
+              blocks: [
+                {
+                  name: "column_references",
+                  required: true,
+                  attributes: [
+                    { name: "referencing_column", type: "string", required: true },
+                    { name: "referenced_column", type: "string", required: true }
+                  ]
+                },
+                {
+                  name: "referenced_table",
+                  required: true,
+                  attributes: [
+                    { name: "project_id", type: "string", required: true },
+                    { name: "dataset_id", type: "string", required: true },
+                    { name: "table_id", type: "string", required: true }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Table ID" },
+      { name: "self_link", type: "string", description: "Self link" },
+      { name: "etag", type: "string", description: "Etag" },
+      { name: "creation_time", type: "number", description: "Creation time" },
+      { name: "last_modified_time", type: "number", description: "Last modified time" },
+      { name: "type", type: "string", description: "Table type" },
+      { name: "num_bytes", type: "number", description: "Number of bytes" },
+      { name: "num_long_term_bytes", type: "number", description: "Long term bytes" },
+      { name: "num_rows", type: "number", description: "Number of rows" }
+    ]
+  },
+  {
+    id: "dataproc_cluster",
+    name: "Dataproc Cluster",
+    description: "Cloud Dataproc cluster",
+    terraform_resource: "google_dataproc_cluster",
+    icon: ANALYTICS_ICONS['google_dataproc_cluster'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Cluster name" },
+        { name: "region", type: "string", description: "Region" }
+      ],
+      optional: [
+        { name: "project", type: "string", description: "Project ID" },
+        { name: "labels", type: "map", description: "Labels" },
+        { name: "graceful_decommission_timeout", type: "string", description: "Graceful decommission timeout" }
+      ],
+      blocks: [
+        {
+          name: "cluster_config",
+          required: false,
+          attributes: [
+            { name: "staging_bucket", type: "string" },
+            { name: "temp_bucket", type: "string" }
+          ],
+          blocks: [
+            {
+              name: "gce_cluster_config",
+              attributes: [
+                { name: "zone", type: "string" },
+                { name: "network", type: "string" },
+                { name: "subnetwork", type: "string" },
+                { name: "service_account", type: "string" },
+                { name: "service_account_scopes", type: "list" },
+                { name: "tags", type: "list" },
+                { name: "internal_ip_only", type: "bool" },
+                { name: "metadata", type: "map" }
+              ],
+              blocks: [
+                {
+                  name: "shielded_instance_config",
+                  attributes: [
+                    { name: "enable_secure_boot", type: "bool" },
+                    { name: "enable_vtpm", type: "bool" },
+                    { name: "enable_integrity_monitoring", type: "bool" }
+                  ]
+                },
+                {
+                  name: "node_group_affinity",
+                  attributes: [
+                    { name: "node_group_uri", type: "string", required: true }
+                  ]
+                },
+                {
+                  name: "reservation_affinity",
+                  attributes: [
+                    { name: "consume_reservation_type", type: "string" },
+                    { name: "key", type: "string" },
+                    { name: "values", type: "list" }
+                  ]
+                }
+              ]
+            },
+            {
+              name: "master_config",
+              attributes: [
+                { name: "num_instances", type: "number" },
+                { name: "machine_type", type: "string" },
+                { name: "min_cpu_platform", type: "string" },
+                { name: "image_uri", type: "string" }
+              ],
+              blocks: [
+                {
+                  name: "disk_config",
+                  attributes: [
+                    { name: "boot_disk_type", type: "string" },
+                    { name: "boot_disk_size_gb", type: "number" },
+                    { name: "num_local_ssds", type: "number" },
+                    { name: "local_ssd_interface", type: "string" }
+                  ]
+                },
+                {
+                  name: "accelerators",
+                  multiple: true,
+                  attributes: [
+                    { name: "accelerator_type", type: "string", required: true },
+                    { name: "accelerator_count", type: "number", required: true }
+                  ]
+                }
+              ]
+            },
+            {
+              name: "worker_config",
+              attributes: [
+                { name: "num_instances", type: "number" },
+                { name: "machine_type", type: "string" },
+                { name: "min_cpu_platform", type: "string" },
+                { name: "image_uri", type: "string" },
+                { name: "min_num_instances", type: "number" }
+              ],
+              blocks: [
+                {
+                  name: "disk_config",
+                  attributes: [
+                    { name: "boot_disk_type", type: "string" },
+                    { name: "boot_disk_size_gb", type: "number" },
+                    { name: "num_local_ssds", type: "number" },
+                    { name: "local_ssd_interface", type: "string" }
+                  ]
+                },
+                {
+                  name: "accelerators",
+                  multiple: true,
+                  attributes: [
+                    { name: "accelerator_type", type: "string", required: true },
+                    { name: "accelerator_count", type: "number", required: true }
+                  ]
+                }
+              ]
+            },
+            {
+              name: "preemptible_worker_config",
+              attributes: [
+                { name: "num_instances", type: "number" },
+                { name: "preemptibility", type: "string", options: ["PREEMPTIBLE", "SPOT", "NON_PREEMPTIBLE"] }
+              ],
+              blocks: [
+                {
+                  name: "disk_config",
+                  attributes: [
+                    { name: "boot_disk_type", type: "string" },
+                    { name: "boot_disk_size_gb", type: "number" },
+                    { name: "num_local_ssds", type: "number" },
+                    { name: "local_ssd_interface", type: "string" }
+                  ]
+                },
+                {
+                  name: "instance_flexibility_policy",
+                  attributes: [],
+                  blocks: [
+                    {
+                      name: "instance_selection_list",
+                      multiple: true,
+                      attributes: [
+                        { name: "machine_types", type: "list" },
+                        { name: "rank", type: "number" }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              name: "software_config",
+              attributes: [
+                { name: "image_version", type: "string" },
+                { name: "override_properties", type: "map" },
+                { name: "optional_components", type: "list" }
+              ]
+            },
+            {
+              name: "security_config",
+              attributes: [],
+              blocks: [
+                {
+                  name: "kerberos_config",
+                  required: true,
+                  attributes: [
+                    { name: "kms_key_uri", type: "string", required: true },
+                    { name: "keystore_uri", type: "string" },
+                    { name: "truststore_uri", type: "string" },
+                    { name: "keystore_password_uri", type: "string" },
+                    { name: "key_password_uri", type: "string" },
+                    { name: "truststore_password_uri", type: "string" },
+                    { name: "cross_realm_trust_realm", type: "string" },
+                    { name: "cross_realm_trust_kdc", type: "string" },
+                    { name: "cross_realm_trust_admin_server", type: "string" },
+                    { name: "cross_realm_trust_shared_password_uri", type: "string" },
+                    { name: "kdc_db_key_uri", type: "string" },
+                    { name: "tgt_lifetime_hours", type: "number" },
+                    { name: "realm", type: "string" },
+                    { name: "root_principal_password_uri", type: "string", required: true }
+                  ]
+                }
+              ]
+            },
+            {
+              name: "autoscaling_config",
+              attributes: [
+                { name: "policy_uri", type: "string", required: true }
+              ]
+            },
+            {
+              name: "initialization_action",
+              multiple: true,
+              attributes: [
+                { name: "script", type: "string", required: true },
+                { name: "timeout_sec", type: "number" }
+              ]
+            },
+            {
+              name: "encryption_config",
+              attributes: [
+                { name: "kms_key_name", type: "string", required: true }
+              ]
+            },
+            {
+              name: "endpoint_config",
+              attributes: [
+                { name: "enable_http_port_access", type: "bool", required: true }
+              ]
+            },
+            {
+              name: "lifecycle_config",
+              attributes: [
+                { name: "idle_delete_ttl", type: "string" },
+                { name: "auto_delete_time", type: "string" }
+              ]
+            },
+            {
+              name: "metastore_config",
+              attributes: [
+                { name: "dataproc_metastore_service", type: "string", required: true }
+              ]
+            },
+            {
+              name: "dataproc_metric_config",
+              attributes: [],
+              blocks: [
+                {
+                  name: "metrics",
+                  required: true,
+                  multiple: true,
+                  attributes: [
+                    { name: "metric_source", type: "string", required: true, options: ["MONITORING_AGENT_DEFAULTS", "HDFS", "SPARK", "YARN", "SPARK_HISTORY_SERVER", "HIVESERVER2", "HIVEMETASTORE", "FLINK"] },
+                    { name: "metric_overrides", type: "list" }
+                  ]
+                }
+              ]
+            },
+            {
+              name: "auxiliary_node_groups",
+              multiple: true,
+              attributes: [
+                { name: "node_group_id", type: "string", required: true }
+              ],
+              blocks: [
+                {
+                  name: "node_group",
+                  required: true,
+                  attributes: [
+                    { name: "roles", type: "list", required: true },
+                    { name: "name", type: "string" }
+                  ],
+                  blocks: [
+                    {
+                      name: "node_group_config",
+                      attributes: [
+                        { name: "num_instances", type: "number" },
+                        { name: "machine_type", type: "string" },
+                        { name: "min_cpu_platform", type: "string" }
+                      ],
+                      blocks: [
+                        {
+                          name: "disk_config",
+                          attributes: [
+                            { name: "boot_disk_type", type: "string" },
+                            { name: "boot_disk_size_gb", type: "number" },
+                            { name: "num_local_ssds", type: "number" },
+                            { name: "local_ssd_interface", type: "string" }
+                          ]
+                        },
+                        {
+                          name: "accelerators",
+                          multiple: true,
+                          attributes: [
+                            { name: "accelerator_type", type: "string", required: true },
+                            { name: "accelerator_count", type: "number", required: true }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          name: "virtual_cluster_config",
+          required: false,
+          attributes: [
+            { name: "staging_bucket", type: "string" }
+          ],
+          blocks: [
+            {
+              name: "kubernetes_cluster_config",
+              required: true,
+              attributes: [
+                { name: "kubernetes_namespace", type: "string" }
+              ],
+              blocks: [
+                {
+                  name: "kubernetes_software_config",
+                  required: true,
+                  attributes: [
+                    { name: "component_version", type: "map", required: true },
+                    { name: "properties", type: "map" }
+                  ]
+                },
+                {
+                  name: "gke_cluster_config",
+                  required: true,
+                  attributes: [
+                    { name: "gke_cluster_target", type: "string" }
+                  ],
+                  blocks: [
+                    {
+                      name: "node_pool_target",
+                      multiple: true,
+                      attributes: [
+                        { name: "node_pool", type: "string", required: true },
+                        { name: "roles", type: "list", required: true }
+                      ],
+                      blocks: [
+                        {
+                          name: "node_pool_config",
+                          attributes: [
+                            { name: "locations", type: "list" }
+                          ],
+                          blocks: [
+                            {
+                              name: "config",
+                              attributes: [
+                                { name: "machine_type", type: "string" },
+                                { name: "local_ssd_count", type: "number" },
+                                { name: "preemptible", type: "bool" },
+                                { name: "min_cpu_platform", type: "string" },
+                                { name: "spot", type: "bool" }
+                              ]
+                            },
+                            {
+                              name: "autoscaling",
+                              attributes: [
+                                { name: "min_node_count", type: "number" },
+                                { name: "max_node_count", type: "number" }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              name: "auxiliary_services_config",
+              attributes: [],
+              blocks: [
+                {
+                  name: "metastore_config",
+                  attributes: [
+                    { name: "dataproc_metastore_service", type: "string" }
+                  ]
+                },
+                {
+                  name: "spark_history_server_config",
+                  attributes: [
+                    { name: "dataproc_cluster", type: "string" }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Cluster ID" },
+      { name: "cluster_config.0.bucket", type: "string", description: "Bucket" },
+      { name: "cluster_config.0.master_config.0.instance_names", type: "list", description: "Master instances" },
+      { name: "cluster_config.0.worker_config.0.instance_names", type: "list", description: "Worker instances" }
+    ]
+  },
+  {
+    id: "dataflow_job",
+    name: "Dataflow Job",
+    description: "Cloud Dataflow job",
+    terraform_resource: "google_dataflow_job",
+    icon: ANALYTICS_ICONS['google_dataflow_job'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Job name" },
+        { name: "template_gcs_path", type: "string", description: "GCS template path" },
+        { name: "temp_gcs_location", type: "string", description: "GCS temp location" }
+      ],
+      optional: [
+        { name: "project", type: "string", description: "Project ID" },
+        { name: "zone", type: "string", description: "Zone" },
+        { name: "region", type: "string", description: "Region" },
+        { name: "max_workers", type: "number", description: "Max workers" },
+        { name: "parameters", type: "map", description: "Template parameters" },
+        { name: "labels", type: "map", description: "Labels" },
+        { name: "transform_name_mapping", type: "map", description: "Transform name mapping" },
+        { name: "on_delete", type: "string", description: "On delete action", options: ["cancel", "drain"] },
+        { name: "skip_wait_on_job_termination", type: "bool", description: "Skip wait on termination" },
+        { name: "machine_type", type: "string", description: "Machine type" },
+        { name: "network", type: "string", description: "Network" },
+        { name: "subnetwork", type: "string", description: "Subnetwork" },
+        { name: "service_account_email", type: "string", description: "Service account" },
+        { name: "kms_key_name", type: "string", description: "KMS key name" },
+        { name: "ip_configuration", type: "string", description: "IP configuration", options: ["WORKER_IP_PUBLIC", "WORKER_IP_PRIVATE"] },
+        { name: "additional_experiments", type: "list", description: "Additional experiments" },
+        { name: "enable_streaming_engine", type: "bool", description: "Enable streaming engine" }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Job ID" },
+      { name: "job_id", type: "string", description: "Job ID" },
+      { name: "state", type: "string", description: "Job state" },
+      { name: "type", type: "string", description: "Job type" }
+    ]
+  },
+  {
+    id: "data_catalog_entry",
+    name: "Data Catalog Entry",
+    description: "Data Catalog entry",
+    terraform_resource: "google_data_catalog_entry",
+    icon: ANALYTICS_ICONS['google_data_catalog_entry'],
+    inputs: {
+      required: [
+        { name: "entry_group", type: "string", description: "Entry group ID" },
+        { name: "entry_id", type: "string", description: "Entry ID" }
+      ],
+      optional: [
+        { name: "display_name", type: "string", description: "Display name" },
+        { name: "description", type: "string", description: "Description" },
+        { name: "linked_resource", type: "string", description: "Linked resource" },
+        { name: "type", type: "string", description: "Entry type", options: ["FILESET", "CLUSTER", "DATABASE", "DATA_STREAM", "ROUTINE", "LAKE", "ZONE", "SERVICE", "MODEL", "FEATURE_ONLINE_STORE", "FEATURE_VIEW", "FEATURE_GROUP"] },
+        { name: "user_specified_type", type: "string", description: "User specified type" },
+        { name: "user_specified_system", type: "string", description: "User specified system" },
+        { name: "schema", type: "string", description: "Schema JSON" }
+      ],
+      blocks: [
+        {
+          name: "gcs_fileset_spec",
+          required: false,
+          attributes: [
+            { name: "file_patterns", type: "list", required: true }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Entry ID" },
+      { name: "name", type: "string", description: "Entry name" },
+      { name: "integrated_system", type: "string", description: "Integrated system" },
+      { name: "bigquery_table_spec", type: "list", description: "BigQuery table spec" },
+      { name: "bigquery_date_sharded_spec", type: "list", description: "BigQuery date sharded spec" }
+    ]
+  }
+];
+
+// All analytics terraform resources
+export const ANALYTICS_TERRAFORM_RESOURCES = ANALYTICS_SERVICES.map(s => s.terraform_resource);
+
+// Get analytics service by terraform resource name
+export function getAnalyticsServiceByTerraformResource(terraformResource: string): AnalyticsServiceDefinition | undefined {
+  return ANALYTICS_SERVICES.find(service => service.terraform_resource === terraformResource);
+}
+
+// Get analytics service by ID
+export function getAnalyticsServiceById(id: string): AnalyticsServiceDefinition | undefined {
+  return ANALYTICS_SERVICES.find(service => service.id === id);
+}
+
+// Check if a terraform resource is an analytics resource
+export function isAnalyticsResource(terraformResource: string): boolean {
+  return ANALYTICS_TERRAFORM_RESOURCES.includes(terraformResource);
+}
+
+// Get analytics icon
+export function getAnalyticsIcon(terraformResource: string): string | undefined {
+  return ANALYTICS_ICONS[terraformResource];
+}
+

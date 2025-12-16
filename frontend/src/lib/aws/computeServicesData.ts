@@ -1,0 +1,879 @@
+/**
+ * AWS Compute Services Data - Complete definitions from compute.json
+ * This file contains ALL 19 compute services with ALL their properties
+ * 
+ * Services included:
+ * 1. EC2 Instance (aws_instance)
+ * 2. Launch Template (aws_launch_template)
+ * 3. Auto Scaling Group (aws_autoscaling_group)
+ * 4. Auto Scaling Policy (aws_autoscaling_policy)
+ * 5. Spot Instance Request (aws_spot_instance_request)
+ * 6. Spot Fleet Request (aws_spot_fleet_request)
+ * 7. AMI (aws_ami)
+ * 8. AMI Copy (aws_ami_copy)
+ * 9. AMI from Instance (aws_ami_from_instance)
+ * 10. Key Pair (aws_key_pair)
+ * 11. Placement Group (aws_placement_group)
+ * 12. Elastic IP (aws_eip)
+ * 13. EIP Association (aws_eip_association)
+ * 14. Lightsail Instance (aws_lightsail_instance)
+ * 15. Elastic Beanstalk Application (aws_elastic_beanstalk_application)
+ * 16. Elastic Beanstalk Environment (aws_elastic_beanstalk_environment)
+ * 17. Batch Compute Environment (aws_batch_compute_environment)
+ * 18. Batch Job Queue (aws_batch_job_queue)
+ * 19. Batch Job Definition (aws_batch_job_definition)
+ */
+
+// Service icon mappings - using actual AWS Architecture icons
+export const COMPUTE_ICONS: Record<string, string> = {
+  'aws_instance': '/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Compute/64/Arch_Amazon-EC2_64.svg',
+  'aws_launch_template': '/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Compute/64/Arch_Amazon-EC2_64.svg',
+  'aws_autoscaling_group': '/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Compute/64/Arch_Amazon-EC2-Auto-Scaling_64.svg',
+  'aws_autoscaling_policy': '/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Compute/64/Arch_Amazon-EC2-Auto-Scaling_64.svg',
+  'aws_spot_instance_request': '/cloud_icons/AWS/Resource-Icons_07312025/Res_Compute/Res_Amazon-EC2_Spot-Instance_48.svg',
+  'aws_spot_fleet_request': '/cloud_icons/AWS/Architecture-Group-Icons_07312025/Spot-Fleet_32.svg',
+  'aws_ami': '/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Compute/64/Arch_Amazon-EC2-Image-Builder_64.svg',
+  'aws_ami_copy': '/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Compute/64/Arch_Amazon-EC2-Image-Builder_64.svg',
+  'aws_ami_from_instance': '/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Compute/64/Arch_Amazon-EC2-Image-Builder_64.svg',
+  'aws_key_pair': '/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Security-Identity-Compliance/64/Arch_AWS-Identity-and-Access-Management_64.svg',
+  'aws_placement_group': '/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Compute/64/Arch_Amazon-EC2_64.svg',
+  'aws_eip': '/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Networking-Content-Delivery/64/Arch_Elastic-Load-Balancing_64.svg',
+  'aws_eip_association': '/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Networking-Content-Delivery/64/Arch_Elastic-Load-Balancing_64.svg',
+  'aws_lightsail_instance': '/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Compute/64/Arch_Amazon-Lightsail_64.svg',
+  'aws_elastic_beanstalk_application': '/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Compute/64/Arch_AWS-Elastic-Beanstalk_64.svg',
+  'aws_elastic_beanstalk_environment': '/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Compute/64/Arch_AWS-Elastic-Beanstalk_64.svg',
+  'aws_batch_compute_environment': '/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Compute/64/Arch_AWS-Batch_64.svg',
+  'aws_batch_job_queue': '/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Compute/64/Arch_AWS-Batch_64.svg',
+  'aws_batch_job_definition': '/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Compute/64/Arch_AWS-Batch_64.svg',
+};
+
+// Type definitions
+export interface ServiceInput {
+  name: string;
+  type: string;
+  description?: string;
+  example?: string;
+  default?: unknown;
+  options?: string[];
+  reference?: string;
+  required?: boolean;
+}
+
+export interface BlockAttribute {
+  name: string;
+  type: string;
+  description?: string;
+  options?: string[];
+  default?: unknown;
+  required?: boolean;
+}
+
+export interface ServiceBlock {
+  name: string;
+  description?: string;
+  multiple?: boolean;
+  attributes: BlockAttribute[];
+  nested_blocks?: ServiceBlock[];
+}
+
+export interface ServiceOutput {
+  name: string;
+  type: string;
+  description: string;
+}
+
+export interface ComputeServiceDefinition {
+  id: string;
+  name: string;
+  description: string;
+  terraform_resource: string;
+  icon: string;
+  inputs: {
+    required: ServiceInput[];
+    optional: ServiceInput[];
+    blocks?: ServiceBlock[];
+  };
+  outputs: ServiceOutput[];
+}
+
+// Complete compute services data from compute.json
+export const COMPUTE_SERVICES: ComputeServiceDefinition[] = [
+  {
+    id: "ec2_instance",
+    name: "EC2 Instance",
+    description: "Virtual server in the cloud",
+    terraform_resource: "aws_instance",
+    icon: COMPUTE_ICONS['aws_instance'],
+    inputs: {
+      required: [
+        { name: "ami", type: "string", description: "AMI ID to use for the instance", example: "ami-0c55b159cbfafe1f0" },
+        { name: "instance_type", type: "string", description: "Instance type", example: "t3.micro", options: ["t3.nano", "t3.micro", "t3.small", "t3.medium", "t3.large", "t3.xlarge", "t3.2xlarge", "m5.large", "m5.xlarge", "m5.2xlarge", "m5.4xlarge", "c5.large", "c5.xlarge", "r5.large", "r5.xlarge"] }
+      ],
+      optional: [
+        { name: "availability_zone", type: "string", description: "AZ to start the instance in", example: "us-east-1a" },
+        { name: "subnet_id", type: "string", description: "VPC Subnet ID to launch in", reference: "aws_subnet.id" },
+        { name: "vpc_security_group_ids", type: "list(string)", description: "List of security group IDs", reference: "aws_security_group.id" },
+        { name: "key_name", type: "string", description: "Key pair name for SSH access", reference: "aws_key_pair.key_name" },
+        { name: "iam_instance_profile", type: "string", description: "IAM Instance Profile", reference: "aws_iam_instance_profile.name" },
+        { name: "user_data", type: "string", description: "User data script for instance initialization" },
+        { name: "user_data_base64", type: "string", description: "Base64 encoded user data" },
+        { name: "associate_public_ip_address", type: "bool", description: "Associate a public IP address", default: false },
+        { name: "private_ip", type: "string", description: "Private IP address" },
+        { name: "tenancy", type: "string", description: "Instance tenancy", options: ["default", "dedicated", "host"], default: "default" },
+        { name: "host_id", type: "string", description: "Dedicated Host ID" },
+        { name: "cpu_core_count", type: "number", description: "Number of CPU cores" },
+        { name: "cpu_threads_per_core", type: "number", description: "Threads per CPU core" },
+        { name: "ebs_optimized", type: "bool", description: "Enable EBS optimization", default: false },
+        { name: "disable_api_termination", type: "bool", description: "Enable termination protection", default: false },
+        { name: "instance_initiated_shutdown_behavior", type: "string", description: "Shutdown behavior", options: ["stop", "terminate"], default: "stop" },
+        { name: "monitoring", type: "bool", description: "Enable detailed monitoring", default: false },
+        { name: "hibernation", type: "bool", description: "Enable hibernation", default: false },
+        { name: "tags", type: "map(string)", description: "Tags for the instance" }
+      ],
+      blocks: [
+        {
+          name: "root_block_device",
+          description: "Root EBS volume configuration",
+          attributes: [
+            { name: "volume_type", type: "string", options: ["gp2", "gp3", "io1", "io2", "st1", "sc1", "standard"] },
+            { name: "volume_size", type: "number", description: "Size in GB" },
+            { name: "iops", type: "number", description: "IOPS for io1/io2/gp3" },
+            { name: "throughput", type: "number", description: "Throughput for gp3" },
+            { name: "encrypted", type: "bool" },
+            { name: "kms_key_id", type: "string" },
+            { name: "delete_on_termination", type: "bool", default: true }
+          ]
+        },
+        {
+          name: "ebs_block_device",
+          description: "Additional EBS volumes",
+          multiple: true,
+          attributes: [
+            { name: "device_name", type: "string", required: true },
+            { name: "volume_type", type: "string", options: ["gp2", "gp3", "io1", "io2", "st1", "sc1", "standard"] },
+            { name: "volume_size", type: "number" },
+            { name: "iops", type: "number" },
+            { name: "throughput", type: "number" },
+            { name: "encrypted", type: "bool" },
+            { name: "kms_key_id", type: "string" },
+            { name: "snapshot_id", type: "string" },
+            { name: "delete_on_termination", type: "bool", default: true }
+          ]
+        },
+        {
+          name: "network_interface",
+          description: "Network interface attachment",
+          multiple: true,
+          attributes: [
+            { name: "network_interface_id", type: "string", required: true },
+            { name: "device_index", type: "number", required: true },
+            { name: "delete_on_termination", type: "bool" }
+          ]
+        },
+        {
+          name: "credit_specification",
+          description: "CPU credits for burstable instances",
+          attributes: [
+            { name: "cpu_credits", type: "string", options: ["standard", "unlimited"] }
+          ]
+        },
+        {
+          name: "metadata_options",
+          description: "Instance metadata service options",
+          attributes: [
+            { name: "http_endpoint", type: "string", options: ["enabled", "disabled"] },
+            { name: "http_tokens", type: "string", options: ["optional", "required"] },
+            { name: "http_put_response_hop_limit", type: "number" },
+            { name: "instance_metadata_tags", type: "string", options: ["enabled", "disabled"] }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Instance ID" },
+      { name: "arn", type: "string", description: "Instance ARN" },
+      { name: "public_ip", type: "string", description: "Public IP address" },
+      { name: "private_ip", type: "string", description: "Private IP address" },
+      { name: "public_dns", type: "string", description: "Public DNS name" },
+      { name: "private_dns", type: "string", description: "Private DNS name" },
+      { name: "availability_zone", type: "string", description: "Availability Zone" },
+      { name: "subnet_id", type: "string", description: "Subnet ID" },
+      { name: "vpc_security_group_ids", type: "list(string)", description: "Security group IDs" },
+      { name: "primary_network_interface_id", type: "string", description: "Primary network interface ID" },
+      { name: "instance_state", type: "string", description: "Instance state" }
+    ]
+  },
+  {
+    id: "ec2_launch_template",
+    name: "Launch Template",
+    description: "Template for launching EC2 instances",
+    terraform_resource: "aws_launch_template",
+    icon: COMPUTE_ICONS['aws_launch_template'],
+    inputs: {
+      required: [],
+      optional: [
+        { name: "name", type: "string", description: "Launch template name" },
+        { name: "name_prefix", type: "string", description: "Name prefix" },
+        { name: "description", type: "string", description: "Description" },
+        { name: "default_version", type: "number", description: "Default version" },
+        { name: "update_default_version", type: "bool", description: "Update default version" },
+        { name: "image_id", type: "string", description: "AMI ID" },
+        { name: "instance_type", type: "string", description: "Instance type" },
+        { name: "key_name", type: "string", description: "Key pair name" },
+        { name: "user_data", type: "string", description: "Base64 encoded user data" },
+        { name: "vpc_security_group_ids", type: "list(string)", description: "Security group IDs" },
+        { name: "disable_api_termination", type: "bool", description: "Disable API termination" },
+        { name: "ebs_optimized", type: "string", description: "EBS optimized" },
+        { name: "tags", type: "map(string)", description: "Tags" }
+      ],
+      blocks: [
+        {
+          name: "block_device_mappings",
+          multiple: true,
+          attributes: [
+            { name: "device_name", type: "string" },
+            { name: "no_device", type: "string" },
+            { name: "virtual_name", type: "string" }
+          ]
+        },
+        {
+          name: "iam_instance_profile",
+          attributes: [
+            { name: "arn", type: "string" },
+            { name: "name", type: "string" }
+          ]
+        },
+        {
+          name: "monitoring",
+          attributes: [
+            { name: "enabled", type: "bool" }
+          ]
+        },
+        {
+          name: "network_interfaces",
+          multiple: true,
+          attributes: [
+            { name: "associate_public_ip_address", type: "string" },
+            { name: "delete_on_termination", type: "string" },
+            { name: "device_index", type: "number" },
+            { name: "security_groups", type: "list(string)" },
+            { name: "subnet_id", type: "string" }
+          ]
+        },
+        {
+          name: "placement",
+          attributes: [
+            { name: "availability_zone", type: "string" },
+            { name: "tenancy", type: "string" }
+          ]
+        },
+        {
+          name: "metadata_options",
+          attributes: [
+            { name: "http_endpoint", type: "string" },
+            { name: "http_tokens", type: "string" },
+            { name: "http_put_response_hop_limit", type: "number" }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Launch template ID" },
+      { name: "arn", type: "string", description: "Launch template ARN" },
+      { name: "latest_version", type: "number", description: "Latest version number" },
+      { name: "default_version", type: "number", description: "Default version number" }
+    ]
+  },
+  {
+    id: "ec2_autoscaling_group",
+    name: "Auto Scaling Group",
+    description: "Automatically scales EC2 instances",
+    terraform_resource: "aws_autoscaling_group",
+    icon: COMPUTE_ICONS['aws_autoscaling_group'],
+    inputs: {
+      required: [
+        { name: "max_size", type: "number", description: "Maximum number of instances" },
+        { name: "min_size", type: "number", description: "Minimum number of instances" }
+      ],
+      optional: [
+        { name: "name", type: "string", description: "ASG name" },
+        { name: "desired_capacity", type: "number", description: "Desired number of instances" },
+        { name: "capacity_rebalance", type: "bool", description: "Enable capacity rebalancing" },
+        { name: "default_cooldown", type: "number", description: "Cooldown period in seconds" },
+        { name: "health_check_grace_period", type: "number", description: "Health check grace period" },
+        { name: "health_check_type", type: "string", description: "Health check type", options: ["EC2", "ELB"] },
+        { name: "force_delete", type: "bool", description: "Force delete" },
+        { name: "target_group_arns", type: "list(string)", description: "Target group ARNs" },
+        { name: "vpc_zone_identifier", type: "list(string)", description: "Subnet IDs" },
+        { name: "termination_policies", type: "list(string)", description: "Termination policies" },
+        { name: "protect_from_scale_in", type: "bool", description: "Protect from scale in" },
+        { name: "max_instance_lifetime", type: "number", description: "Max instance lifetime" },
+        { name: "tags", type: "list(object)", description: "Tags" }
+      ],
+      blocks: [
+        {
+          name: "launch_template",
+          attributes: [
+            { name: "id", type: "string" },
+            { name: "name", type: "string" },
+            { name: "version", type: "string" }
+          ]
+        },
+        {
+          name: "mixed_instances_policy",
+          attributes: [
+            { name: "instances_distribution", type: "object" },
+            { name: "launch_template", type: "object" }
+          ]
+        },
+        {
+          name: "instance_refresh",
+          attributes: [
+            { name: "strategy", type: "string" },
+            { name: "triggers", type: "list(string)" }
+          ]
+        },
+        {
+          name: "tag",
+          multiple: true,
+          attributes: [
+            { name: "key", type: "string", required: true },
+            { name: "value", type: "string", required: true },
+            { name: "propagate_at_launch", type: "bool", required: true }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "ASG ID" },
+      { name: "arn", type: "string", description: "ASG ARN" },
+      { name: "name", type: "string", description: "ASG name" },
+      { name: "min_size", type: "number", description: "Minimum size" },
+      { name: "max_size", type: "number", description: "Maximum size" },
+      { name: "desired_capacity", type: "number", description: "Desired capacity" }
+    ]
+  },
+  {
+    id: "ec2_autoscaling_policy",
+    name: "Auto Scaling Policy",
+    description: "Scaling policy for Auto Scaling Groups",
+    terraform_resource: "aws_autoscaling_policy",
+    icon: COMPUTE_ICONS['aws_autoscaling_policy'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Policy name" },
+        { name: "autoscaling_group_name", type: "string", description: "ASG name", reference: "aws_autoscaling_group.name" }
+      ],
+      optional: [
+        { name: "adjustment_type", type: "string", description: "Adjustment type", options: ["ChangeInCapacity", "ExactCapacity", "PercentChangeInCapacity"] },
+        { name: "policy_type", type: "string", description: "Policy type", options: ["SimpleScaling", "StepScaling", "TargetTrackingScaling", "PredictiveScaling"] },
+        { name: "estimated_instance_warmup", type: "number", description: "Estimated instance warmup" },
+        { name: "enabled", type: "bool", description: "Enable policy" },
+        { name: "cooldown", type: "number", description: "Cooldown period" },
+        { name: "scaling_adjustment", type: "number", description: "Scaling adjustment" }
+      ],
+      blocks: [
+        {
+          name: "target_tracking_configuration",
+          attributes: [
+            { name: "target_value", type: "number", required: true },
+            { name: "disable_scale_in", type: "bool" }
+          ]
+        },
+        {
+          name: "step_adjustment",
+          multiple: true,
+          attributes: [
+            { name: "scaling_adjustment", type: "number", required: true },
+            { name: "metric_interval_lower_bound", type: "string" },
+            { name: "metric_interval_upper_bound", type: "string" }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "arn", type: "string", description: "Policy ARN" },
+      { name: "name", type: "string", description: "Policy name" },
+      { name: "policy_type", type: "string", description: "Policy type" }
+    ]
+  },
+  {
+    id: "ec2_spot_instance_request",
+    name: "Spot Instance Request",
+    description: "Request for EC2 Spot Instances",
+    terraform_resource: "aws_spot_instance_request",
+    icon: COMPUTE_ICONS['aws_spot_instance_request'],
+    inputs: {
+      required: [
+        { name: "ami", type: "string", description: "AMI ID" },
+        { name: "instance_type", type: "string", description: "Instance type" }
+      ],
+      optional: [
+        { name: "spot_price", type: "string", description: "Maximum spot price" },
+        { name: "spot_type", type: "string", description: "Spot type", options: ["one-time", "persistent"] },
+        { name: "block_duration_minutes", type: "number", description: "Block duration" },
+        { name: "wait_for_fulfillment", type: "bool", description: "Wait for fulfillment" },
+        { name: "instance_interruption_behavior", type: "string", description: "Interruption behavior", options: ["hibernate", "stop", "terminate"] },
+        { name: "subnet_id", type: "string", description: "Subnet ID" },
+        { name: "vpc_security_group_ids", type: "list(string)", description: "Security group IDs" },
+        { name: "key_name", type: "string", description: "Key pair name" },
+        { name: "user_data", type: "string", description: "User data" },
+        { name: "tags", type: "map(string)", description: "Tags" }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Spot request ID" },
+      { name: "spot_bid_status", type: "string", description: "Bid status" },
+      { name: "spot_request_state", type: "string", description: "Request state" },
+      { name: "spot_instance_id", type: "string", description: "Instance ID" },
+      { name: "public_ip", type: "string", description: "Public IP" },
+      { name: "private_ip", type: "string", description: "Private IP" }
+    ]
+  },
+  {
+    id: "ec2_spot_fleet_request",
+    name: "Spot Fleet Request",
+    description: "Request for EC2 Spot Fleet",
+    terraform_resource: "aws_spot_fleet_request",
+    icon: COMPUTE_ICONS['aws_spot_fleet_request'],
+    inputs: {
+      required: [
+        { name: "iam_fleet_role", type: "string", description: "IAM fleet role ARN" },
+        { name: "target_capacity", type: "number", description: "Target capacity" }
+      ],
+      optional: [
+        { name: "allocation_strategy", type: "string", description: "Allocation strategy", options: ["lowestPrice", "diversified", "capacityOptimized"] },
+        { name: "excess_capacity_termination_policy", type: "string", description: "Excess capacity policy", options: ["Default", "NoTermination"] },
+        { name: "fleet_type", type: "string", description: "Fleet type", options: ["maintain", "request"] },
+        { name: "replace_unhealthy_instances", type: "bool", description: "Replace unhealthy instances" },
+        { name: "spot_price", type: "string", description: "Spot price" },
+        { name: "terminate_instances_with_expiration", type: "bool", description: "Terminate with expiration" },
+        { name: "tags", type: "map(string)", description: "Tags" }
+      ],
+      blocks: [
+        {
+          name: "launch_specification",
+          multiple: true,
+          attributes: [
+            { name: "ami", type: "string", required: true },
+            { name: "instance_type", type: "string", required: true },
+            { name: "availability_zone", type: "string" },
+            { name: "subnet_id", type: "string" },
+            { name: "vpc_security_group_ids", type: "list(string)" },
+            { name: "weighted_capacity", type: "number" }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Spot fleet request ID" },
+      { name: "spot_request_state", type: "string", description: "Request state" }
+    ]
+  },
+  {
+    id: "ec2_ami",
+    name: "AMI",
+    description: "Amazon Machine Image",
+    terraform_resource: "aws_ami",
+    icon: COMPUTE_ICONS['aws_ami'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "AMI name" }
+      ],
+      optional: [
+        { name: "description", type: "string", description: "AMI description" },
+        { name: "architecture", type: "string", description: "Architecture", options: ["i386", "x86_64", "arm64"] },
+        { name: "boot_mode", type: "string", description: "Boot mode", options: ["legacy-bios", "uefi", "uefi-preferred"] },
+        { name: "ena_support", type: "bool", description: "Enable ENA support" },
+        { name: "root_device_name", type: "string", description: "Root device name" },
+        { name: "virtualization_type", type: "string", description: "Virtualization type", options: ["paravirtual", "hvm"] },
+        { name: "tags", type: "map(string)", description: "Tags" }
+      ],
+      blocks: [
+        {
+          name: "ebs_block_device",
+          multiple: true,
+          attributes: [
+            { name: "device_name", type: "string", required: true },
+            { name: "delete_on_termination", type: "bool" },
+            { name: "encrypted", type: "bool" },
+            { name: "volume_size", type: "number" },
+            { name: "volume_type", type: "string" },
+            { name: "snapshot_id", type: "string" }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "AMI ID" },
+      { name: "arn", type: "string", description: "AMI ARN" },
+      { name: "root_snapshot_id", type: "string", description: "Root snapshot ID" }
+    ]
+  },
+  {
+    id: "ec2_ami_copy",
+    name: "AMI Copy",
+    description: "Copy an AMI",
+    terraform_resource: "aws_ami_copy",
+    icon: COMPUTE_ICONS['aws_ami_copy'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "AMI name" },
+        { name: "source_ami_id", type: "string", description: "Source AMI ID" },
+        { name: "source_ami_region", type: "string", description: "Source region" }
+      ],
+      optional: [
+        { name: "description", type: "string", description: "Description" },
+        { name: "encrypted", type: "bool", description: "Encrypt the AMI" },
+        { name: "kms_key_id", type: "string", description: "KMS key ID" },
+        { name: "tags", type: "map(string)", description: "Tags" }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "AMI ID" },
+      { name: "arn", type: "string", description: "AMI ARN" }
+    ]
+  },
+  {
+    id: "ec2_ami_from_instance",
+    name: "AMI from Instance",
+    description: "Create AMI from EC2 instance",
+    terraform_resource: "aws_ami_from_instance",
+    icon: COMPUTE_ICONS['aws_ami_from_instance'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "AMI name" },
+        { name: "source_instance_id", type: "string", description: "Source instance ID", reference: "aws_instance.id" }
+      ],
+      optional: [
+        { name: "description", type: "string", description: "Description" },
+        { name: "no_reboot", type: "bool", description: "No reboot during creation" },
+        { name: "snapshot_without_reboot", type: "bool", description: "Snapshot without reboot" },
+        { name: "tags", type: "map(string)", description: "Tags" }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "AMI ID" },
+      { name: "arn", type: "string", description: "AMI ARN" }
+    ]
+  },
+  {
+    id: "ec2_key_pair",
+    name: "Key Pair",
+    description: "SSH key pair for EC2 access",
+    terraform_resource: "aws_key_pair",
+    icon: COMPUTE_ICONS['aws_key_pair'],
+    inputs: {
+      required: [
+        { name: "public_key", type: "string", description: "Public key material" }
+      ],
+      optional: [
+        { name: "key_name", type: "string", description: "Key pair name" },
+        { name: "key_name_prefix", type: "string", description: "Key name prefix" },
+        { name: "tags", type: "map(string)", description: "Tags" }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Key pair ID" },
+      { name: "arn", type: "string", description: "Key pair ARN" },
+      { name: "key_name", type: "string", description: "Key pair name" },
+      { name: "fingerprint", type: "string", description: "Key fingerprint" }
+    ]
+  },
+  {
+    id: "ec2_placement_group",
+    name: "Placement Group",
+    description: "Logical grouping of instances",
+    terraform_resource: "aws_placement_group",
+    icon: COMPUTE_ICONS['aws_placement_group'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Placement group name" },
+        { name: "strategy", type: "string", description: "Placement strategy", options: ["cluster", "partition", "spread"] }
+      ],
+      optional: [
+        { name: "partition_count", type: "number", description: "Number of partitions" },
+        { name: "spread_level", type: "string", description: "Spread level", options: ["host", "rack"] },
+        { name: "tags", type: "map(string)", description: "Tags" }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Placement group ID" },
+      { name: "arn", type: "string", description: "Placement group ARN" }
+    ]
+  },
+  {
+    id: "ec2_eip",
+    name: "Elastic IP",
+    description: "Static public IP address",
+    terraform_resource: "aws_eip",
+    icon: COMPUTE_ICONS['aws_eip'],
+    inputs: {
+      required: [],
+      optional: [
+        { name: "domain", type: "string", description: "Domain", options: ["vpc", "standard"], default: "vpc" },
+        { name: "instance", type: "string", description: "Instance ID to associate", reference: "aws_instance.id" },
+        { name: "network_interface", type: "string", description: "Network interface ID" },
+        { name: "associate_with_private_ip", type: "string", description: "Private IP to associate" },
+        { name: "public_ipv4_pool", type: "string", description: "IPv4 pool" },
+        { name: "tags", type: "map(string)", description: "Tags" }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Allocation ID" },
+      { name: "allocation_id", type: "string", description: "Allocation ID" },
+      { name: "public_ip", type: "string", description: "Public IP" },
+      { name: "public_dns", type: "string", description: "Public DNS" }
+    ]
+  },
+  {
+    id: "ec2_eip_association",
+    name: "EIP Association",
+    description: "Associate Elastic IP with instance",
+    terraform_resource: "aws_eip_association",
+    icon: COMPUTE_ICONS['aws_eip_association'],
+    inputs: {
+      required: [
+        { name: "allocation_id", type: "string", description: "Allocation ID", reference: "aws_eip.allocation_id" }
+      ],
+      optional: [
+        { name: "instance_id", type: "string", description: "Instance ID", reference: "aws_instance.id" },
+        { name: "network_interface_id", type: "string", description: "Network interface ID" },
+        { name: "private_ip_address", type: "string", description: "Private IP address" },
+        { name: "allow_reassociation", type: "bool", description: "Allow reassociation" }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Association ID" },
+      { name: "public_ip", type: "string", description: "Public IP" }
+    ]
+  },
+  {
+    id: "lightsail_instance",
+    name: "Lightsail Instance",
+    description: "Simple virtual private server",
+    terraform_resource: "aws_lightsail_instance",
+    icon: COMPUTE_ICONS['aws_lightsail_instance'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Instance name" },
+        { name: "availability_zone", type: "string", description: "Availability zone" },
+        { name: "blueprint_id", type: "string", description: "Blueprint ID", options: ["amazon_linux_2", "ubuntu_20_04", "debian_10", "wordpress", "lamp_7", "nodejs", "nginx"] },
+        { name: "bundle_id", type: "string", description: "Bundle ID", options: ["nano_2_0", "micro_2_0", "small_2_0", "medium_2_0", "large_2_0", "xlarge_2_0", "2xlarge_2_0"] }
+      ],
+      optional: [
+        { name: "key_pair_name", type: "string", description: "Key pair name" },
+        { name: "user_data", type: "string", description: "User data script" },
+        { name: "ip_address_type", type: "string", description: "IP address type", options: ["dualstack", "ipv4"] },
+        { name: "tags", type: "map(string)", description: "Tags" }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Instance ID" },
+      { name: "arn", type: "string", description: "Instance ARN" },
+      { name: "private_ip_address", type: "string", description: "Private IP" },
+      { name: "public_ip_address", type: "string", description: "Public IP" }
+    ]
+  },
+  {
+    id: "elastic_beanstalk_application",
+    name: "Elastic Beanstalk Application",
+    description: "PaaS application container",
+    terraform_resource: "aws_elastic_beanstalk_application",
+    icon: COMPUTE_ICONS['aws_elastic_beanstalk_application'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Application name" }
+      ],
+      optional: [
+        { name: "description", type: "string", description: "Application description" },
+        { name: "tags", type: "map(string)", description: "Tags" }
+      ],
+      blocks: [
+        {
+          name: "appversion_lifecycle",
+          attributes: [
+            { name: "service_role", type: "string", required: true },
+            { name: "max_count", type: "number" },
+            { name: "max_age_in_days", type: "number" },
+            { name: "delete_source_from_s3", type: "bool" }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Application ID" },
+      { name: "arn", type: "string", description: "Application ARN" },
+      { name: "name", type: "string", description: "Application name" }
+    ]
+  },
+  {
+    id: "elastic_beanstalk_environment",
+    name: "Elastic Beanstalk Environment",
+    description: "Deployment environment for applications",
+    terraform_resource: "aws_elastic_beanstalk_environment",
+    icon: COMPUTE_ICONS['aws_elastic_beanstalk_environment'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Environment name" },
+        { name: "application", type: "string", description: "Application name", reference: "aws_elastic_beanstalk_application.name" }
+      ],
+      optional: [
+        { name: "description", type: "string", description: "Environment description" },
+        { name: "solution_stack_name", type: "string", description: "Solution stack name" },
+        { name: "platform_arn", type: "string", description: "Platform ARN" },
+        { name: "cname_prefix", type: "string", description: "CNAME prefix" },
+        { name: "tier", type: "string", description: "Environment tier", options: ["WebServer", "Worker"] },
+        { name: "version_label", type: "string", description: "Application version" },
+        { name: "tags", type: "map(string)", description: "Tags" }
+      ],
+      blocks: [
+        {
+          name: "setting",
+          multiple: true,
+          attributes: [
+            { name: "namespace", type: "string", required: true },
+            { name: "name", type: "string", required: true },
+            { name: "value", type: "string", required: true },
+            { name: "resource", type: "string" }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Environment ID" },
+      { name: "arn", type: "string", description: "Environment ARN" },
+      { name: "cname", type: "string", description: "CNAME" },
+      { name: "endpoint_url", type: "string", description: "Endpoint URL" }
+    ]
+  },
+  {
+    id: "batch_compute_environment",
+    name: "Batch Compute Environment",
+    description: "AWS Batch compute environment",
+    terraform_resource: "aws_batch_compute_environment",
+    icon: COMPUTE_ICONS['aws_batch_compute_environment'],
+    inputs: {
+      required: [
+        { name: "type", type: "string", description: "Environment type", options: ["MANAGED", "UNMANAGED"] }
+      ],
+      optional: [
+        { name: "compute_environment_name", type: "string", description: "Environment name" },
+        { name: "service_role", type: "string", description: "Service role ARN" },
+        { name: "state", type: "string", description: "State", options: ["ENABLED", "DISABLED"] },
+        { name: "tags", type: "map(string)", description: "Tags" }
+      ],
+      blocks: [
+        {
+          name: "compute_resources",
+          attributes: [
+            { name: "max_vcpus", type: "number", required: true },
+            { name: "type", type: "string", required: true },
+            { name: "min_vcpus", type: "number" },
+            { name: "desired_vcpus", type: "number" },
+            { name: "instance_type", type: "list(string)" },
+            { name: "security_group_ids", type: "list(string)" },
+            { name: "subnets", type: "list(string)" }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "arn", type: "string", description: "Environment ARN" },
+      { name: "ecs_cluster_arn", type: "string", description: "ECS cluster ARN" },
+      { name: "status", type: "string", description: "Status" }
+    ]
+  },
+  {
+    id: "batch_job_queue",
+    name: "Batch Job Queue",
+    description: "AWS Batch job queue",
+    terraform_resource: "aws_batch_job_queue",
+    icon: COMPUTE_ICONS['aws_batch_job_queue'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Queue name" },
+        { name: "priority", type: "number", description: "Queue priority" },
+        { name: "state", type: "string", description: "Queue state", options: ["ENABLED", "DISABLED"] }
+      ],
+      optional: [
+        { name: "scheduling_policy_arn", type: "string", description: "Scheduling policy ARN" },
+        { name: "tags", type: "map(string)", description: "Tags" }
+      ],
+      blocks: [
+        {
+          name: "compute_environment_order",
+          multiple: true,
+          attributes: [
+            { name: "order", type: "number", required: true },
+            { name: "compute_environment", type: "string", required: true }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "arn", type: "string", description: "Queue ARN" },
+      { name: "id", type: "string", description: "Queue ID" }
+    ]
+  },
+  {
+    id: "batch_job_definition",
+    name: "Batch Job Definition",
+    description: "AWS Batch job definition",
+    terraform_resource: "aws_batch_job_definition",
+    icon: COMPUTE_ICONS['aws_batch_job_definition'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Job definition name" },
+        { name: "type", type: "string", description: "Job type", options: ["container", "multinode"] }
+      ],
+      optional: [
+        { name: "container_properties", type: "string", description: "Container properties JSON" },
+        { name: "node_properties", type: "string", description: "Node properties JSON" },
+        { name: "parameters", type: "map(string)", description: "Parameters" },
+        { name: "platform_capabilities", type: "list(string)", description: "Platform capabilities" },
+        { name: "propagate_tags", type: "bool", description: "Propagate tags" },
+        { name: "tags", type: "map(string)", description: "Tags" }
+      ],
+      blocks: [
+        {
+          name: "retry_strategy",
+          attributes: [
+            { name: "attempts", type: "number" }
+          ]
+        },
+        {
+          name: "timeout",
+          attributes: [
+            { name: "attempt_duration_seconds", type: "number" }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "arn", type: "string", description: "Job definition ARN" },
+      { name: "revision", type: "number", description: "Revision number" }
+    ]
+  }
+];
+
+// Helper functions
+export function getComputeServiceByTerraformResource(resource: string): ComputeServiceDefinition | undefined {
+  return COMPUTE_SERVICES.find(s => s.terraform_resource === resource);
+}
+
+export function getComputeServiceById(id: string): ComputeServiceDefinition | undefined {
+  return COMPUTE_SERVICES.find(s => s.id === id);
+}
+
+export function isComputeResource(terraformResource: string): boolean {
+  return COMPUTE_SERVICES.some(s => s.terraform_resource === terraformResource);
+}
+
+export function getComputeIcon(terraformResource: string): string {
+  return COMPUTE_ICONS[terraformResource] || '/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Compute/64/Arch_Amazon-EC2_64.svg';
+}
+
+// Export the list of compute terraform resources for catalog filtering
+export const COMPUTE_TERRAFORM_RESOURCES = COMPUTE_SERVICES.map(s => s.terraform_resource);
+

@@ -1,0 +1,817 @@
+/**
+ * Azure Security Services Data - Complete definitions from security.json
+ * This file contains ALL 11 security services with ALL their properties
+ * 
+ * Services included:
+ * 1. Key Vault (azurerm_key_vault)
+ * 2. Key Vault Secret (azurerm_key_vault_secret)
+ * 3. Key Vault Key (azurerm_key_vault_key)
+ * 4. Key Vault Certificate (azurerm_key_vault_certificate)
+ * 5. User Assigned Identity (azurerm_user_assigned_identity)
+ * 6. Role Assignment (azurerm_role_assignment)
+ * 7. Role Definition (azurerm_role_definition)
+ * 8. Defender for Cloud Pricing (azurerm_security_center_subscription_pricing)
+ * 9. Azure Firewall (azurerm_firewall)
+ * 10. Firewall Policy (azurerm_firewall_policy)
+ * 11. WAF Policy (azurerm_web_application_firewall_policy)
+ */
+
+// Type definitions
+export interface ServiceInput {
+  name: string;
+  type: string;
+  description?: string;
+  example?: string;
+  default?: unknown;
+  options?: string[];
+  reference?: string;
+  required?: boolean;
+  sensitive?: boolean;
+}
+
+export interface BlockAttribute {
+  name: string;
+  type: string;
+  description?: string;
+  options?: string[];
+  default?: unknown;
+  required?: boolean;
+  sensitive?: boolean;
+}
+
+export interface ServiceBlock {
+  name: string;
+  description?: string;
+  multiple?: boolean;
+  required?: boolean;
+  attributes: BlockAttribute[];
+  nested_blocks?: ServiceBlock[];
+  blocks?: ServiceBlock[];
+}
+
+export interface ServiceOutput {
+  name: string;
+  type: string;
+  description?: string;
+  sensitive?: boolean;
+}
+
+// Azure Security service icon mappings - using Azure Public Service Icons
+export const SECURITY_ICONS: Record<string, string> = {
+  'azurerm_key_vault': '/cloud_icons/Azure/Azure_Public_Service_Icons/Icons/security/10245-icon-service-Key-Vaults.svg',
+  'azurerm_key_vault_secret': '/cloud_icons/Azure/Azure_Public_Service_Icons/Icons/security/10245-icon-service-Key-Vaults.svg',
+  'azurerm_key_vault_key': '/cloud_icons/Azure/Azure_Public_Service_Icons/Icons/security/10245-icon-service-Key-Vaults.svg',
+  'azurerm_key_vault_certificate': '/cloud_icons/Azure/Azure_Public_Service_Icons/Icons/security/10245-icon-service-Key-Vaults.svg',
+  'azurerm_user_assigned_identity': '/cloud_icons/Azure/Azure_Public_Service_Icons/Icons/identity/10227-icon-service-Managed-Identities.svg',
+  'azurerm_role_assignment': '/cloud_icons/Azure/Azure_Public_Service_Icons/Icons/identity/10340-icon-service-Entra-Identity-Roles-and-Administrators.svg',
+  'azurerm_role_definition': '/cloud_icons/Azure/Azure_Public_Service_Icons/Icons/identity/10340-icon-service-Entra-Identity-Roles-and-Administrators.svg',
+  'azurerm_security_center_subscription_pricing': '/cloud_icons/Azure/Azure_Public_Service_Icons/Icons/security/10241-icon-service-Microsoft-Defender-for-Cloud.svg',
+  'azurerm_firewall': '/cloud_icons/Azure/Azure_Public_Service_Icons/Icons/networking/10084-icon-service-Firewalls.svg',
+  'azurerm_firewall_policy': '/cloud_icons/Azure/Azure_Public_Service_Icons/Icons/networking/10084-icon-service-Firewalls.svg',
+  'azurerm_web_application_firewall_policy': '/cloud_icons/Azure/Azure_Public_Service_Icons/Icons/networking/10362-icon-service-Web-Application-Firewall-Policies(WAF).svg',
+};
+
+// Security service definition interface
+export interface SecurityServiceDefinition {
+  id: string;
+  name: string;
+  description: string;
+  terraform_resource: string;
+  icon: string;
+  inputs: {
+    required: ServiceInput[];
+    optional: ServiceInput[];
+    blocks?: ServiceBlock[];
+  };
+  outputs: ServiceOutput[];
+}
+
+// Complete security services data from security.json
+export const SECURITY_SERVICES: SecurityServiceDefinition[] = [
+  {
+    id: "key_vault",
+    name: "Key Vault",
+    description: "Azure Key Vault for secrets, keys, and certificates",
+    terraform_resource: "azurerm_key_vault",
+    icon: SECURITY_ICONS['azurerm_key_vault'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Key vault name" },
+        { name: "resource_group_name", type: "string", description: "Resource group name" },
+        { name: "location", type: "string", description: "Azure region" },
+        { name: "tenant_id", type: "string", description: "Azure AD tenant ID" },
+        { name: "sku_name", type: "string", description: "SKU name", options: ["standard", "premium"] }
+      ],
+      optional: [
+        { name: "enabled_for_deployment", type: "bool", description: "Enable for VM deployment" },
+        { name: "enabled_for_disk_encryption", type: "bool", description: "Enable for disk encryption" },
+        { name: "enabled_for_template_deployment", type: "bool", description: "Enable for ARM template" },
+        { name: "enable_rbac_authorization", type: "bool", description: "Enable RBAC authorization" },
+        { name: "soft_delete_retention_days", type: "number", description: "Soft delete retention", default: 90 },
+        { name: "purge_protection_enabled", type: "bool", description: "Enable purge protection" },
+        { name: "public_network_access_enabled", type: "bool", description: "Public network access", default: true },
+        { name: "tags", type: "map", description: "Resource tags" }
+      ],
+      blocks: [
+        {
+          name: "access_policy",
+          required: false,
+          multiple: true,
+          attributes: [
+            { name: "tenant_id", type: "string", required: true },
+            { name: "object_id", type: "string", required: true },
+            { name: "application_id", type: "string" },
+            { name: "certificate_permissions", type: "list" },
+            { name: "key_permissions", type: "list" },
+            { name: "secret_permissions", type: "list" },
+            { name: "storage_permissions", type: "list" }
+          ]
+        },
+        {
+          name: "network_acls",
+          required: false,
+          attributes: [
+            { name: "default_action", type: "string", required: true, options: ["Allow", "Deny"] },
+            { name: "bypass", type: "string", required: true, options: ["AzureServices", "None"] },
+            { name: "ip_rules", type: "list" },
+            { name: "virtual_network_subnet_ids", type: "list" }
+          ]
+        },
+        {
+          name: "contact",
+          required: false,
+          multiple: true,
+          attributes: [
+            { name: "email", type: "string", required: true },
+            { name: "name", type: "string" },
+            { name: "phone", type: "string" }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Key vault ID" },
+      { name: "vault_uri", type: "string", description: "Vault URI" }
+    ]
+  },
+  {
+    id: "key_vault_secret",
+    name: "Key Vault Secret",
+    description: "Secret stored in Key Vault",
+    terraform_resource: "azurerm_key_vault_secret",
+    icon: SECURITY_ICONS['azurerm_key_vault_secret'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Secret name" },
+        { name: "value", type: "string", description: "Secret value", sensitive: true },
+        { name: "key_vault_id", type: "string", description: "Key vault ID" }
+      ],
+      optional: [
+        { name: "content_type", type: "string", description: "Content type" },
+        { name: "not_before_date", type: "string", description: "Not before date" },
+        { name: "expiration_date", type: "string", description: "Expiration date" },
+        { name: "tags", type: "map", description: "Tags" }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Secret ID" },
+      { name: "version", type: "string", description: "Secret version" },
+      { name: "versionless_id", type: "string", description: "Versionless ID" },
+      { name: "resource_id", type: "string", description: "Resource ID" },
+      { name: "resource_versionless_id", type: "string", description: "Resource versionless ID" }
+    ]
+  },
+  {
+    id: "key_vault_key",
+    name: "Key Vault Key",
+    description: "Cryptographic key in Key Vault",
+    terraform_resource: "azurerm_key_vault_key",
+    icon: SECURITY_ICONS['azurerm_key_vault_key'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Key name" },
+        { name: "key_vault_id", type: "string", description: "Key vault ID" },
+        { name: "key_type", type: "string", description: "Key type", options: ["EC", "EC-HSM", "RSA", "RSA-HSM"] },
+        { name: "key_opts", type: "list", description: "Key operations", options: ["decrypt", "encrypt", "sign", "unwrapKey", "verify", "wrapKey"] }
+      ],
+      optional: [
+        { name: "key_size", type: "number", description: "Key size", options: [2048, 3072, 4096] },
+        { name: "curve", type: "string", description: "EC curve", options: ["P-256", "P-256K", "P-384", "P-521"] },
+        { name: "not_before_date", type: "string", description: "Not before date" },
+        { name: "expiration_date", type: "string", description: "Expiration date" },
+        { name: "tags", type: "map", description: "Tags" }
+      ],
+      blocks: [
+        {
+          name: "rotation_policy",
+          required: false,
+          attributes: [
+            { name: "expire_after", type: "string" },
+            { name: "notify_before_expiry", type: "string" }
+          ],
+          blocks: [
+            {
+              name: "automatic",
+              attributes: [
+                { name: "time_after_creation", type: "string" },
+                { name: "time_before_expiry", type: "string" }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Key ID" },
+      { name: "version", type: "string", description: "Key version" },
+      { name: "versionless_id", type: "string", description: "Versionless ID" },
+      { name: "resource_id", type: "string", description: "Resource ID" },
+      { name: "resource_versionless_id", type: "string", description: "Resource versionless ID" },
+      { name: "n", type: "string", description: "RSA modulus" },
+      { name: "e", type: "string", description: "RSA exponent" },
+      { name: "x", type: "string", description: "EC X component" },
+      { name: "y", type: "string", description: "EC Y component" },
+      { name: "public_key_pem", type: "string", description: "Public key PEM" },
+      { name: "public_key_openssh", type: "string", description: "Public key OpenSSH" }
+    ]
+  },
+  {
+    id: "key_vault_certificate",
+    name: "Key Vault Certificate",
+    description: "Certificate in Key Vault",
+    terraform_resource: "azurerm_key_vault_certificate",
+    icon: SECURITY_ICONS['azurerm_key_vault_certificate'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Certificate name" },
+        { name: "key_vault_id", type: "string", description: "Key vault ID" }
+      ],
+      optional: [
+        { name: "tags", type: "map", description: "Tags" }
+      ],
+      blocks: [
+        {
+          name: "certificate",
+          required: false,
+          attributes: [
+            { name: "contents", type: "string", required: true, sensitive: true },
+            { name: "password", type: "string", sensitive: true }
+          ]
+        },
+        {
+          name: "certificate_policy",
+          required: true,
+          blocks: [
+            {
+              name: "issuer_parameters",
+              required: true,
+              attributes: [
+                { name: "name", type: "string", required: true }
+              ]
+            },
+            {
+              name: "key_properties",
+              required: true,
+              attributes: [
+                { name: "exportable", type: "bool", required: true },
+                { name: "key_type", type: "string", required: true, options: ["EC", "RSA", "RSA-HSM", "EC-HSM"] },
+                { name: "reuse_key", type: "bool", required: true },
+                { name: "key_size", type: "number" },
+                { name: "curve", type: "string" }
+              ]
+            },
+            {
+              name: "secret_properties",
+              required: true,
+              attributes: [
+                { name: "content_type", type: "string", required: true }
+              ]
+            },
+            {
+              name: "x509_certificate_properties",
+              required: false,
+              attributes: [
+                { name: "key_usage", type: "list", required: true },
+                { name: "subject", type: "string", required: true },
+                { name: "validity_in_months", type: "number", required: true },
+                { name: "extended_key_usage", type: "list" }
+              ],
+              blocks: [
+                {
+                  name: "subject_alternative_names",
+                  attributes: [
+                    { name: "dns_names", type: "list" },
+                    { name: "emails", type: "list" },
+                    { name: "upns", type: "list" }
+                  ]
+                }
+              ]
+            },
+            {
+              name: "lifetime_action",
+              multiple: true,
+              blocks: [
+                {
+                  name: "action",
+                  required: true,
+                  attributes: [
+                    { name: "action_type", type: "string", required: true, options: ["AutoRenew", "EmailContacts"] }
+                  ]
+                },
+                {
+                  name: "trigger",
+                  required: true,
+                  attributes: [
+                    { name: "days_before_expiry", type: "number" },
+                    { name: "lifetime_percentage", type: "number" }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Certificate ID" },
+      { name: "secret_id", type: "string", description: "Secret ID" },
+      { name: "version", type: "string", description: "Version" },
+      { name: "versionless_id", type: "string", description: "Versionless ID" },
+      { name: "versionless_secret_id", type: "string", description: "Versionless secret ID" },
+      { name: "certificate_data", type: "string", description: "Certificate data" },
+      { name: "certificate_data_base64", type: "string", description: "Certificate data base64" },
+      { name: "thumbprint", type: "string", description: "Thumbprint" },
+      { name: "certificate_attribute", type: "list", description: "Certificate attributes" }
+    ]
+  },
+  {
+    id: "user_assigned_identity",
+    name: "User Assigned Identity",
+    description: "User-assigned managed identity",
+    terraform_resource: "azurerm_user_assigned_identity",
+    icon: SECURITY_ICONS['azurerm_user_assigned_identity'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Identity name" },
+        { name: "resource_group_name", type: "string", description: "Resource group name" },
+        { name: "location", type: "string", description: "Azure region" }
+      ],
+      optional: [
+        { name: "tags", type: "map", description: "Resource tags" }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Identity ID" },
+      { name: "principal_id", type: "string", description: "Principal ID" },
+      { name: "client_id", type: "string", description: "Client ID" },
+      { name: "tenant_id", type: "string", description: "Tenant ID" }
+    ]
+  },
+  {
+    id: "role_assignment",
+    name: "Role Assignment",
+    description: "Azure RBAC role assignment",
+    terraform_resource: "azurerm_role_assignment",
+    icon: SECURITY_ICONS['azurerm_role_assignment'],
+    inputs: {
+      required: [
+        { name: "scope", type: "string", description: "Scope of assignment" },
+        { name: "principal_id", type: "string", description: "Principal ID" }
+      ],
+      optional: [
+        { name: "role_definition_id", type: "string", description: "Role definition ID" },
+        { name: "role_definition_name", type: "string", description: "Role name", options: ["Owner", "Contributor", "Reader", "User Access Administrator", "Storage Blob Data Owner", "Storage Blob Data Contributor", "Storage Blob Data Reader", "Key Vault Administrator", "Key Vault Secrets User", "AcrPush", "AcrPull"] },
+        { name: "name", type: "string", description: "Assignment name (GUID)" },
+        { name: "description", type: "string", description: "Description" },
+        { name: "condition", type: "string", description: "Condition" },
+        { name: "condition_version", type: "string", description: "Condition version" },
+        { name: "delegated_managed_identity_resource_id", type: "string", description: "Delegated managed identity" },
+        { name: "skip_service_principal_aad_check", type: "bool", description: "Skip AAD check" }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Assignment ID" },
+      { name: "principal_type", type: "string", description: "Principal type" }
+    ]
+  },
+  {
+    id: "role_definition",
+    name: "Role Definition",
+    description: "Custom RBAC role definition",
+    terraform_resource: "azurerm_role_definition",
+    icon: SECURITY_ICONS['azurerm_role_definition'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Role name" },
+        { name: "scope", type: "string", description: "Role scope" }
+      ],
+      optional: [
+        { name: "role_definition_id", type: "string", description: "Role definition ID" },
+        { name: "description", type: "string", description: "Description" },
+        { name: "assignable_scopes", type: "list", description: "Assignable scopes" }
+      ],
+      blocks: [
+        {
+          name: "permissions",
+          required: true,
+          multiple: true,
+          attributes: [
+            { name: "actions", type: "list" },
+            { name: "not_actions", type: "list" },
+            { name: "data_actions", type: "list" },
+            { name: "not_data_actions", type: "list" }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Role definition resource ID" },
+      { name: "role_definition_id", type: "string", description: "Role definition ID" },
+      { name: "role_definition_resource_id", type: "string", description: "Role definition resource ID" }
+    ]
+  },
+  {
+    id: "security_center_subscription_pricing",
+    name: "Defender for Cloud Pricing",
+    description: "Microsoft Defender for Cloud pricing tier",
+    terraform_resource: "azurerm_security_center_subscription_pricing",
+    icon: SECURITY_ICONS['azurerm_security_center_subscription_pricing'],
+    inputs: {
+      required: [
+        { name: "tier", type: "string", description: "Pricing tier", options: ["Free", "Standard"] },
+        { name: "resource_type", type: "string", description: "Resource type", options: ["AppServices", "ContainerRegistry", "KeyVaults", "KubernetesService", "SqlServers", "SqlServerVirtualMachines", "StorageAccounts", "VirtualMachines", "Arm", "Dns", "OpenSourceRelationalDatabases", "Containers", "CosmosDbs", "CloudPosture"] }
+      ],
+      optional: [
+        { name: "subplan", type: "string", description: "Sub-plan" }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Resource ID" }
+    ]
+  },
+  {
+    id: "firewall",
+    name: "Azure Firewall",
+    description: "Azure Firewall for network security",
+    terraform_resource: "azurerm_firewall",
+    icon: SECURITY_ICONS['azurerm_firewall'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Firewall name" },
+        { name: "resource_group_name", type: "string", description: "Resource group name" },
+        { name: "location", type: "string", description: "Azure region" },
+        { name: "sku_name", type: "string", description: "SKU name", options: ["AZFW_Hub", "AZFW_VNet"] },
+        { name: "sku_tier", type: "string", description: "SKU tier", options: ["Basic", "Standard", "Premium"] }
+      ],
+      optional: [
+        { name: "firewall_policy_id", type: "string", description: "Firewall policy ID" },
+        { name: "dns_servers", type: "list", description: "DNS servers" },
+        { name: "private_ip_ranges", type: "list", description: "Private IP ranges" },
+        { name: "threat_intel_mode", type: "string", description: "Threat intelligence mode", options: ["Off", "Alert", "Deny"] },
+        { name: "zones", type: "list", description: "Availability zones" },
+        { name: "tags", type: "map", description: "Resource tags" }
+      ],
+      blocks: [
+        {
+          name: "ip_configuration",
+          required: false,
+          multiple: true,
+          attributes: [
+            { name: "name", type: "string", required: true },
+            { name: "subnet_id", type: "string" },
+            { name: "public_ip_address_id", type: "string", required: true }
+          ]
+        },
+        {
+          name: "management_ip_configuration",
+          required: false,
+          attributes: [
+            { name: "name", type: "string", required: true },
+            { name: "subnet_id", type: "string", required: true },
+            { name: "public_ip_address_id", type: "string", required: true }
+          ]
+        },
+        {
+          name: "virtual_hub",
+          required: false,
+          attributes: [
+            { name: "virtual_hub_id", type: "string", required: true },
+            { name: "public_ip_count", type: "number" }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Firewall ID" },
+      { name: "ip_configuration", type: "list", description: "IP configuration" }
+    ]
+  },
+  {
+    id: "firewall_policy",
+    name: "Firewall Policy",
+    description: "Azure Firewall Policy",
+    terraform_resource: "azurerm_firewall_policy",
+    icon: SECURITY_ICONS['azurerm_firewall_policy'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Policy name" },
+        { name: "resource_group_name", type: "string", description: "Resource group name" },
+        { name: "location", type: "string", description: "Azure region" }
+      ],
+      optional: [
+        { name: "base_policy_id", type: "string", description: "Base policy ID" },
+        { name: "sku", type: "string", description: "SKU", options: ["Basic", "Standard", "Premium"] },
+        { name: "threat_intelligence_mode", type: "string", description: "Threat intelligence mode", options: ["Off", "Alert", "Deny"] },
+        { name: "private_ip_ranges", type: "list", description: "Private IP ranges" },
+        { name: "auto_learn_private_ranges_enabled", type: "bool", description: "Auto learn private ranges" },
+        { name: "sql_redirect_allowed", type: "bool", description: "SQL redirect allowed" },
+        { name: "tags", type: "map", description: "Resource tags" }
+      ],
+      blocks: [
+        {
+          name: "dns",
+          required: false,
+          attributes: [
+            { name: "proxy_enabled", type: "bool" },
+            { name: "servers", type: "list" }
+          ]
+        },
+        {
+          name: "identity",
+          required: false,
+          attributes: [
+            { name: "type", type: "string", required: true },
+            { name: "identity_ids", type: "list" }
+          ]
+        },
+        {
+          name: "insights",
+          required: false,
+          attributes: [
+            { name: "enabled", type: "bool", required: true },
+            { name: "default_log_analytics_workspace_id", type: "string", required: true },
+            { name: "retention_in_days", type: "number" }
+          ],
+          blocks: [
+            {
+              name: "log_analytics_workspace",
+              multiple: true,
+              attributes: [
+                { name: "id", type: "string", required: true },
+                { name: "firewall_location", type: "string", required: true }
+              ]
+            }
+          ]
+        },
+        {
+          name: "intrusion_detection",
+          required: false,
+          attributes: [
+            { name: "mode", type: "string", options: ["Off", "Alert", "Deny"] },
+            { name: "private_ranges", type: "list" }
+          ],
+          blocks: [
+            {
+              name: "signature_overrides",
+              multiple: true,
+              attributes: [
+                { name: "id", type: "string" },
+                { name: "state", type: "string", options: ["Off", "Alert", "Deny"] }
+              ]
+            },
+            {
+              name: "traffic_bypass",
+              multiple: true,
+              attributes: [
+                { name: "name", type: "string", required: true },
+                { name: "protocol", type: "string", required: true },
+                { name: "description", type: "string" },
+                { name: "destination_addresses", type: "list" },
+                { name: "destination_ip_groups", type: "list" },
+                { name: "destination_ports", type: "list" },
+                { name: "source_addresses", type: "list" },
+                { name: "source_ip_groups", type: "list" }
+              ]
+            }
+          ]
+        },
+        {
+          name: "threat_intelligence_allowlist",
+          required: false,
+          attributes: [
+            { name: "fqdns", type: "list" },
+            { name: "ip_addresses", type: "list" }
+          ]
+        },
+        {
+          name: "tls_certificate",
+          required: false,
+          attributes: [
+            { name: "key_vault_secret_id", type: "string", required: true },
+            { name: "name", type: "string", required: true }
+          ]
+        },
+        {
+          name: "explicit_proxy",
+          required: false,
+          attributes: [
+            { name: "enabled", type: "bool" },
+            { name: "http_port", type: "number" },
+            { name: "https_port", type: "number" },
+            { name: "enable_pac_file", type: "bool" },
+            { name: "pac_file_port", type: "number" },
+            { name: "pac_file", type: "string" }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Policy ID" },
+      { name: "child_policies", type: "list", description: "Child policies" },
+      { name: "firewalls", type: "list", description: "Associated firewalls" },
+      { name: "rule_collection_groups", type: "list", description: "Rule collection groups" }
+    ]
+  },
+  {
+    id: "web_application_firewall_policy",
+    name: "WAF Policy",
+    description: "Web Application Firewall policy",
+    terraform_resource: "azurerm_web_application_firewall_policy",
+    icon: SECURITY_ICONS['azurerm_web_application_firewall_policy'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Policy name" },
+        { name: "resource_group_name", type: "string", description: "Resource group name" },
+        { name: "location", type: "string", description: "Azure region" }
+      ],
+      optional: [
+        { name: "tags", type: "map", description: "Resource tags" }
+      ],
+      blocks: [
+        {
+          name: "policy_settings",
+          required: false,
+          attributes: [
+            { name: "enabled", type: "bool" },
+            { name: "mode", type: "string", options: ["Detection", "Prevention"] },
+            { name: "request_body_check", type: "bool" },
+            { name: "file_upload_limit_in_mb", type: "number" },
+            { name: "max_request_body_size_in_kb", type: "number" },
+            { name: "request_body_inspect_limit_in_kb", type: "number" }
+          ],
+          blocks: [
+            {
+              name: "log_scrubbing",
+              attributes: [
+                { name: "enabled", type: "bool" }
+              ],
+              blocks: [
+                {
+                  name: "rule",
+                  multiple: true,
+                  attributes: [
+                    { name: "enabled", type: "bool" },
+                    { name: "match_variable", type: "string", required: true },
+                    { name: "selector_match_operator", type: "string" },
+                    { name: "selector", type: "string" }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          name: "managed_rules",
+          required: true,
+          blocks: [
+            {
+              name: "managed_rule_set",
+              required: true,
+              multiple: true,
+              attributes: [
+                { name: "type", type: "string" },
+                { name: "version", type: "string", required: true }
+              ],
+              blocks: [
+                {
+                  name: "rule_group_override",
+                  multiple: true,
+                  attributes: [
+                    { name: "rule_group_name", type: "string", required: true }
+                  ],
+                  blocks: [
+                    {
+                      name: "rule",
+                      multiple: true,
+                      attributes: [
+                        { name: "id", type: "string", required: true },
+                        { name: "enabled", type: "bool" },
+                        { name: "action", type: "string", options: ["Allow", "AnomalyScoring", "Block", "Log"] }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              name: "exclusion",
+              multiple: true,
+              attributes: [
+                { name: "match_variable", type: "string", required: true },
+                { name: "selector_match_operator", type: "string", required: true },
+                { name: "selector", type: "string", required: true }
+              ],
+              blocks: [
+                {
+                  name: "excluded_rule_set",
+                  blocks: [
+                    {
+                      name: "rule_group",
+                      multiple: true,
+                      attributes: [
+                        { name: "rule_group_name", type: "string", required: true },
+                        { name: "excluded_rules", type: "list" }
+                      ]
+                    }
+                  ],
+                  attributes: [
+                    { name: "type", type: "string" },
+                    { name: "version", type: "string" }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          name: "custom_rules",
+          required: false,
+          multiple: true,
+          attributes: [
+            { name: "name", type: "string" },
+            { name: "priority", type: "number", required: true },
+            { name: "rule_type", type: "string", required: true, options: ["MatchRule", "RateLimitRule"] },
+            { name: "action", type: "string", required: true, options: ["Allow", "Block", "Log"] },
+            { name: "enabled", type: "bool" },
+            { name: "group_rate_limit_by", type: "string" },
+            { name: "rate_limit_duration", type: "string" },
+            { name: "rate_limit_threshold", type: "number" }
+          ],
+          blocks: [
+            {
+              name: "match_conditions",
+              required: true,
+              multiple: true,
+              attributes: [
+                { name: "match_values", type: "list" },
+                { name: "operator", type: "string", required: true },
+                { name: "negation_condition", type: "bool" },
+                { name: "transforms", type: "list" }
+              ],
+              blocks: [
+                {
+                  name: "match_variables",
+                  required: true,
+                  multiple: true,
+                  attributes: [
+                    { name: "variable_name", type: "string", required: true },
+                    { name: "selector", type: "string" }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Policy ID" },
+      { name: "http_listener_ids", type: "list", description: "HTTP listener IDs" },
+      { name: "path_based_rule_ids", type: "list", description: "Path-based rule IDs" }
+    ]
+  }
+];
+
+// All security terraform resources
+export const SECURITY_TERRAFORM_RESOURCES = SECURITY_SERVICES.map(s => s.terraform_resource);
+
+// Get security service by terraform resource name
+export function getSecurityServiceByTerraformResource(terraformResource: string): SecurityServiceDefinition | undefined {
+  return SECURITY_SERVICES.find(service => service.terraform_resource === terraformResource);
+}
+
+// Get security service by ID
+export function getSecurityServiceById(id: string): SecurityServiceDefinition | undefined {
+  return SECURITY_SERVICES.find(service => service.id === id);
+}
+
+// Check if a terraform resource is a security resource
+export function isSecurityResource(terraformResource: string): boolean {
+  return SECURITY_TERRAFORM_RESOURCES.includes(terraformResource);
+}
+
+// Get security icon
+export function getSecurityIcon(terraformResource: string): string | undefined {
+  return SECURITY_ICONS[terraformResource];
+}
+
