@@ -1,0 +1,738 @@
+{
+  "category": "serverless",
+  "categoryName": "Serverless",
+  "services": [
+    {
+      "id": "linux_function_app",
+      "name": "Linux Function App",
+      "description": "Azure Functions on Linux",
+      "terraform_resource": "azurerm_linux_function_app",
+      "icon": "zap",
+      "inputs": {
+        "required": [
+          { "name": "name", "type": "string", "description": "Function app name" },
+          { "name": "resource_group_name", "type": "string", "description": "Resource group name" },
+          { "name": "location", "type": "string", "description": "Azure region" },
+          { "name": "service_plan_id", "type": "string", "description": "App Service Plan ID" },
+          { "name": "storage_account_name", "type": "string", "description": "Storage account name" }
+        ],
+        "optional": [
+          { "name": "storage_account_access_key", "type": "string", "description": "Storage access key", "sensitive": true },
+          { "name": "storage_uses_managed_identity", "type": "bool", "description": "Use managed identity for storage" },
+          { "name": "app_settings", "type": "map", "description": "App settings" },
+          { "name": "builtin_logging_enabled", "type": "bool", "description": "Built-in logging", "default": true },
+          { "name": "client_certificate_enabled", "type": "bool", "description": "Client certificate" },
+          { "name": "client_certificate_mode", "type": "string", "description": "Client cert mode", "options": ["Required", "Optional", "OptionalInteractiveUser"] },
+          { "name": "daily_memory_time_quota", "type": "number", "description": "Daily memory quota" },
+          { "name": "enabled", "type": "bool", "description": "Enabled", "default": true },
+          { "name": "content_share_force_disabled", "type": "bool", "description": "Disable content share" },
+          { "name": "functions_extension_version", "type": "string", "description": "Functions version", "default": "~4" },
+          { "name": "https_only", "type": "bool", "description": "HTTPS only" },
+          { "name": "public_network_access_enabled", "type": "bool", "description": "Public access", "default": true },
+          { "name": "virtual_network_subnet_id", "type": "string", "description": "VNet subnet ID" },
+          { "name": "zip_deploy_file", "type": "string", "description": "Zip file path" },
+          { "name": "tags", "type": "map", "description": "Resource tags" }
+        ],
+        "blocks": [
+          {
+            "name": "site_config",
+            "required": true,
+            "attributes": [
+              { "name": "always_on", "type": "bool" },
+              { "name": "api_definition_url", "type": "string" },
+              { "name": "api_management_api_id", "type": "string" },
+              { "name": "app_command_line", "type": "string" },
+              { "name": "app_scale_limit", "type": "number" },
+              { "name": "application_insights_connection_string", "type": "string", "sensitive": true },
+              { "name": "application_insights_key", "type": "string", "sensitive": true },
+              { "name": "container_registry_use_managed_identity", "type": "bool" },
+              { "name": "container_registry_managed_identity_client_id", "type": "string" },
+              { "name": "default_documents", "type": "list" },
+              { "name": "elastic_instance_minimum", "type": "number" },
+              { "name": "ftps_state", "type": "string", "options": ["AllAllowed", "Disabled", "FtpsOnly"] },
+              { "name": "health_check_path", "type": "string" },
+              { "name": "health_check_eviction_time_in_min", "type": "number" },
+              { "name": "http2_enabled", "type": "bool" },
+              { "name": "load_balancing_mode", "type": "string" },
+              { "name": "managed_pipeline_mode", "type": "string" },
+              { "name": "minimum_tls_version", "type": "string", "options": ["1.0", "1.1", "1.2"] },
+              { "name": "pre_warmed_instance_count", "type": "number" },
+              { "name": "remote_debugging_enabled", "type": "bool" },
+              { "name": "remote_debugging_version", "type": "string" },
+              { "name": "runtime_scale_monitoring_enabled", "type": "bool" },
+              { "name": "scm_minimum_tls_version", "type": "string" },
+              { "name": "scm_use_main_ip_restriction", "type": "bool" },
+              { "name": "use_32_bit_worker", "type": "bool" },
+              { "name": "vnet_route_all_enabled", "type": "bool" },
+              { "name": "websockets_enabled", "type": "bool" },
+              { "name": "worker_count", "type": "number" }
+            ],
+            "blocks": [
+              {
+                "name": "application_stack",
+                "attributes": [
+                  { "name": "docker", "type": "list" },
+                  { "name": "dotnet_version", "type": "string" },
+                  { "name": "use_dotnet_isolated_runtime", "type": "bool" },
+                  { "name": "java_version", "type": "string" },
+                  { "name": "node_version", "type": "string" },
+                  { "name": "python_version", "type": "string" },
+                  { "name": "powershell_core_version", "type": "string" },
+                  { "name": "use_custom_runtime", "type": "bool" }
+                ]
+              },
+              {
+                "name": "app_service_logs",
+                "attributes": [
+                  { "name": "disk_quota_mb", "type": "number" },
+                  { "name": "retention_period_days", "type": "number" }
+                ]
+              },
+              {
+                "name": "cors",
+                "attributes": [
+                  { "name": "allowed_origins", "type": "list", "required": true },
+                  { "name": "support_credentials", "type": "bool" }
+                ]
+              },
+              {
+                "name": "ip_restriction",
+                "multiple": true,
+                "attributes": [
+                  { "name": "action", "type": "string", "options": ["Allow", "Deny"] },
+                  { "name": "ip_address", "type": "string" },
+                  { "name": "name", "type": "string" },
+                  { "name": "priority", "type": "number" },
+                  { "name": "service_tag", "type": "string" },
+                  { "name": "virtual_network_subnet_id", "type": "string" }
+                ],
+                "blocks": [
+                  {
+                    "name": "headers",
+                    "attributes": [
+                      { "name": "x_azure_fdid", "type": "list" },
+                      { "name": "x_fd_health_probe", "type": "list" },
+                      { "name": "x_forwarded_for", "type": "list" },
+                      { "name": "x_forwarded_host", "type": "list" }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "identity",
+            "required": false,
+            "attributes": [
+              { "name": "type", "type": "string", "required": true },
+              { "name": "identity_ids", "type": "list" }
+            ]
+          },
+          {
+            "name": "auth_settings",
+            "required": false,
+            "attributes": [
+              { "name": "enabled", "type": "bool", "required": true },
+              { "name": "issuer", "type": "string" },
+              { "name": "token_store_enabled", "type": "bool" },
+              { "name": "unauthenticated_client_action", "type": "string", "options": ["RedirectToLoginPage", "AllowAnonymous", "Return401", "Return403"] },
+              { "name": "default_provider", "type": "string" },
+              { "name": "runtime_version", "type": "string" }
+            ],
+            "blocks": [
+              {
+                "name": "active_directory",
+                "attributes": [
+                  { "name": "client_id", "type": "string", "required": true },
+                  { "name": "client_secret", "type": "string", "sensitive": true },
+                  { "name": "allowed_audiences", "type": "list" }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "auth_settings_v2",
+            "required": false,
+            "attributes": [
+              { "name": "auth_enabled", "type": "bool" },
+              { "name": "require_authentication", "type": "bool" },
+              { "name": "require_https", "type": "bool" },
+              { "name": "unauthenticated_action", "type": "string" },
+              { "name": "default_provider", "type": "string" },
+              { "name": "runtime_version", "type": "string" },
+              { "name": "config_file_path", "type": "string" },
+              { "name": "http_route_api_prefix", "type": "string" },
+              { "name": "forward_proxy_convention", "type": "string" },
+              { "name": "forward_proxy_custom_host_header_name", "type": "string" },
+              { "name": "forward_proxy_custom_scheme_header_name", "type": "string" },
+              { "name": "excluded_paths", "type": "list" }
+            ],
+            "blocks": [
+              {
+                "name": "login",
+                "required": true,
+                "attributes": [
+                  { "name": "logout_endpoint", "type": "string" },
+                  { "name": "token_store_enabled", "type": "bool" },
+                  { "name": "token_refresh_extension_time", "type": "number" },
+                  { "name": "token_store_path", "type": "string" },
+                  { "name": "token_store_sas_setting_name", "type": "string" },
+                  { "name": "preserve_url_fragments_for_logins", "type": "bool" },
+                  { "name": "allowed_external_redirect_urls", "type": "list" },
+                  { "name": "cookie_expiration_convention", "type": "string" },
+                  { "name": "cookie_expiration_time", "type": "string" },
+                  { "name": "validate_nonce", "type": "bool" },
+                  { "name": "nonce_expiration_time", "type": "string" }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "connection_string",
+            "required": false,
+            "multiple": true,
+            "attributes": [
+              { "name": "name", "type": "string", "required": true },
+              { "name": "type", "type": "string", "required": true, "options": ["APIHub", "Custom", "DocDb", "EventHub", "MySQL", "NotificationHub", "PostgreSQL", "RedisCache", "ServiceBus", "SQLAzure", "SQLServer"] },
+              { "name": "value", "type": "string", "required": true, "sensitive": true }
+            ]
+          },
+          {
+            "name": "sticky_settings",
+            "required": false,
+            "attributes": [
+              { "name": "app_setting_names", "type": "list" },
+              { "name": "connection_string_names", "type": "list" }
+            ]
+          },
+          {
+            "name": "backup",
+            "required": false,
+            "attributes": [
+              { "name": "name", "type": "string", "required": true },
+              { "name": "storage_account_url", "type": "string", "required": true, "sensitive": true },
+              { "name": "enabled", "type": "bool" }
+            ],
+            "blocks": [
+              {
+                "name": "schedule",
+                "required": true,
+                "attributes": [
+                  { "name": "frequency_interval", "type": "number", "required": true },
+                  { "name": "frequency_unit", "type": "string", "required": true, "options": ["Day", "Hour"] },
+                  { "name": "keep_at_least_one_backup", "type": "bool" },
+                  { "name": "retention_period_days", "type": "number" },
+                  { "name": "start_time", "type": "string" }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        { "name": "id", "type": "string", "description": "Function app ID" },
+        { "name": "default_hostname", "type": "string", "description": "Default hostname" },
+        { "name": "kind", "type": "string", "description": "App kind" },
+        { "name": "outbound_ip_addresses", "type": "string", "description": "Outbound IPs" },
+        { "name": "possible_outbound_ip_addresses", "type": "string", "description": "Possible outbound IPs" },
+        { "name": "site_credential", "type": "list", "description": "Site credentials", "sensitive": true },
+        { "name": "identity", "type": "list", "description": "Managed identity" }
+      ]
+    },
+    {
+      "id": "windows_function_app",
+      "name": "Windows Function App",
+      "description": "Azure Functions on Windows",
+      "terraform_resource": "azurerm_windows_function_app",
+      "icon": "zap",
+      "inputs": {
+        "required": [
+          { "name": "name", "type": "string", "description": "Function app name" },
+          { "name": "resource_group_name", "type": "string", "description": "Resource group name" },
+          { "name": "location", "type": "string", "description": "Azure region" },
+          { "name": "service_plan_id", "type": "string", "description": "App Service Plan ID" },
+          { "name": "storage_account_name", "type": "string", "description": "Storage account name" }
+        ],
+        "optional": [
+          { "name": "storage_account_access_key", "type": "string", "description": "Storage access key", "sensitive": true },
+          { "name": "app_settings", "type": "map", "description": "App settings" },
+          { "name": "enabled", "type": "bool", "description": "Enabled", "default": true },
+          { "name": "functions_extension_version", "type": "string", "description": "Functions version", "default": "~4" },
+          { "name": "https_only", "type": "bool", "description": "HTTPS only" },
+          { "name": "public_network_access_enabled", "type": "bool", "description": "Public access", "default": true },
+          { "name": "tags", "type": "map", "description": "Resource tags" }
+        ],
+        "blocks": [
+          {
+            "name": "site_config",
+            "required": true,
+            "attributes": [
+              { "name": "always_on", "type": "bool" },
+              { "name": "api_definition_url", "type": "string" },
+              { "name": "application_insights_connection_string", "type": "string", "sensitive": true },
+              { "name": "application_insights_key", "type": "string", "sensitive": true },
+              { "name": "ftps_state", "type": "string" },
+              { "name": "health_check_path", "type": "string" },
+              { "name": "http2_enabled", "type": "bool" },
+              { "name": "minimum_tls_version", "type": "string" },
+              { "name": "use_32_bit_worker", "type": "bool" },
+              { "name": "websockets_enabled", "type": "bool" }
+            ],
+            "blocks": [
+              {
+                "name": "application_stack",
+                "attributes": [
+                  { "name": "dotnet_version", "type": "string" },
+                  { "name": "use_dotnet_isolated_runtime", "type": "bool" },
+                  { "name": "java_version", "type": "string" },
+                  { "name": "node_version", "type": "string" },
+                  { "name": "powershell_core_version", "type": "string" },
+                  { "name": "use_custom_runtime", "type": "bool" }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "identity",
+            "required": false,
+            "attributes": [
+              { "name": "type", "type": "string", "required": true },
+              { "name": "identity_ids", "type": "list" }
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        { "name": "id", "type": "string", "description": "Function app ID" },
+        { "name": "default_hostname", "type": "string", "description": "Default hostname" },
+        { "name": "identity", "type": "list", "description": "Managed identity" }
+      ]
+    },
+    {
+      "id": "logic_app_workflow",
+      "name": "Logic App",
+      "description": "Azure Logic Apps workflow",
+      "terraform_resource": "azurerm_logic_app_workflow",
+      "icon": "git-branch",
+      "inputs": {
+        "required": [
+          { "name": "name", "type": "string", "description": "Logic App name" },
+          { "name": "resource_group_name", "type": "string", "description": "Resource group name" },
+          { "name": "location", "type": "string", "description": "Azure region" }
+        ],
+        "optional": [
+          { "name": "enabled", "type": "bool", "description": "Enabled", "default": true },
+          { "name": "integration_service_environment_id", "type": "string", "description": "ISE ID" },
+          { "name": "logic_app_integration_account_id", "type": "string", "description": "Integration account ID" },
+          { "name": "workflow_parameters", "type": "map", "description": "Workflow parameters" },
+          { "name": "workflow_schema", "type": "string", "description": "Workflow schema" },
+          { "name": "workflow_version", "type": "string", "description": "Workflow version" },
+          { "name": "parameters", "type": "map", "description": "Parameters" },
+          { "name": "tags", "type": "map", "description": "Resource tags" }
+        ],
+        "blocks": [
+          {
+            "name": "access_control",
+            "required": false,
+            "blocks": [
+              {
+                "name": "action",
+                "blocks": [
+                  {
+                    "name": "allowed_caller_ip_address_range",
+                    "multiple": true,
+                    "attributes": [
+                      { "name": "address_range", "type": "string", "required": true }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "content",
+                "blocks": [
+                  {
+                    "name": "allowed_caller_ip_address_range",
+                    "multiple": true,
+                    "attributes": [
+                      { "name": "address_range", "type": "string", "required": true }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "trigger",
+                "blocks": [
+                  {
+                    "name": "allowed_caller_ip_address_range",
+                    "multiple": true,
+                    "attributes": [
+                      { "name": "address_range", "type": "string", "required": true }
+                    ]
+                  },
+                  {
+                    "name": "open_authentication_policy",
+                    "multiple": true,
+                    "attributes": [
+                      { "name": "name", "type": "string", "required": true }
+                    ],
+                    "blocks": [
+                      {
+                        "name": "claim",
+                        "multiple": true,
+                        "attributes": [
+                          { "name": "name", "type": "string", "required": true },
+                          { "name": "value", "type": "string", "required": true }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "workflow_management",
+                "blocks": [
+                  {
+                    "name": "allowed_caller_ip_address_range",
+                    "multiple": true,
+                    "attributes": [
+                      { "name": "address_range", "type": "string", "required": true }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "identity",
+            "required": false,
+            "attributes": [
+              { "name": "type", "type": "string", "required": true },
+              { "name": "identity_ids", "type": "list" }
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        { "name": "id", "type": "string", "description": "Logic App ID" },
+        { "name": "access_endpoint", "type": "string", "description": "Access endpoint" },
+        { "name": "connector_endpoint_ip_addresses", "type": "list", "description": "Connector endpoint IPs" },
+        { "name": "connector_outbound_ip_addresses", "type": "list", "description": "Connector outbound IPs" },
+        { "name": "workflow_endpoint_ip_addresses", "type": "list", "description": "Workflow endpoint IPs" },
+        { "name": "workflow_outbound_ip_addresses", "type": "list", "description": "Workflow outbound IPs" },
+        { "name": "identity", "type": "list", "description": "Managed identity" }
+      ]
+    },
+    {
+      "id": "eventgrid_topic",
+      "name": "Event Grid Topic",
+      "description": "Azure Event Grid custom topic",
+      "terraform_resource": "azurerm_eventgrid_topic",
+      "icon": "radio",
+      "inputs": {
+        "required": [
+          { "name": "name", "type": "string", "description": "Topic name" },
+          { "name": "resource_group_name", "type": "string", "description": "Resource group name" },
+          { "name": "location", "type": "string", "description": "Azure region" }
+        ],
+        "optional": [
+          { "name": "input_schema", "type": "string", "description": "Input schema", "options": ["CloudEventSchemaV1_0", "CustomEventSchema", "EventGridSchema"], "default": "EventGridSchema" },
+          { "name": "public_network_access_enabled", "type": "bool", "description": "Public access", "default": true },
+          { "name": "local_auth_enabled", "type": "bool", "description": "Local auth", "default": true },
+          { "name": "tags", "type": "map", "description": "Resource tags" }
+        ],
+        "blocks": [
+          {
+            "name": "input_mapping_fields",
+            "required": false,
+            "attributes": [
+              { "name": "id", "type": "string" },
+              { "name": "topic", "type": "string" },
+              { "name": "event_type", "type": "string" },
+              { "name": "event_time", "type": "string" },
+              { "name": "data_version", "type": "string" },
+              { "name": "subject", "type": "string" }
+            ]
+          },
+          {
+            "name": "input_mapping_default_values",
+            "required": false,
+            "attributes": [
+              { "name": "event_type", "type": "string" },
+              { "name": "data_version", "type": "string" },
+              { "name": "subject", "type": "string" }
+            ]
+          },
+          {
+            "name": "inbound_ip_rule",
+            "required": false,
+            "multiple": true,
+            "attributes": [
+              { "name": "ip_mask", "type": "string", "required": true },
+              { "name": "action", "type": "string", "options": ["Allow"] }
+            ]
+          },
+          {
+            "name": "identity",
+            "required": false,
+            "attributes": [
+              { "name": "type", "type": "string", "required": true },
+              { "name": "identity_ids", "type": "list" }
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        { "name": "id", "type": "string", "description": "Topic ID" },
+        { "name": "endpoint", "type": "string", "description": "Topic endpoint" },
+        { "name": "primary_access_key", "type": "string", "description": "Primary key", "sensitive": true },
+        { "name": "secondary_access_key", "type": "string", "description": "Secondary key", "sensitive": true },
+        { "name": "identity", "type": "list", "description": "Managed identity" }
+      ]
+    },
+    {
+      "id": "eventgrid_event_subscription",
+      "name": "Event Grid Subscription",
+      "description": "Event Grid event subscription",
+      "terraform_resource": "azurerm_eventgrid_event_subscription",
+      "icon": "bell",
+      "inputs": {
+        "required": [
+          { "name": "name", "type": "string", "description": "Subscription name" },
+          { "name": "scope", "type": "string", "description": "Scope resource ID" }
+        ],
+        "optional": [
+          { "name": "event_delivery_schema", "type": "string", "description": "Delivery schema", "options": ["CloudEventSchemaV1_0", "CustomInputSchema", "EventGridSchema"] },
+          { "name": "expiration_time_utc", "type": "string", "description": "Expiration time" },
+          { "name": "included_event_types", "type": "list", "description": "Event types to include" },
+          { "name": "labels", "type": "list", "description": "Labels" },
+          { "name": "advanced_filtering_on_arrays_enabled", "type": "bool", "description": "Advanced array filtering" }
+        ],
+        "blocks": [
+          {
+            "name": "webhook_endpoint",
+            "required": false,
+            "attributes": [
+              { "name": "url", "type": "string", "required": true },
+              { "name": "max_events_per_batch", "type": "number" },
+              { "name": "preferred_batch_size_in_kilobytes", "type": "number" },
+              { "name": "active_directory_tenant_id", "type": "string" },
+              { "name": "active_directory_app_id_or_uri", "type": "string" }
+            ]
+          },
+          {
+            "name": "azure_function_endpoint",
+            "required": false,
+            "attributes": [
+              { "name": "function_id", "type": "string", "required": true },
+              { "name": "max_events_per_batch", "type": "number" },
+              { "name": "preferred_batch_size_in_kilobytes", "type": "number" }
+            ]
+          },
+          {
+            "name": "eventhub_endpoint_id",
+            "required": false,
+            "attributes": [
+              { "name": "eventhub_endpoint_id", "type": "string" }
+            ]
+          },
+          {
+            "name": "storage_queue_endpoint",
+            "required": false,
+            "attributes": [
+              { "name": "storage_account_id", "type": "string", "required": true },
+              { "name": "queue_name", "type": "string", "required": true },
+              { "name": "queue_message_time_to_live_in_seconds", "type": "number" }
+            ]
+          },
+          {
+            "name": "service_bus_queue_endpoint_id",
+            "required": false,
+            "attributes": [
+              { "name": "service_bus_queue_endpoint_id", "type": "string" }
+            ]
+          },
+          {
+            "name": "service_bus_topic_endpoint_id",
+            "required": false,
+            "attributes": [
+              { "name": "service_bus_topic_endpoint_id", "type": "string" }
+            ]
+          },
+          {
+            "name": "subject_filter",
+            "required": false,
+            "attributes": [
+              { "name": "subject_begins_with", "type": "string" },
+              { "name": "subject_ends_with", "type": "string" },
+              { "name": "case_sensitive", "type": "bool" }
+            ]
+          },
+          {
+            "name": "advanced_filter",
+            "required": false,
+            "blocks": [
+              {
+                "name": "bool_equals",
+                "multiple": true,
+                "attributes": [
+                  { "name": "key", "type": "string", "required": true },
+                  { "name": "value", "type": "bool", "required": true }
+                ]
+              },
+              {
+                "name": "number_greater_than",
+                "multiple": true,
+                "attributes": [
+                  { "name": "key", "type": "string", "required": true },
+                  { "name": "value", "type": "number", "required": true }
+                ]
+              },
+              {
+                "name": "number_greater_than_or_equals",
+                "multiple": true,
+                "attributes": [
+                  { "name": "key", "type": "string", "required": true },
+                  { "name": "value", "type": "number", "required": true }
+                ]
+              },
+              {
+                "name": "number_less_than",
+                "multiple": true,
+                "attributes": [
+                  { "name": "key", "type": "string", "required": true },
+                  { "name": "value", "type": "number", "required": true }
+                ]
+              },
+              {
+                "name": "number_less_than_or_equals",
+                "multiple": true,
+                "attributes": [
+                  { "name": "key", "type": "string", "required": true },
+                  { "name": "value", "type": "number", "required": true }
+                ]
+              },
+              {
+                "name": "number_in",
+                "multiple": true,
+                "attributes": [
+                  { "name": "key", "type": "string", "required": true },
+                  { "name": "values", "type": "list", "required": true }
+                ]
+              },
+              {
+                "name": "number_not_in",
+                "multiple": true,
+                "attributes": [
+                  { "name": "key", "type": "string", "required": true },
+                  { "name": "values", "type": "list", "required": true }
+                ]
+              },
+              {
+                "name": "string_begins_with",
+                "multiple": true,
+                "attributes": [
+                  { "name": "key", "type": "string", "required": true },
+                  { "name": "values", "type": "list", "required": true }
+                ]
+              },
+              {
+                "name": "string_ends_with",
+                "multiple": true,
+                "attributes": [
+                  { "name": "key", "type": "string", "required": true },
+                  { "name": "values", "type": "list", "required": true }
+                ]
+              },
+              {
+                "name": "string_contains",
+                "multiple": true,
+                "attributes": [
+                  { "name": "key", "type": "string", "required": true },
+                  { "name": "values", "type": "list", "required": true }
+                ]
+              },
+              {
+                "name": "string_in",
+                "multiple": true,
+                "attributes": [
+                  { "name": "key", "type": "string", "required": true },
+                  { "name": "values", "type": "list", "required": true }
+                ]
+              },
+              {
+                "name": "string_not_in",
+                "multiple": true,
+                "attributes": [
+                  { "name": "key", "type": "string", "required": true },
+                  { "name": "values", "type": "list", "required": true }
+                ]
+              },
+              {
+                "name": "is_not_null",
+                "multiple": true,
+                "attributes": [
+                  { "name": "key", "type": "string", "required": true }
+                ]
+              },
+              {
+                "name": "is_null_or_undefined",
+                "multiple": true,
+                "attributes": [
+                  { "name": "key", "type": "string", "required": true }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "retry_policy",
+            "required": false,
+            "attributes": [
+              { "name": "max_delivery_attempts", "type": "number", "required": true },
+              { "name": "event_time_to_live", "type": "number", "required": true }
+            ]
+          },
+          {
+            "name": "dead_letter_identity",
+            "required": false,
+            "attributes": [
+              { "name": "type", "type": "string", "required": true },
+              { "name": "user_assigned_identity", "type": "string" }
+            ]
+          },
+          {
+            "name": "delivery_identity",
+            "required": false,
+            "attributes": [
+              { "name": "type", "type": "string", "required": true },
+              { "name": "user_assigned_identity", "type": "string" }
+            ]
+          },
+          {
+            "name": "storage_blob_dead_letter_destination",
+            "required": false,
+            "attributes": [
+              { "name": "storage_account_id", "type": "string", "required": true },
+              { "name": "storage_blob_container_name", "type": "string", "required": true }
+            ]
+          },
+          {
+            "name": "delivery_property",
+            "required": false,
+            "multiple": true,
+            "attributes": [
+              { "name": "header_name", "type": "string", "required": true },
+              { "name": "type", "type": "string", "required": true, "options": ["Static", "Dynamic"] },
+              { "name": "value", "type": "string" },
+              { "name": "source_field", "type": "string" },
+              { "name": "secret", "type": "bool" }
+            ]
+          }
+        ]
+      },
+      "outputs": [
+        { "name": "id", "type": "string", "description": "Subscription ID" }
+      ]
+    }
+  ]
+}
+
