@@ -786,9 +786,13 @@ export default function DesignerPageFinal() {
     }
   }, [contextMenu, edges, setEdges]);
 
-  // Handle node drag to support nesting
+  // Handle node drag to support nesting + snap to grid on release
   const onNodeDragStop: NodeDragHandler = useCallback(
     (_event, node, nodes) => {
+      // Snap position to grid for clean alignment
+      const snappedX = Math.round(node.position.x / GRID_SIZE) * GRID_SIZE;
+      const snappedY = Math.round(node.position.y / GRID_SIZE) * GRID_SIZE;
+
       // Find if the node was dropped inside a container
       const containerTypes = ['region', 'vpc', 'subnet'];
 
@@ -799,8 +803,8 @@ export default function DesignerPageFinal() {
       for (const container of containers) {
         if (container.id === node.id) continue; // Skip self
 
-        const nodeX = node.position.x;
-        const nodeY = node.position.y;
+        const nodeX = snappedX;
+        const nodeY = snappedY;
         const containerX = container.position.x;
         const containerY = container.position.y;
 
@@ -823,7 +827,7 @@ export default function DesignerPageFinal() {
           nodeY > containerY + 50 && // Account for header
           nodeY < containerY + containerHeight
         ) {
-          // Set the node's parent
+          // Set the node's parent with snapped position
           setNodes((nds) =>
             nds.map((n) => {
               if (n.id === node.id) {
@@ -831,7 +835,7 @@ export default function DesignerPageFinal() {
                   ...n,
                   parentNode: container.id,
                   extent: 'parent' as const,
-                  // Adjust position to be relative to parent
+                  // Adjust position to be relative to parent (snapped)
                   position: {
                     x: nodeX - containerX,
                     y: nodeY - containerY,
@@ -845,18 +849,25 @@ export default function DesignerPageFinal() {
         }
       }
 
-      // If not in any container, remove parent if it had one
-      if (node.parentNode) {
-        setNodes((nds) =>
-          nds.map((n) => {
-            if (n.id === node.id) {
+      // If not in any container, snap position and remove parent if it had one
+      setNodes((nds) =>
+        nds.map((n) => {
+          if (n.id === node.id) {
+            if (node.parentNode) {
               const { parentNode, extent, ...rest } = n;
-              return rest;
+              return {
+                ...rest,
+                position: { x: snappedX, y: snappedY },
+              };
             }
-            return n;
-          })
-        );
-      }
+            return {
+              ...n,
+              position: { x: snappedX, y: snappedY },
+            };
+          }
+          return n;
+        })
+      );
     },
     [setNodes]
   );
@@ -1795,12 +1806,22 @@ export default function DesignerPageFinal() {
                   setZoom(Math.round(viewport.zoom * 100));
                 }}
                 nodeTypes={nodeTypes}
-                snapToGrid
-                snapGrid={[GRID_SIZE, GRID_SIZE]}
+                snapToGrid={false}
                 minZoom={0.25}
                 maxZoom={1.75}
                 fitView
                 deleteKeyCode="Backspace"
+                // Performance optimizations - critical for smooth drag
+                elevateNodesOnSelect={false}
+                selectNodesOnDrag={false}
+                nodesDraggable={true}
+                nodesConnectable={true}
+                elementsSelectable={true}
+                autoPanOnNodeDrag={true}
+                zoomOnScroll={true}
+                panOnDrag={true}
+                // Disable attribution for cleaner UI
+                proOptions={{ hideAttribution: true }}
               >
                 <Background gap={20} size={1} color="#e0e0e0" variant={BackgroundVariant.Dots} style={{ backgroundColor: '#ffffff' }} />
                 <Controls showZoom={false} showFitView={false} />
