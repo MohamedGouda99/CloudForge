@@ -1,0 +1,642 @@
+/**
+ * GCP Database Services Data - Complete definitions from database.json
+ * This file contains ALL 10 database services with ALL their properties
+ * 
+ * Services included:
+ * 1. Cloud SQL Instance (google_sql_database_instance)
+ * 2. Cloud SQL Database (google_sql_database)
+ * 3. Cloud SQL User (google_sql_user)
+ * 4. Spanner Instance (google_spanner_instance)
+ * 5. Spanner Database (google_spanner_database)
+ * 6. Bigtable Instance (google_bigtable_instance)
+ * 7. Bigtable Table (google_bigtable_table)
+ * 8. Firestore Database (google_firestore_database)
+ * 9. Memorystore Redis (google_redis_instance)
+ * 10. Memorystore Memcached (google_memcache_instance)
+ */
+
+// Type definitions
+export interface ServiceInput {
+  name: string;
+  type: string;
+  description?: string;
+  example?: string;
+  default?: unknown;
+  options?: string[];
+  reference?: string;
+  required?: boolean;
+  sensitive?: boolean;
+}
+
+export interface BlockAttribute {
+  name: string;
+  type: string;
+  description?: string;
+  options?: string[];
+  default?: unknown;
+  required?: boolean;
+  sensitive?: boolean;
+}
+
+export interface ServiceBlock {
+  name: string;
+  description?: string;
+  multiple?: boolean;
+  required?: boolean;
+  attributes: BlockAttribute[];
+  nested_blocks?: ServiceBlock[];
+  blocks?: ServiceBlock[];
+}
+
+export interface ServiceOutput {
+  name: string;
+  type: string;
+  description?: string;
+  sensitive?: boolean;
+}
+
+// GCP Database service icon mappings - using GCP core products and legacy icons
+export const DATABASE_ICONS: Record<string, string> = {
+  'google_sql_database_instance': '/api/icons/gcp/core-products-icons/Unique Icons/Cloud SQL/SVG/CloudSQL-512-color.svg',
+  'google_sql_database': '/api/icons/gcp/core-products-icons/Unique Icons/Cloud SQL/SVG/CloudSQL-512-color.svg',
+  'google_sql_user': '/api/icons/gcp/core-products-icons/Unique Icons/Cloud SQL/SVG/CloudSQL-512-color.svg',
+  'google_spanner_instance': '/api/icons/gcp/core-products-icons/Unique Icons/Cloud Spanner/SVG/CloudSpanner-512-color.svg',
+  'google_spanner_database': '/api/icons/gcp/core-products-icons/Unique Icons/Cloud Spanner/SVG/CloudSpanner-512-color.svg',
+  'google_bigtable_instance': '/api/icons/gcp/google-cloud-legacy-icons/bigtable/bigtable.svg',
+  'google_bigtable_table': '/api/icons/gcp/google-cloud-legacy-icons/bigtable/bigtable.svg',
+  'google_firestore_database': '/api/icons/gcp/google-cloud-legacy-icons/firestore/firestore.svg',
+  'google_redis_instance': '/api/icons/gcp/google-cloud-legacy-icons/memorystore/memorystore.svg',
+  'google_memcache_instance': '/api/icons/gcp/google-cloud-legacy-icons/memorystore/memorystore.svg',
+};
+
+// Database service definition interface
+export interface DatabaseServiceDefinition {
+  id: string;
+  name: string;
+  description: string;
+  terraform_resource: string;
+  icon: string;
+  inputs: {
+    required: ServiceInput[];
+    optional: ServiceInput[];
+    blocks?: ServiceBlock[];
+  };
+  outputs: ServiceOutput[];
+}
+
+// Complete database services data - manually defined
+export const DATABASE_SERVICES: DatabaseServiceDefinition[] = [
+  {
+    id: "sql_database_instance",
+    name: "Cloud SQL Instance",
+    description: "Managed MySQL, PostgreSQL, or SQL Server database",
+    terraform_resource: "google_sql_database_instance",
+    icon: DATABASE_ICONS['google_sql_database_instance'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Instance name" },
+        { name: "database_version", type: "string", description: "Database version", options: ["MYSQL_5_6", "MYSQL_5_7", "MYSQL_8_0", "POSTGRES_9_6", "POSTGRES_10", "POSTGRES_11", "POSTGRES_12", "POSTGRES_13", "POSTGRES_14", "POSTGRES_15", "SQLSERVER_2017_STANDARD", "SQLSERVER_2017_ENTERPRISE", "SQLSERVER_2019_STANDARD", "SQLSERVER_2019_ENTERPRISE"] }
+      ],
+      optional: [
+        { name: "project", type: "string", description: "Project ID" },
+        { name: "region", type: "string", description: "Region" },
+        { name: "master_instance_name", type: "string", description: "Master instance for replica" },
+        { name: "root_password", type: "string", description: "Root password", sensitive: true },
+        { name: "encryption_key_name", type: "string", description: "KMS key name" },
+        { name: "deletion_protection", type: "bool", description: "Deletion protection", default: true }
+      ],
+      blocks: [
+        {
+          name: "settings",
+          required: true,
+          attributes: [
+            { name: "tier", type: "string", required: true, options: ["db-f1-micro", "db-g1-small", "db-n1-standard-1", "db-n1-standard-2", "db-n1-standard-4", "db-n1-standard-8", "db-n1-highmem-2", "db-n1-highmem-4", "db-custom-1-3840", "db-custom-2-7680"] },
+            { name: "availability_type", type: "string", options: ["ZONAL", "REGIONAL"] },
+            { name: "disk_autoresize", type: "bool", default: true },
+            { name: "disk_autoresize_limit", type: "number" },
+            { name: "disk_size", type: "number" },
+            { name: "disk_type", type: "string", options: ["PD_SSD", "PD_HDD"] },
+            { name: "pricing_plan", type: "string", options: ["PER_USE", "PACKAGE"] },
+            { name: "activation_policy", type: "string", options: ["ALWAYS", "NEVER"] },
+            { name: "collation", type: "string" },
+            { name: "connector_enforcement", type: "string", options: ["NOT_REQUIRED", "REQUIRED"] },
+            { name: "deletion_protection_enabled", type: "bool" },
+            { name: "time_zone", type: "string" }
+          ],
+          blocks: [
+            {
+              name: "ip_configuration",
+              attributes: [
+                { name: "ipv4_enabled", type: "bool", default: true },
+                { name: "private_network", type: "string" },
+                { name: "require_ssl", type: "bool" },
+                { name: "ssl_mode", type: "string", options: ["ALLOW_UNENCRYPTED_AND_ENCRYPTED", "ENCRYPTED_ONLY", "TRUSTED_CLIENT_CERTIFICATE_REQUIRED"] },
+                { name: "allocated_ip_range", type: "string" },
+                { name: "enable_private_path_for_google_cloud_services", type: "bool" }
+              ],
+              blocks: [
+                {
+                  name: "authorized_networks",
+                  multiple: true,
+                  attributes: [
+                    { name: "name", type: "string" },
+                    { name: "value", type: "string", required: true },
+                    { name: "expiration_time", type: "string" }
+                  ]
+                }
+              ]
+            },
+            {
+              name: "backup_configuration",
+              attributes: [
+                { name: "enabled", type: "bool" },
+                { name: "binary_log_enabled", type: "bool" },
+                { name: "start_time", type: "string" },
+                { name: "location", type: "string" },
+                { name: "point_in_time_recovery_enabled", type: "bool" },
+                { name: "transaction_log_retention_days", type: "number" }
+              ],
+              blocks: [
+                {
+                  name: "backup_retention_settings",
+                  attributes: [
+                    { name: "retained_backups", type: "number", required: true },
+                    { name: "retention_unit", type: "string", options: ["COUNT"] }
+                  ]
+                }
+              ]
+            },
+            {
+              name: "maintenance_window",
+              attributes: [
+                { name: "day", type: "number" },
+                { name: "hour", type: "number" },
+                { name: "update_track", type: "string", options: ["stable", "canary"] }
+              ]
+            },
+            {
+              name: "database_flags",
+              multiple: true,
+              attributes: [
+                { name: "name", type: "string", required: true },
+                { name: "value", type: "string", required: true }
+              ]
+            }
+          ]
+        },
+        {
+          name: "replica_configuration",
+          required: false,
+          attributes: [
+            { name: "ca_certificate", type: "string" },
+            { name: "client_certificate", type: "string" },
+            { name: "client_key", type: "string", sensitive: true },
+            { name: "connect_retry_interval", type: "number" },
+            { name: "dump_file_path", type: "string" },
+            { name: "failover_target", type: "bool" },
+            { name: "master_heartbeat_period", type: "number" },
+            { name: "password", type: "string", sensitive: true },
+            { name: "ssl_cipher", type: "string" },
+            { name: "username", type: "string" },
+            { name: "verify_server_certificate", type: "bool" }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "self_link", type: "string", description: "Self link" },
+      { name: "connection_name", type: "string", description: "Connection name" },
+      { name: "service_account_email_address", type: "string", description: "Service account" },
+      { name: "ip_address", type: "list", description: "IP addresses" },
+      { name: "first_ip_address", type: "string", description: "First IP address" },
+      { name: "public_ip_address", type: "string", description: "Public IP" },
+      { name: "private_ip_address", type: "string", description: "Private IP" }
+    ]
+  },
+  {
+    id: "sql_database",
+    name: "Cloud SQL Database",
+    description: "Database within Cloud SQL instance",
+    terraform_resource: "google_sql_database",
+    icon: DATABASE_ICONS['google_sql_database'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Database name" },
+        { name: "instance", type: "string", description: "Cloud SQL instance name" }
+      ],
+      optional: [
+        { name: "project", type: "string", description: "Project ID" },
+        { name: "charset", type: "string", description: "Character set" },
+        { name: "collation", type: "string", description: "Collation" },
+        { name: "deletion_policy", type: "string", description: "Deletion policy", options: ["ABANDON", "DELETE"] }
+      ]
+    },
+    outputs: [
+      { name: "self_link", type: "string", description: "Self link" }
+    ]
+  },
+  {
+    id: "sql_user",
+    name: "Cloud SQL User",
+    description: "User for Cloud SQL instance",
+    terraform_resource: "google_sql_user",
+    icon: DATABASE_ICONS['google_sql_user'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Username" },
+        { name: "instance", type: "string", description: "Cloud SQL instance name" }
+      ],
+      optional: [
+        { name: "project", type: "string", description: "Project ID" },
+        { name: "password", type: "string", description: "Password", sensitive: true },
+        { name: "host", type: "string", description: "Host for MySQL users" },
+        { name: "type", type: "string", description: "User type", options: ["BUILT_IN", "CLOUD_IAM_USER", "CLOUD_IAM_SERVICE_ACCOUNT", "CLOUD_IAM_GROUP"] },
+        { name: "deletion_policy", type: "string", description: "Deletion policy", options: ["ABANDON"] }
+      ],
+      blocks: [
+        {
+          name: "password_policy",
+          required: false,
+          attributes: [
+            { name: "allowed_failed_attempts", type: "number" },
+            { name: "password_expiration_duration", type: "string" },
+            { name: "enable_failed_attempts_check", type: "bool" },
+            { name: "enable_password_verification", type: "bool" }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "sql_server_user_details", type: "list", description: "SQL Server user details" }
+    ]
+  },
+  {
+    id: "spanner_instance",
+    name: "Spanner Instance",
+    description: "Cloud Spanner instance",
+    terraform_resource: "google_spanner_instance",
+    icon: DATABASE_ICONS['google_spanner_instance'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Instance name" },
+        { name: "config", type: "string", description: "Instance configuration" },
+        { name: "display_name", type: "string", description: "Display name" }
+      ],
+      optional: [
+        { name: "project", type: "string", description: "Project ID" },
+        { name: "num_nodes", type: "number", description: "Number of nodes" },
+        { name: "processing_units", type: "number", description: "Processing units" },
+        { name: "labels", type: "map", description: "Labels" },
+        { name: "force_destroy", type: "bool", description: "Force destroy", default: false }
+      ],
+      blocks: [
+        {
+          name: "autoscaling_config",
+          required: false,
+          attributes: [],
+          blocks: [
+            {
+              name: "autoscaling_limits",
+              required: true,
+              attributes: [
+                { name: "max_nodes", type: "number" },
+                { name: "min_nodes", type: "number" },
+                { name: "max_processing_units", type: "number" },
+                { name: "min_processing_units", type: "number" }
+              ]
+            },
+            {
+              name: "autoscaling_targets",
+              required: true,
+              attributes: [
+                { name: "high_priority_cpu_utilization_percent", type: "number" },
+                { name: "storage_utilization_percent", type: "number" }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "state", type: "string", description: "Instance state" }
+    ]
+  },
+  {
+    id: "spanner_database",
+    name: "Spanner Database",
+    description: "Database in Cloud Spanner",
+    terraform_resource: "google_spanner_database",
+    icon: DATABASE_ICONS['google_spanner_database'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Database name" },
+        { name: "instance", type: "string", description: "Spanner instance name" }
+      ],
+      optional: [
+        { name: "project", type: "string", description: "Project ID" },
+        { name: "ddl", type: "list", description: "DDL statements" },
+        { name: "version_retention_period", type: "string", description: "Version retention period" },
+        { name: "database_dialect", type: "string", description: "Database dialect", options: ["GOOGLE_STANDARD_SQL", "POSTGRESQL"] },
+        { name: "enable_drop_protection", type: "bool", description: "Drop protection" },
+        { name: "deletion_protection", type: "bool", description: "Deletion protection", default: true }
+      ],
+      blocks: [
+        {
+          name: "encryption_config",
+          required: false,
+          attributes: [
+            { name: "kms_key_name", type: "string", required: true }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "state", type: "string", description: "Database state" }
+    ]
+  },
+  {
+    id: "bigtable_instance",
+    name: "Bigtable Instance",
+    description: "Cloud Bigtable instance",
+    terraform_resource: "google_bigtable_instance",
+    icon: DATABASE_ICONS['google_bigtable_instance'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Instance name" }
+      ],
+      optional: [
+        { name: "project", type: "string", description: "Project ID" },
+        { name: "display_name", type: "string", description: "Display name" },
+        { name: "instance_type", type: "string", description: "Instance type", options: ["PRODUCTION", "DEVELOPMENT"] },
+        { name: "deletion_protection", type: "bool", description: "Deletion protection", default: true },
+        { name: "labels", type: "map", description: "Labels" }
+      ],
+      blocks: [
+        {
+          name: "cluster",
+          required: true,
+          multiple: true,
+          attributes: [
+            { name: "cluster_id", type: "string", required: true },
+            { name: "zone", type: "string" },
+            { name: "num_nodes", type: "number" },
+            { name: "storage_type", type: "string", options: ["SSD", "HDD"] },
+            { name: "kms_key_name", type: "string" }
+          ],
+          blocks: [
+            {
+              name: "autoscaling_config",
+              attributes: [
+                { name: "min_nodes", type: "number", required: true },
+                { name: "max_nodes", type: "number", required: true },
+                { name: "cpu_target", type: "number", required: true },
+                { name: "storage_target", type: "number" }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Instance ID" }
+    ]
+  },
+  {
+    id: "bigtable_table",
+    name: "Bigtable Table",
+    description: "Table in Cloud Bigtable",
+    terraform_resource: "google_bigtable_table",
+    icon: DATABASE_ICONS['google_bigtable_table'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Table name" },
+        { name: "instance_name", type: "string", description: "Bigtable instance name" }
+      ],
+      optional: [
+        { name: "project", type: "string", description: "Project ID" },
+        { name: "split_keys", type: "list", description: "Pre-split keys" },
+        { name: "deletion_protection", type: "string", description: "Deletion protection", options: ["PROTECTED", "UNPROTECTED"] }
+      ],
+      blocks: [
+        {
+          name: "column_family",
+          required: false,
+          multiple: true,
+          attributes: [
+            { name: "family", type: "string", required: true }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Table ID" }
+    ]
+  },
+  {
+    id: "firestore_database",
+    name: "Firestore Database",
+    description: "Cloud Firestore database",
+    terraform_resource: "google_firestore_database",
+    icon: DATABASE_ICONS['google_firestore_database'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Database name" },
+        { name: "location_id", type: "string", description: "Location" },
+        { name: "type", type: "string", description: "Database type", options: ["FIRESTORE_NATIVE", "DATASTORE_MODE"] }
+      ],
+      optional: [
+        { name: "project", type: "string", description: "Project ID" },
+        { name: "concurrency_mode", type: "string", description: "Concurrency mode", options: ["OPTIMISTIC", "PESSIMISTIC", "OPTIMISTIC_WITH_ENTITY_GROUPS"] },
+        { name: "app_engine_integration_mode", type: "string", description: "App Engine integration", options: ["ENABLED", "DISABLED"] },
+        { name: "point_in_time_recovery_enablement", type: "string", description: "PITR", options: ["POINT_IN_TIME_RECOVERY_ENABLED", "POINT_IN_TIME_RECOVERY_DISABLED"] },
+        { name: "delete_protection_state", type: "string", description: "Delete protection", options: ["DELETE_PROTECTION_DISABLED", "DELETE_PROTECTION_ENABLED"] },
+        { name: "deletion_policy", type: "string", description: "Deletion policy", options: ["ABANDON", "DELETE"] }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Database ID" },
+      { name: "uid", type: "string", description: "Unique ID" },
+      { name: "create_time", type: "string", description: "Creation time" },
+      { name: "update_time", type: "string", description: "Update time" },
+      { name: "key_prefix", type: "string", description: "Key prefix" },
+      { name: "etag", type: "string", description: "ETag" },
+      { name: "earliest_version_time", type: "string", description: "Earliest version time" }
+    ]
+  },
+  {
+    id: "redis_instance",
+    name: "Memorystore Redis",
+    description: "Cloud Memorystore for Redis",
+    terraform_resource: "google_redis_instance",
+    icon: DATABASE_ICONS['google_redis_instance'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Instance name" },
+        { name: "memory_size_gb", type: "number", description: "Memory size in GB" }
+      ],
+      optional: [
+        { name: "project", type: "string", description: "Project ID" },
+        { name: "region", type: "string", description: "Region" },
+        { name: "display_name", type: "string", description: "Display name" },
+        { name: "tier", type: "string", description: "Service tier", options: ["BASIC", "STANDARD_HA"] },
+        { name: "replica_count", type: "number", description: "Replica count" },
+        { name: "read_replicas_mode", type: "string", description: "Read replicas mode", options: ["READ_REPLICAS_DISABLED", "READ_REPLICAS_ENABLED"] },
+        { name: "location_id", type: "string", description: "Zone" },
+        { name: "alternative_location_id", type: "string", description: "Alternative zone" },
+        { name: "authorized_network", type: "string", description: "Authorized network" },
+        { name: "connect_mode", type: "string", description: "Connect mode", options: ["DIRECT_PEERING", "PRIVATE_SERVICE_ACCESS"] },
+        { name: "redis_version", type: "string", description: "Redis version", options: ["REDIS_3_2", "REDIS_4_0", "REDIS_5_0", "REDIS_6_X", "REDIS_7_0"] },
+        { name: "reserved_ip_range", type: "string", description: "Reserved IP range" },
+        { name: "redis_configs", type: "map", description: "Redis configs" },
+        { name: "labels", type: "map", description: "Labels" },
+        { name: "auth_enabled", type: "bool", description: "Auth enabled" },
+        { name: "transit_encryption_mode", type: "string", description: "Transit encryption", options: ["DISABLED", "SERVER_AUTHENTICATION"] },
+        { name: "secondary_ip_range", type: "string", description: "Secondary IP range" },
+        { name: "customer_managed_key", type: "string", description: "CMEK key" }
+      ],
+      blocks: [
+        {
+          name: "maintenance_policy",
+          required: false,
+          attributes: [],
+          blocks: [
+            {
+              name: "weekly_maintenance_window",
+              required: true,
+              multiple: true,
+              attributes: [
+                { name: "day", type: "string", required: true, options: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] }
+              ],
+              blocks: [
+                {
+                  name: "start_time",
+                  required: true,
+                  attributes: [
+                    { name: "hours", type: "number" },
+                    { name: "minutes", type: "number" },
+                    { name: "seconds", type: "number" },
+                    { name: "nanos", type: "number" }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          name: "persistence_config",
+          required: false,
+          attributes: [
+            { name: "persistence_mode", type: "string", options: ["DISABLED", "RDB"] },
+            { name: "rdb_snapshot_period", type: "string", options: ["ONE_HOUR", "SIX_HOURS", "TWELVE_HOURS", "TWENTY_FOUR_HOURS"] },
+            { name: "rdb_snapshot_start_time", type: "string" }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Instance ID" },
+      { name: "host", type: "string", description: "Redis host" },
+      { name: "port", type: "number", description: "Redis port" },
+      { name: "current_location_id", type: "string", description: "Current zone" },
+      { name: "create_time", type: "string", description: "Creation time" },
+      { name: "auth_string", type: "string", description: "Auth string", sensitive: true }
+    ]
+  },
+  {
+    id: "memcache_instance",
+    name: "Memorystore Memcached",
+    description: "Cloud Memorystore for Memcached",
+    terraform_resource: "google_memcache_instance",
+    icon: DATABASE_ICONS['google_memcache_instance'],
+    inputs: {
+      required: [
+        { name: "name", type: "string", description: "Instance name" },
+        { name: "authorized_network", type: "string", description: "Authorized network" }
+      ],
+      optional: [
+        { name: "project", type: "string", description: "Project ID" },
+        { name: "region", type: "string", description: "Region" },
+        { name: "display_name", type: "string", description: "Display name" },
+        { name: "zones", type: "list", description: "Zones" },
+        { name: "memcache_version", type: "string", description: "Memcached version", options: ["MEMCACHE_1_5", "MEMCACHE_1_6_15"] },
+        { name: "labels", type: "map", description: "Labels" },
+        { name: "reserved_ip_range_id", type: "list", description: "Reserved IP ranges" }
+      ],
+      blocks: [
+        {
+          name: "node_config",
+          required: true,
+          attributes: [
+            { name: "cpu_count", type: "number", required: true },
+            { name: "memory_size_mb", type: "number", required: true }
+          ]
+        },
+        {
+          name: "memcache_parameters",
+          required: false,
+          attributes: [
+            { name: "params", type: "map" }
+          ]
+        },
+        {
+          name: "maintenance_policy",
+          required: false,
+          attributes: [],
+          blocks: [
+            {
+              name: "weekly_maintenance_window",
+              required: true,
+              multiple: true,
+              attributes: [
+                { name: "day", type: "string", required: true },
+                { name: "duration", type: "string", required: true }
+              ],
+              blocks: [
+                {
+                  name: "start_time",
+                  required: true,
+                  attributes: [
+                    { name: "hours", type: "number" },
+                    { name: "minutes", type: "number" },
+                    { name: "seconds", type: "number" },
+                    { name: "nanos", type: "number" }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    outputs: [
+      { name: "id", type: "string", description: "Instance ID" },
+      { name: "discovery_endpoint", type: "string", description: "Discovery endpoint" },
+      { name: "memcache_nodes", type: "list", description: "Memcache nodes" },
+      { name: "create_time", type: "string", description: "Creation time" }
+    ]
+  }
+];
+
+// All database terraform resources
+export const DATABASE_TERRAFORM_RESOURCES = DATABASE_SERVICES.map(s => s.terraform_resource);
+
+// Get database service by terraform resource name
+export function getDatabaseServiceByTerraformResource(terraformResource: string): DatabaseServiceDefinition | undefined {
+  return DATABASE_SERVICES.find(service => service.terraform_resource === terraformResource);
+}
+
+// Get database service by ID
+export function getDatabaseServiceById(id: string): DatabaseServiceDefinition | undefined {
+  return DATABASE_SERVICES.find(service => service.id === id);
+}
+
+// Check if a terraform resource is a database resource
+export function isDatabaseResource(terraformResource: string): boolean {
+  return DATABASE_TERRAFORM_RESOURCES.includes(terraformResource);
+}
+
+// Get database icon
+export function getDatabaseIcon(terraformResource: string): string | undefined {
+  return DATABASE_ICONS[terraformResource];
+}
+
