@@ -676,3 +676,4 @@ export function getStorageIcon(terraformResource: string): string {
 
 
 
+

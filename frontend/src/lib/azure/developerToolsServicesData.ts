@@ -458,3 +458,4 @@ export function getDeveloperToolsIcon(terraformResource: string): string | undef
   return DEVELOPER_TOOLS_ICONS[terraformResource];
 }
 
+
