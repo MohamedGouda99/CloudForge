@@ -591,3 +591,4 @@ export function getStorageIcon(terraformResource: string): string | undefined {
   return STORAGE_ICONS[terraformResource];
 }
 
+

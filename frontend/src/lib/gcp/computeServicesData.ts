@@ -897,3 +897,4 @@ export function getComputeIcon(terraformResource: string): string | undefined {
   return COMPUTE_ICONS[terraformResource];
 }
 
+

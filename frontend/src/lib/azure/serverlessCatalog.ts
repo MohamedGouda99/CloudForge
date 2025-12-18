@@ -49,3 +49,4 @@ export function listServerlessServices(): ServerlessCatalogEntry[] {
   return SERVERLESS_CATALOG;
 }
 
+

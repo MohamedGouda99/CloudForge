@@ -505,3 +505,4 @@ export function getServerlessIcon(terraformResource: string): string {
 
 
 
+

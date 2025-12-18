@@ -160,6 +160,76 @@ import {
   COMPUTE_ICONS as GCP_COMPUTE_ICONS,
 } from '../gcp/computeServicesData';
 import {
+  getContainersServiceByTerraformResource as getGCPContainersServiceByTerraformResource,
+  isContainersResource as isGCPContainersResource,
+  ContainersServiceDefinition as GCPContainersServiceDefinition,
+  getContainersIcon as getGCPContainersIcon,
+  CONTAINERS_ICONS as GCP_CONTAINERS_ICONS,
+} from '../gcp/containersServicesData';
+import {
+  getDatabaseServiceByTerraformResource as getGCPDatabaseServiceByTerraformResource,
+  isDatabaseResource as isGCPDatabaseResource,
+  DatabaseServiceDefinition as GCPDatabaseServiceDefinition,
+  getDatabaseIcon as getGCPDatabaseIcon,
+  DATABASE_ICONS as GCP_DATABASE_ICONS,
+} from '../gcp/databaseServicesData';
+import {
+  getDeveloperToolsServiceByTerraformResource as getGCPDeveloperToolsServiceByTerraformResource,
+  isDeveloperToolsResource as isGCPDeveloperToolsResource,
+  DeveloperToolsServiceDefinition as GCPDeveloperToolsServiceDefinition,
+  getDeveloperToolsIcon as getGCPDeveloperToolsIcon,
+  DEVELOPER_TOOLS_ICONS as GCP_DEVELOPER_TOOLS_ICONS,
+} from '../gcp/developerToolsServicesData';
+import {
+  getMachineLearningServiceByTerraformResource as getGCPMachineLearningServiceByTerraformResource,
+  isMachineLearningResource as isGCPMachineLearningResource,
+  MachineLearningServiceDefinition as GCPMachineLearningServiceDefinition,
+  getMachineLearningIcon as getGCPMachineLearningIcon,
+  MACHINE_LEARNING_ICONS as GCP_MACHINE_LEARNING_ICONS,
+} from '../gcp/machineLearningServicesData';
+import {
+  getManagementServiceByTerraformResource as getGCPManagementServiceByTerraformResource,
+  isManagementResource as isGCPManagementResource,
+  ManagementServiceDefinition as GCPManagementServiceDefinition,
+  getManagementIcon as getGCPManagementIcon,
+  MANAGEMENT_ICONS as GCP_MANAGEMENT_ICONS,
+} from '../gcp/managementServicesData';
+import {
+  getMessagingServiceByTerraformResource as getGCPMessagingServiceByTerraformResource,
+  isMessagingResource as isGCPMessagingResource,
+  MessagingServiceDefinition as GCPMessagingServiceDefinition,
+  getMessagingIcon as getGCPMessagingIcon,
+  MESSAGING_ICONS as GCP_MESSAGING_ICONS,
+} from '../gcp/messagingServicesData';
+import {
+  getNetworkingServiceByTerraformResource as getGCPNetworkingServiceByTerraformResource,
+  isNetworkingResource as isGCPNetworkingResource,
+  NetworkingServiceDefinition as GCPNetworkingServiceDefinition,
+  getNetworkingIcon as getGCPNetworkingIcon,
+  NETWORKING_ICONS as GCP_NETWORKING_ICONS,
+} from '../gcp/networkingServicesData';
+import {
+  getSecurityServiceByTerraformResource as getGCPSecurityServiceByTerraformResource,
+  isSecurityResource as isGCPSecurityResource,
+  SecurityServiceDefinition as GCPSecurityServiceDefinition,
+  getSecurityIcon as getGCPSecurityIcon,
+  SECURITY_ICONS as GCP_SECURITY_ICONS,
+} from '../gcp/securityServicesData';
+import {
+  getServerlessServiceByTerraformResource as getGCPServerlessServiceByTerraformResource,
+  isServerlessResource as isGCPServerlessResource,
+  ServerlessServiceDefinition as GCPServerlessServiceDefinition,
+  getServerlessIcon as getGCPServerlessIcon,
+  SERVERLESS_ICONS as GCP_SERVERLESS_ICONS,
+} from '../gcp/serverlessServicesData';
+import {
+  getStorageServiceByTerraformResource as getGCPStorageServiceByTerraformResource,
+  isStorageResource as isGCPStorageResource,
+  StorageServiceDefinition as GCPStorageServiceDefinition,
+  getStorageIcon as getGCPStorageIcon,
+  STORAGE_ICONS as GCP_STORAGE_ICONS,
+} from '../gcp/storageServicesData';
+import {
   getMessagingServiceByTerraformResource as getAzureMessagingServiceByTerraformResource,
   isMessagingResource as isAzureMessagingResource,
   MessagingServiceDefinition as AzureMessagingServiceDefinition,
@@ -1800,6 +1870,542 @@ function convertGCPComputeServiceToSchema(service: GCPComputeServiceDefinition):
 }
 
 /**
+ * Convert GCP containers service to resource schema
+ */
+function convertGCPContainersServiceToSchema(service: GCPContainersServiceDefinition): ResourceSchema {
+  const fields: SchemaField[] = [];
+  
+  // Add required fields
+  for (const input of service.inputs.required) {
+    const hasOptions = !!input.options && input.options.length > 0;
+    const hasReference = !!input.reference;
+    
+    fields.push({
+      name: input.name,
+      type: mapInputType(input.type, hasOptions, hasReference),
+      label: input.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      required: true,
+      description: input.description,
+      placeholder: input.example,
+      default: input.default,
+      options: hasOptions ? input.options!.map(o => ({ value: o, label: o })) : undefined,
+      reference: hasReference ? parseReference(input.reference!) : undefined,
+      group: 'required',
+    });
+  }
+  
+  // Add optional fields
+  for (const input of service.inputs.optional) {
+    const hasOptions = !!input.options && input.options.length > 0;
+    const hasReference = !!input.reference;
+    
+    fields.push({
+      name: input.name,
+      type: mapInputType(input.type, hasOptions, hasReference),
+      label: input.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      required: false,
+      description: input.description,
+      placeholder: input.example,
+      default: input.default,
+      options: hasOptions ? input.options!.map(o => ({ value: o, label: o })) : undefined,
+      reference: hasReference ? parseReference(input.reference!) : undefined,
+      group: 'optional',
+    });
+  }
+  
+  // Convert blocks
+  const blocks = service.inputs.blocks?.map(convertBlock) || [];
+  
+  return {
+    type: service.terraform_resource,
+    label: service.name,
+    category: 'containers',
+    provider: 'gcp',
+    icon: service.icon,
+    fields,
+    blocks,
+    outputs: service.outputs,
+  };
+}
+
+/**
+ * Convert GCP database service to resource schema
+ */
+function convertGCPDatabaseServiceToSchema(service: GCPDatabaseServiceDefinition): ResourceSchema {
+  const fields: SchemaField[] = [];
+  
+  // Add required fields
+  for (const input of service.inputs.required) {
+    const hasOptions = !!input.options && input.options.length > 0;
+    const hasReference = !!input.reference;
+    
+    fields.push({
+      name: input.name,
+      type: mapInputType(input.type, hasOptions, hasReference),
+      label: input.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      required: true,
+      description: input.description,
+      placeholder: input.example,
+      default: input.default,
+      options: hasOptions ? input.options!.map(o => ({ value: o, label: o })) : undefined,
+      reference: hasReference ? parseReference(input.reference!) : undefined,
+      group: 'required',
+    });
+  }
+  
+  // Add optional fields
+  for (const input of service.inputs.optional) {
+    const hasOptions = !!input.options && input.options.length > 0;
+    const hasReference = !!input.reference;
+    
+    fields.push({
+      name: input.name,
+      type: mapInputType(input.type, hasOptions, hasReference),
+      label: input.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      required: false,
+      description: input.description,
+      placeholder: input.example,
+      default: input.default,
+      options: hasOptions ? input.options!.map(o => ({ value: o, label: o })) : undefined,
+      reference: hasReference ? parseReference(input.reference!) : undefined,
+      group: 'optional',
+    });
+  }
+  
+  // Convert blocks
+  const blocks = service.inputs.blocks?.map(convertBlock) || [];
+  
+  return {
+    type: service.terraform_resource,
+    label: service.name,
+    category: 'database',
+    provider: 'gcp',
+    icon: service.icon,
+    fields,
+    blocks,
+    outputs: service.outputs,
+  };
+}
+
+/**
+ * Convert GCP developer tools service to resource schema
+ */
+function convertGCPDeveloperToolsServiceToSchema(service: GCPDeveloperToolsServiceDefinition): ResourceSchema {
+  const fields: SchemaField[] = [];
+  
+  // Add required fields
+  for (const input of service.inputs.required) {
+    const hasOptions = !!input.options && input.options.length > 0;
+    const hasReference = !!input.reference;
+    
+    fields.push({
+      name: input.name,
+      type: mapInputType(input.type, hasOptions, hasReference),
+      label: input.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      required: true,
+      description: input.description,
+      placeholder: input.example,
+      default: input.default,
+      options: hasOptions ? input.options!.map(o => ({ value: o, label: o })) : undefined,
+      reference: hasReference ? parseReference(input.reference!) : undefined,
+      group: 'required',
+    });
+  }
+  
+  // Add optional fields
+  for (const input of service.inputs.optional) {
+    const hasOptions = !!input.options && input.options.length > 0;
+    const hasReference = !!input.reference;
+    
+    fields.push({
+      name: input.name,
+      type: mapInputType(input.type, hasOptions, hasReference),
+      label: input.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      required: false,
+      description: input.description,
+      placeholder: input.example,
+      default: input.default,
+      options: hasOptions ? input.options!.map(o => ({ value: o, label: o })) : undefined,
+      reference: hasReference ? parseReference(input.reference!) : undefined,
+      group: 'optional',
+    });
+  }
+  
+  // Convert blocks
+  const blocks = service.inputs.blocks?.map(convertBlock) || [];
+  
+  return {
+    type: service.terraform_resource,
+    label: service.name,
+    category: 'developer-tools',
+    provider: 'gcp',
+    icon: service.icon,
+    fields,
+    blocks,
+    outputs: service.outputs,
+  };
+}
+
+/**
+ * Convert GCP machine learning service to resource schema
+ */
+function convertGCPMachineLearningServiceToSchema(service: GCPMachineLearningServiceDefinition): ResourceSchema {
+  const fields: SchemaField[] = [];
+  
+  // Add required fields
+  for (const input of service.inputs.required) {
+    const hasOptions = !!input.options && input.options.length > 0;
+    const hasReference = !!input.reference;
+    
+    fields.push({
+      name: input.name,
+      type: mapInputType(input.type, hasOptions, hasReference),
+      label: input.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      required: true,
+      description: input.description,
+      placeholder: input.example,
+      default: input.default,
+      options: hasOptions ? input.options!.map(o => ({ value: o, label: o })) : undefined,
+      reference: hasReference ? parseReference(input.reference!) : undefined,
+      group: 'required',
+    });
+  }
+  
+  // Add optional fields
+  for (const input of service.inputs.optional) {
+    const hasOptions = !!input.options && input.options.length > 0;
+    const hasReference = !!input.reference;
+    
+    fields.push({
+      name: input.name,
+      type: mapInputType(input.type, hasOptions, hasReference),
+      label: input.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      required: false,
+      description: input.description,
+      placeholder: input.example,
+      default: input.default,
+      options: hasOptions ? input.options!.map(o => ({ value: o, label: o })) : undefined,
+      reference: hasReference ? parseReference(input.reference!) : undefined,
+      group: 'optional',
+    });
+  }
+  
+  // Convert blocks
+  const blocks = service.inputs.blocks?.map(convertBlock) || [];
+  
+  return {
+    type: service.terraform_resource,
+    label: service.name,
+    category: 'machine-learning',
+    provider: 'gcp',
+    icon: service.icon,
+    fields,
+    blocks,
+    outputs: service.outputs,
+  };
+}
+
+/**
+ * Convert GCP management service to resource schema
+ */
+function convertGCPManagementServiceToSchema(service: GCPManagementServiceDefinition): ResourceSchema {
+  const fields: SchemaField[] = [];
+  for (const input of service.inputs.required) {
+    const hasOptions = !!input.options && input.options.length > 0;
+    const hasReference = !!input.reference;
+    fields.push({
+      name: input.name,
+      type: mapInputType(input.type, hasOptions, hasReference),
+      label: input.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      required: true,
+      description: input.description,
+      placeholder: input.example,
+      default: input.default,
+      options: hasOptions ? input.options!.map(o => ({ value: o, label: o })) : undefined,
+      reference: hasReference ? parseReference(input.reference!) : undefined,
+      group: 'required',
+    });
+  }
+  for (const input of service.inputs.optional) {
+    const hasOptions = !!input.options && input.options.length > 0;
+    const hasReference = !!input.reference;
+    fields.push({
+      name: input.name,
+      type: mapInputType(input.type, hasOptions, hasReference),
+      label: input.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      required: false,
+      description: input.description,
+      placeholder: input.example,
+      default: input.default,
+      options: hasOptions ? input.options!.map(o => ({ value: o, label: o })) : undefined,
+      reference: hasReference ? parseReference(input.reference!) : undefined,
+      group: 'optional',
+    });
+  }
+  const blocks = service.inputs.blocks?.map(convertBlock) || [];
+  return {
+    type: service.terraform_resource,
+    label: service.name,
+    category: 'management',
+    provider: 'gcp',
+    icon: service.icon,
+    fields,
+    blocks,
+    outputs: service.outputs,
+  };
+}
+
+/**
+ * Convert GCP messaging service to resource schema
+ */
+function convertGCPMessagingServiceToSchema(service: GCPMessagingServiceDefinition): ResourceSchema {
+  const fields: SchemaField[] = [];
+  for (const input of service.inputs.required) {
+    const hasOptions = !!input.options && input.options.length > 0;
+    const hasReference = !!input.reference;
+    fields.push({
+      name: input.name,
+      type: mapInputType(input.type, hasOptions, hasReference),
+      label: input.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      required: true,
+      description: input.description,
+      placeholder: input.example,
+      default: input.default,
+      options: hasOptions ? input.options!.map(o => ({ value: o, label: o })) : undefined,
+      reference: hasReference ? parseReference(input.reference!) : undefined,
+      group: 'required',
+    });
+  }
+  for (const input of service.inputs.optional) {
+    const hasOptions = !!input.options && input.options.length > 0;
+    const hasReference = !!input.reference;
+    fields.push({
+      name: input.name,
+      type: mapInputType(input.type, hasOptions, hasReference),
+      label: input.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      required: false,
+      description: input.description,
+      placeholder: input.example,
+      default: input.default,
+      options: hasOptions ? input.options!.map(o => ({ value: o, label: o })) : undefined,
+      reference: hasReference ? parseReference(input.reference!) : undefined,
+      group: 'optional',
+    });
+  }
+  const blocks = service.inputs.blocks?.map(convertBlock) || [];
+  return {
+    type: service.terraform_resource,
+    label: service.name,
+    category: 'messaging',
+    provider: 'gcp',
+    icon: service.icon,
+    fields,
+    blocks,
+    outputs: service.outputs,
+  };
+}
+
+/**
+ * Convert GCP networking service to resource schema
+ */
+function convertGCPNetworkingServiceToSchema(service: GCPNetworkingServiceDefinition): ResourceSchema {
+  const fields: SchemaField[] = [];
+  for (const input of service.inputs.required) {
+    const hasOptions = !!input.options && input.options.length > 0;
+    const hasReference = !!input.reference;
+    fields.push({
+      name: input.name,
+      type: mapInputType(input.type, hasOptions, hasReference),
+      label: input.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      required: true,
+      description: input.description,
+      placeholder: input.example,
+      default: input.default,
+      options: hasOptions ? input.options!.map(o => ({ value: o, label: o })) : undefined,
+      reference: hasReference ? parseReference(input.reference!) : undefined,
+      group: 'required',
+    });
+  }
+  for (const input of service.inputs.optional) {
+    const hasOptions = !!input.options && input.options.length > 0;
+    const hasReference = !!input.reference;
+    fields.push({
+      name: input.name,
+      type: mapInputType(input.type, hasOptions, hasReference),
+      label: input.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      required: false,
+      description: input.description,
+      placeholder: input.example,
+      default: input.default,
+      options: hasOptions ? input.options!.map(o => ({ value: o, label: o })) : undefined,
+      reference: hasReference ? parseReference(input.reference!) : undefined,
+      group: 'optional',
+    });
+  }
+  const blocks = service.inputs.blocks?.map(convertBlock) || [];
+  return {
+    type: service.terraform_resource,
+    label: service.name,
+    category: 'networking',
+    provider: 'gcp',
+    icon: service.icon,
+    fields,
+    blocks,
+    outputs: service.outputs,
+  };
+}
+
+/**
+ * Convert GCP security service to resource schema
+ */
+function convertGCPSecurityServiceToSchema(service: GCPSecurityServiceDefinition): ResourceSchema {
+  const fields: SchemaField[] = [];
+  for (const input of service.inputs.required) {
+    const hasOptions = !!input.options && input.options.length > 0;
+    const hasReference = !!input.reference;
+    fields.push({
+      name: input.name,
+      type: mapInputType(input.type, hasOptions, hasReference),
+      label: input.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      required: true,
+      description: input.description,
+      placeholder: input.example,
+      default: input.default,
+      options: hasOptions ? input.options!.map(o => ({ value: o, label: o })) : undefined,
+      reference: hasReference ? parseReference(input.reference!) : undefined,
+      group: 'required',
+    });
+  }
+  for (const input of service.inputs.optional) {
+    const hasOptions = !!input.options && input.options.length > 0;
+    const hasReference = !!input.reference;
+    fields.push({
+      name: input.name,
+      type: mapInputType(input.type, hasOptions, hasReference),
+      label: input.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      required: false,
+      description: input.description,
+      placeholder: input.example,
+      default: input.default,
+      options: hasOptions ? input.options!.map(o => ({ value: o, label: o })) : undefined,
+      reference: hasReference ? parseReference(input.reference!) : undefined,
+      group: 'optional',
+    });
+  }
+  const blocks = service.inputs.blocks?.map(convertBlock) || [];
+  return {
+    type: service.terraform_resource,
+    label: service.name,
+    category: 'security',
+    provider: 'gcp',
+    icon: service.icon,
+    fields,
+    blocks,
+    outputs: service.outputs,
+  };
+}
+
+/**
+ * Convert GCP serverless service to resource schema
+ */
+function convertGCPServerlessServiceToSchema(service: GCPServerlessServiceDefinition): ResourceSchema {
+  const fields: SchemaField[] = [];
+  for (const input of service.inputs.required) {
+    const hasOptions = !!input.options && input.options.length > 0;
+    const hasReference = !!input.reference;
+    fields.push({
+      name: input.name,
+      type: mapInputType(input.type, hasOptions, hasReference),
+      label: input.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      required: true,
+      description: input.description,
+      placeholder: input.example,
+      default: input.default,
+      options: hasOptions ? input.options!.map(o => ({ value: o, label: o })) : undefined,
+      reference: hasReference ? parseReference(input.reference!) : undefined,
+      group: 'required',
+    });
+  }
+  for (const input of service.inputs.optional) {
+    const hasOptions = !!input.options && input.options.length > 0;
+    const hasReference = !!input.reference;
+    fields.push({
+      name: input.name,
+      type: mapInputType(input.type, hasOptions, hasReference),
+      label: input.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      required: false,
+      description: input.description,
+      placeholder: input.example,
+      default: input.default,
+      options: hasOptions ? input.options!.map(o => ({ value: o, label: o })) : undefined,
+      reference: hasReference ? parseReference(input.reference!) : undefined,
+      group: 'optional',
+    });
+  }
+  const blocks = service.inputs.blocks?.map(convertBlock) || [];
+  return {
+    type: service.terraform_resource,
+    label: service.name,
+    category: 'serverless',
+    provider: 'gcp',
+    icon: service.icon,
+    fields,
+    blocks,
+    outputs: service.outputs,
+  };
+}
+
+/**
+ * Convert GCP storage service to resource schema
+ */
+function convertGCPStorageServiceToSchema(service: GCPStorageServiceDefinition): ResourceSchema {
+  const fields: SchemaField[] = [];
+  for (const input of service.inputs.required) {
+    const hasOptions = !!input.options && input.options.length > 0;
+    const hasReference = !!input.reference;
+    fields.push({
+      name: input.name,
+      type: mapInputType(input.type, hasOptions, hasReference),
+      label: input.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      required: true,
+      description: input.description,
+      placeholder: input.example,
+      default: input.default,
+      options: hasOptions ? input.options!.map(o => ({ value: o, label: o })) : undefined,
+      reference: hasReference ? parseReference(input.reference!) : undefined,
+      group: 'required',
+    });
+  }
+  for (const input of service.inputs.optional) {
+    const hasOptions = !!input.options && input.options.length > 0;
+    const hasReference = !!input.reference;
+    fields.push({
+      name: input.name,
+      type: mapInputType(input.type, hasOptions, hasReference),
+      label: input.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      required: false,
+      description: input.description,
+      placeholder: input.example,
+      default: input.default,
+      options: hasOptions ? input.options!.map(o => ({ value: o, label: o })) : undefined,
+      reference: hasReference ? parseReference(input.reference!) : undefined,
+      group: 'optional',
+    });
+  }
+  const blocks = service.inputs.blocks?.map(convertBlock) || [];
+  return {
+    type: service.terraform_resource,
+    label: service.name,
+    category: 'storage',
+    provider: 'gcp',
+    icon: service.icon,
+    fields,
+    blocks,
+    outputs: service.outputs,
+  };
+}
+
+/**
  * Get icon for a resource type
  */
 export function getServiceIcon(resourceType: string): string | undefined {
@@ -1829,6 +2435,16 @@ export function getServiceIcon(resourceType: string): string | undefined {
   if (AZURE_STORAGE_ICONS[resourceType]) return AZURE_STORAGE_ICONS[resourceType];
   if (GCP_ANALYTICS_ICONS[resourceType]) return GCP_ANALYTICS_ICONS[resourceType];
   if (GCP_COMPUTE_ICONS[resourceType]) return GCP_COMPUTE_ICONS[resourceType];
+  if (GCP_CONTAINERS_ICONS[resourceType]) return GCP_CONTAINERS_ICONS[resourceType];
+  if (GCP_DATABASE_ICONS[resourceType]) return GCP_DATABASE_ICONS[resourceType];
+  if (GCP_DEVELOPER_TOOLS_ICONS[resourceType]) return GCP_DEVELOPER_TOOLS_ICONS[resourceType];
+  if (GCP_MACHINE_LEARNING_ICONS[resourceType]) return GCP_MACHINE_LEARNING_ICONS[resourceType];
+  if (GCP_MANAGEMENT_ICONS[resourceType]) return GCP_MANAGEMENT_ICONS[resourceType];
+  if (GCP_MESSAGING_ICONS[resourceType]) return GCP_MESSAGING_ICONS[resourceType];
+  if (GCP_NETWORKING_ICONS[resourceType]) return GCP_NETWORKING_ICONS[resourceType];
+  if (GCP_SECURITY_ICONS[resourceType]) return GCP_SECURITY_ICONS[resourceType];
+  if (GCP_SERVERLESS_ICONS[resourceType]) return GCP_SERVERLESS_ICONS[resourceType];
+  if (GCP_STORAGE_ICONS[resourceType]) return GCP_STORAGE_ICONS[resourceType];
   return undefined;
 }
 
@@ -1836,7 +2452,7 @@ export function getServiceIcon(resourceType: string): string | undefined {
  * Check if a resource has an icon
  */
 export function hasServiceIcon(resourceType: string): boolean {
-  return !!(COMPUTE_ICONS[resourceType] || STORAGE_ICONS[resourceType] || DATABASE_ICONS[resourceType] || NETWORKING_ICONS[resourceType] || SECURITY_ICONS[resourceType] || ANALYTICS_ICONS[resourceType] || CONTAINERS_ICONS[resourceType] || DEVELOPER_TOOLS_ICONS[resourceType] || MACHINE_LEARNING_ICONS[resourceType] || MANAGEMENT_ICONS[resourceType] || MESSAGING_ICONS[resourceType] || SERVERLESS_ICONS[resourceType] || AZURE_ANALYTICS_ICONS[resourceType] || AZURE_COMPUTE_ICONS[resourceType] || AZURE_CONTAINERS_ICONS[resourceType] || AZURE_DATABASE_ICONS[resourceType] || AZURE_DEVELOPER_TOOLS_ICONS[resourceType] || AZURE_MACHINE_LEARNING_ICONS[resourceType] || AZURE_MANAGEMENT_ICONS[resourceType] || AZURE_MESSAGING_ICONS[resourceType] || AZURE_NETWORKING_ICONS[resourceType] || AZURE_SECURITY_ICONS[resourceType] || AZURE_SERVERLESS_ICONS[resourceType] || AZURE_STORAGE_ICONS[resourceType] || GCP_ANALYTICS_ICONS[resourceType] || GCP_COMPUTE_ICONS[resourceType]);
+  return !!(COMPUTE_ICONS[resourceType] || STORAGE_ICONS[resourceType] || DATABASE_ICONS[resourceType] || NETWORKING_ICONS[resourceType] || SECURITY_ICONS[resourceType] || ANALYTICS_ICONS[resourceType] || CONTAINERS_ICONS[resourceType] || DEVELOPER_TOOLS_ICONS[resourceType] || MACHINE_LEARNING_ICONS[resourceType] || MANAGEMENT_ICONS[resourceType] || MESSAGING_ICONS[resourceType] || SERVERLESS_ICONS[resourceType] || AZURE_ANALYTICS_ICONS[resourceType] || AZURE_COMPUTE_ICONS[resourceType] || AZURE_CONTAINERS_ICONS[resourceType] || AZURE_DATABASE_ICONS[resourceType] || AZURE_DEVELOPER_TOOLS_ICONS[resourceType] || AZURE_MACHINE_LEARNING_ICONS[resourceType] || AZURE_MANAGEMENT_ICONS[resourceType] || AZURE_MESSAGING_ICONS[resourceType] || AZURE_NETWORKING_ICONS[resourceType] || AZURE_SECURITY_ICONS[resourceType] || AZURE_SERVERLESS_ICONS[resourceType] || AZURE_STORAGE_ICONS[resourceType] || GCP_ANALYTICS_ICONS[resourceType] || GCP_COMPUTE_ICONS[resourceType] || GCP_CONTAINERS_ICONS[resourceType] || GCP_DATABASE_ICONS[resourceType] || GCP_DEVELOPER_TOOLS_ICONS[resourceType] || GCP_MACHINE_LEARNING_ICONS[resourceType] || GCP_MANAGEMENT_ICONS[resourceType] || GCP_MESSAGING_ICONS[resourceType] || GCP_NETWORKING_ICONS[resourceType] || GCP_SECURITY_ICONS[resourceType] || GCP_SERVERLESS_ICONS[resourceType] || GCP_STORAGE_ICONS[resourceType]);
 }
 
 /**
@@ -2051,6 +2667,86 @@ export function getResourceSchema(resourceType: string): ResourceSchema {
     }
   }
   
+  // Check if it's a GCP containers service with rich schema
+  if (isGCPContainersResource(resourceType)) {
+    const service = getGCPContainersServiceByTerraformResource(resourceType);
+    if (service) {
+      return convertGCPContainersServiceToSchema(service);
+    }
+  }
+  
+  // Check if it's a GCP database service with rich schema
+  if (isGCPDatabaseResource(resourceType)) {
+    const service = getGCPDatabaseServiceByTerraformResource(resourceType);
+    if (service) {
+      return convertGCPDatabaseServiceToSchema(service);
+    }
+  }
+  
+  // Check if it's a GCP developer tools service with rich schema
+  if (isGCPDeveloperToolsResource(resourceType)) {
+    const service = getGCPDeveloperToolsServiceByTerraformResource(resourceType);
+    if (service) {
+      return convertGCPDeveloperToolsServiceToSchema(service);
+    }
+  }
+  
+  // Check if it's a GCP machine learning service with rich schema
+  if (isGCPMachineLearningResource(resourceType)) {
+    const service = getGCPMachineLearningServiceByTerraformResource(resourceType);
+    if (service) {
+      return convertGCPMachineLearningServiceToSchema(service);
+    }
+  }
+  
+  // Check if it's a GCP management service with rich schema
+  if (isGCPManagementResource(resourceType)) {
+    const service = getGCPManagementServiceByTerraformResource(resourceType);
+    if (service) {
+      return convertGCPManagementServiceToSchema(service);
+    }
+  }
+  
+  // Check if it's a GCP messaging service with rich schema
+  if (isGCPMessagingResource(resourceType)) {
+    const service = getGCPMessagingServiceByTerraformResource(resourceType);
+    if (service) {
+      return convertGCPMessagingServiceToSchema(service);
+    }
+  }
+  
+  // Check if it's a GCP networking service with rich schema
+  if (isGCPNetworkingResource(resourceType)) {
+    const service = getGCPNetworkingServiceByTerraformResource(resourceType);
+    if (service) {
+      return convertGCPNetworkingServiceToSchema(service);
+    }
+  }
+  
+  // Check if it's a GCP security service with rich schema
+  if (isGCPSecurityResource(resourceType)) {
+    const service = getGCPSecurityServiceByTerraformResource(resourceType);
+    if (service) {
+      return convertGCPSecurityServiceToSchema(service);
+    }
+  }
+  
+  // Check if it's a GCP serverless service with rich schema
+  if (isGCPServerlessResource(resourceType)) {
+    const service = getGCPServerlessServiceByTerraformResource(resourceType);
+    if (service) {
+      return convertGCPServerlessServiceToSchema(service);
+    }
+  }
+  
+  // Check if it's a GCP storage service with rich schema
+  if (isGCPStorageResource(resourceType)) {
+    const service = getGCPStorageServiceByTerraformResource(resourceType);
+    if (service) {
+      return convertGCPStorageServiceToSchema(service);
+    }
+  }
+  
   // Get icon from service icons
   const icon = getServiceIcon(resourceType);
   
@@ -2173,3 +2869,4 @@ export { getServerlessIcon as getAzureServerlessIcon, isServerlessResource as is
 export { getStorageIcon as getAzureStorageIcon, isStorageResource as isAzureStorageResource, STORAGE_TERRAFORM_RESOURCES as AZURE_STORAGE_TERRAFORM_RESOURCES } from '../azure/storageServicesData';
 export { getAnalyticsIcon as getGCPAnalyticsIcon, isAnalyticsResource as isGCPAnalyticsResource, ANALYTICS_TERRAFORM_RESOURCES as GCP_ANALYTICS_TERRAFORM_RESOURCES } from '../gcp/analyticsServicesData';
 export { getComputeIcon as getGCPComputeIcon, isComputeResource as isGCPComputeResource, COMPUTE_TERRAFORM_RESOURCES as GCP_COMPUTE_TERRAFORM_RESOURCES } from '../gcp/computeServicesData';
+export { getContainersIcon as getGCPContainersIcon, isContainersResource as isGCPContainersResource, CONTAINERS_TERRAFORM_RESOURCES as GCP_CONTAINERS_TERRAFORM_RESOURCES } from '../gcp/containersServicesData';

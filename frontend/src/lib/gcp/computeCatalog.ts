@@ -49,3 +49,4 @@ export function listComputeServices(): ComputeCatalogEntry[] {
   return COMPUTE_CATALOG;
 }
 
+

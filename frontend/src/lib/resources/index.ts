@@ -132,6 +132,56 @@ import {
   isComputeType as isGCPComputeType
 } from '../gcp/computeCatalog';
 import { COMPUTE_ICONS as GCP_COMPUTE_ICONS } from '../gcp/computeServicesData';
+import {
+  CONTAINERS_CATALOG as GCP_CONTAINERS_CATALOG,
+  isContainersType as isGCPContainersType
+} from '../gcp/containersCatalog';
+import { CONTAINERS_ICONS as GCP_CONTAINERS_ICONS } from '../gcp/containersServicesData';
+import {
+  DATABASE_CATALOG as GCP_DATABASE_CATALOG,
+  isDatabaseType as isGCPDatabaseType
+} from '../gcp/databaseCatalog';
+import { DATABASE_ICONS as GCP_DATABASE_ICONS } from '../gcp/databaseServicesData';
+import {
+  DEVELOPER_TOOLS_CATALOG as GCP_DEVELOPER_TOOLS_CATALOG,
+  isDeveloperToolsType as isGCPDeveloperToolsType
+} from '../gcp/developerToolsCatalog';
+import { DEVELOPER_TOOLS_ICONS as GCP_DEVELOPER_TOOLS_ICONS } from '../gcp/developerToolsServicesData';
+import {
+  MACHINE_LEARNING_CATALOG as GCP_MACHINE_LEARNING_CATALOG,
+  isMachineLearningType as isGCPMachineLearningType
+} from '../gcp/machineLearningCatalog';
+import { MACHINE_LEARNING_ICONS as GCP_MACHINE_LEARNING_ICONS } from '../gcp/machineLearningServicesData';
+import {
+  MANAGEMENT_CATALOG as GCP_MANAGEMENT_CATALOG,
+  isManagementType as isGCPManagementType
+} from '../gcp/managementCatalog';
+import { MANAGEMENT_ICONS as GCP_MANAGEMENT_ICONS } from '../gcp/managementServicesData';
+import {
+  MESSAGING_CATALOG as GCP_MESSAGING_CATALOG,
+  isMessagingType as isGCPMessagingType
+} from '../gcp/messagingCatalog';
+import { MESSAGING_ICONS as GCP_MESSAGING_ICONS } from '../gcp/messagingServicesData';
+import {
+  NETWORKING_CATALOG as GCP_NETWORKING_CATALOG,
+  isNetworkingType as isGCPNetworkingType
+} from '../gcp/networkingCatalog';
+import { NETWORKING_ICONS as GCP_NETWORKING_ICONS } from '../gcp/networkingServicesData';
+import {
+  SECURITY_CATALOG as GCP_SECURITY_CATALOG,
+  isSecurityType as isGCPSecurityType
+} from '../gcp/securityCatalog';
+import { SECURITY_ICONS as GCP_SECURITY_ICONS } from '../gcp/securityServicesData';
+import {
+  SERVERLESS_CATALOG as GCP_SERVERLESS_CATALOG,
+  isServerlessType as isGCPServerlessType
+} from '../gcp/serverlessCatalog';
+import { SERVERLESS_ICONS as GCP_SERVERLESS_ICONS } from '../gcp/serverlessServicesData';
+import {
+  STORAGE_CATALOG as GCP_STORAGE_CATALOG,
+  isStorageType as isGCPStorageType
+} from '../gcp/storageCatalog';
+import { STORAGE_ICONS as GCP_STORAGE_ICONS } from '../gcp/storageServicesData';
 
 export type { ProviderId, GeneratedResourceDefinition } from './generatedCatalog';
 export { GENERATED_RESOURCE_CATALOG, GENERATED_ICON_MAP } from './generatedCatalog';
@@ -231,6 +281,16 @@ const ALL_SERVICE_ICONS: Record<string, string> = {
   ...AZURE_STORAGE_ICONS,
   ...GCP_ANALYTICS_ICONS,
   ...GCP_COMPUTE_ICONS,
+  ...GCP_CONTAINERS_ICONS,
+  ...GCP_DATABASE_ICONS,
+  ...GCP_DEVELOPER_TOOLS_ICONS,
+  ...GCP_MACHINE_LEARNING_ICONS,
+  ...GCP_MANAGEMENT_ICONS,
+  ...GCP_MESSAGING_ICONS,
+  ...GCP_NETWORKING_ICONS,
+  ...GCP_SECURITY_ICONS,
+  ...GCP_SERVERLESS_ICONS,
+  ...GCP_STORAGE_ICONS,
 };
 
 // Helper function to check if a service has an icon
@@ -456,14 +516,64 @@ export function getResourcesForProvider(provider: CloudProvider): CloudResource[
       if (r.category === 'analytics' && !isGCPAnalyticsType(r.type)) {
         return false;
       }
+      // If it's in containers category but not from containers.json, skip it
+      if (r.category === 'containers' && !isGCPContainersType(r.type)) {
+        return false;
+      }
+      // If it's in database category but not from database.json, skip it
+      if (r.category === 'database' && !isGCPDatabaseType(r.type)) {
+        return false;
+      }
+      // If it's in developer-tools category but not from developer-tools.json, skip it
+      if (r.category === 'developer-tools' && !isGCPDeveloperToolsType(r.type)) {
+        return false;
+      }
+      // If it's in machine-learning category but not from machine-learning.json, skip it
+      if (r.category === 'machine-learning' && !isGCPMachineLearningType(r.type)) {
+        return false;
+      }
+      // If it's in management category but not from management.json, skip it
+      if (r.category === 'management' && !isGCPManagementType(r.type)) {
+        return false;
+      }
+      // If it's in messaging category but not from messaging.json, skip it
+      if (r.category === 'messaging' && !isGCPMessagingType(r.type)) {
+        return false;
+      }
+      // If it's in networking category but not from networking.json, skip it
+      if (r.category === 'networking' && !isGCPNetworkingType(r.type)) {
+        return false;
+      }
+      // If it's in security category but not from security.json, skip it
+      if (r.category === 'security' && !isGCPSecurityType(r.type)) {
+        return false;
+      }
+      // If it's in serverless category but not from serverless.json, skip it
+      if (r.category === 'serverless' && !isGCPServerlessType(r.type)) {
+        return false;
+      }
+      // If it's in storage category but not from storage.json, skip it
+      if (r.category === 'storage' && !isGCPStorageType(r.type)) {
+        return false;
+      }
       return true;
     });
     
     // Add all correct services from respective JSON files
     const allResources = [
-      ...filteredResources.filter(r => r.category !== 'compute' && r.category !== 'analytics'),
+      ...filteredResources.filter(r => r.category !== 'compute' && r.category !== 'analytics' && r.category !== 'containers' && r.category !== 'database' && r.category !== 'developer-tools' && r.category !== 'machine-learning' && r.category !== 'management' && r.category !== 'messaging' && r.category !== 'networking' && r.category !== 'security' && r.category !== 'serverless' && r.category !== 'storage'),
       ...GCP_COMPUTE_CATALOG,
       ...GCP_ANALYTICS_CATALOG,
+      ...GCP_CONTAINERS_CATALOG,
+      ...GCP_DATABASE_CATALOG,
+      ...GCP_DEVELOPER_TOOLS_CATALOG,
+      ...GCP_MACHINE_LEARNING_CATALOG,
+      ...GCP_MANAGEMENT_CATALOG,
+      ...GCP_MESSAGING_CATALOG,
+      ...GCP_NETWORKING_CATALOG,
+      ...GCP_SECURITY_CATALOG,
+      ...GCP_SERVERLESS_CATALOG,
+      ...GCP_STORAGE_CATALOG,
     ];
     
     // Update icons for all resources using combined service icons
@@ -774,6 +884,96 @@ export {
   COMPUTE_RESOURCE_TYPES as GCP_COMPUTE_RESOURCE_TYPES,
 } from '../gcp/computeCatalog';
 
+// Re-export GCP containers types and utilities
+export {
+  CONTAINERS_CATALOG as GCP_CONTAINERS_CATALOG,
+  isContainersType as isGCPContainersType,
+  getContainersCatalogEntry as getGCPContainersCatalogEntry,
+  getContainersServiceIcon as getGCPContainersServiceIcon,
+  CONTAINERS_RESOURCE_TYPES as GCP_CONTAINERS_RESOURCE_TYPES,
+} from '../gcp/containersCatalog';
+
+// Re-export GCP database types and utilities
+export {
+  DATABASE_CATALOG as GCP_DATABASE_CATALOG,
+  isDatabaseType as isGCPDatabaseType,
+  getDatabaseCatalogEntry as getGCPDatabaseCatalogEntry,
+  getDatabaseServiceIcon as getGCPDatabaseServiceIcon,
+  DATABASE_RESOURCE_TYPES as GCP_DATABASE_RESOURCE_TYPES,
+} from '../gcp/databaseCatalog';
+
+// Re-export GCP developer tools types and utilities
+export {
+  DEVELOPER_TOOLS_CATALOG as GCP_DEVELOPER_TOOLS_CATALOG,
+  isDeveloperToolsType as isGCPDeveloperToolsType,
+  getDeveloperToolsCatalogEntry as getGCPDeveloperToolsCatalogEntry,
+  getDeveloperToolsServiceIcon as getGCPDeveloperToolsServiceIcon,
+  DEVELOPER_TOOLS_RESOURCE_TYPES as GCP_DEVELOPER_TOOLS_RESOURCE_TYPES,
+} from '../gcp/developerToolsCatalog';
+
+// Re-export GCP machine learning types and utilities
+export {
+  MACHINE_LEARNING_CATALOG as GCP_MACHINE_LEARNING_CATALOG,
+  isMachineLearningType as isGCPMachineLearningType,
+  getMachineLearningCatalogEntry as getGCPMachineLearningCatalogEntry,
+  getMachineLearningServiceIcon as getGCPMachineLearningServiceIcon,
+  MACHINE_LEARNING_RESOURCE_TYPES as GCP_MACHINE_LEARNING_RESOURCE_TYPES,
+} from '../gcp/machineLearningCatalog';
+
+// Re-export GCP management types and utilities
+export {
+  MANAGEMENT_CATALOG as GCP_MANAGEMENT_CATALOG,
+  isManagementType as isGCPManagementType,
+  getManagementCatalogEntry as getGCPManagementCatalogEntry,
+  getManagementServiceIcon as getGCPManagementServiceIcon,
+  MANAGEMENT_RESOURCE_TYPES as GCP_MANAGEMENT_RESOURCE_TYPES,
+} from '../gcp/managementCatalog';
+
+// Re-export GCP messaging types and utilities
+export {
+  MESSAGING_CATALOG as GCP_MESSAGING_CATALOG,
+  isMessagingType as isGCPMessagingType,
+  getMessagingCatalogEntry as getGCPMessagingCatalogEntry,
+  getMessagingServiceIcon as getGCPMessagingServiceIcon,
+  MESSAGING_RESOURCE_TYPES as GCP_MESSAGING_RESOURCE_TYPES,
+} from '../gcp/messagingCatalog';
+
+// Re-export GCP networking types and utilities
+export {
+  NETWORKING_CATALOG as GCP_NETWORKING_CATALOG,
+  isNetworkingType as isGCPNetworkingType,
+  getNetworkingCatalogEntry as getGCPNetworkingCatalogEntry,
+  getNetworkingServiceIcon as getGCPNetworkingServiceIcon,
+  NETWORKING_RESOURCE_TYPES as GCP_NETWORKING_RESOURCE_TYPES,
+} from '../gcp/networkingCatalog';
+
+// Re-export GCP security types and utilities
+export {
+  SECURITY_CATALOG as GCP_SECURITY_CATALOG,
+  isSecurityType as isGCPSecurityType,
+  getSecurityCatalogEntry as getGCPSecurityCatalogEntry,
+  getSecurityServiceIcon as getGCPSecurityServiceIcon,
+  SECURITY_RESOURCE_TYPES as GCP_SECURITY_RESOURCE_TYPES,
+} from '../gcp/securityCatalog';
+
+// Re-export GCP serverless types and utilities
+export {
+  SERVERLESS_CATALOG as GCP_SERVERLESS_CATALOG,
+  isServerlessType as isGCPServerlessType,
+  getServerlessCatalogEntry as getGCPServerlessCatalogEntry,
+  getServerlessServiceIcon as getGCPServerlessServiceIcon,
+  SERVERLESS_RESOURCE_TYPES as GCP_SERVERLESS_RESOURCE_TYPES,
+} from '../gcp/serverlessCatalog';
+
+// Re-export GCP storage types and utilities
+export {
+  STORAGE_CATALOG as GCP_STORAGE_CATALOG,
+  isStorageType as isGCPStorageType,
+  getStorageCatalogEntry as getGCPStorageCatalogEntry,
+  getStorageServiceIcon as getGCPStorageServiceIcon,
+  STORAGE_RESOURCE_TYPES as GCP_STORAGE_RESOURCE_TYPES,
+} from '../gcp/storageCatalog';
+
 // AWS Categories
 export const AWS_CATEGORIES = [
   { id: 'compute', name: 'Compute', icon: 'cpu' },
@@ -810,6 +1010,16 @@ export const AZURE_CATEGORIES = [
 export const GCP_CATEGORIES = [
   { id: 'compute', name: 'Compute', icon: 'server' },
   { id: 'analytics', name: 'Analytics', icon: 'bar-chart-2' },
+  { id: 'containers', name: 'Containers', icon: 'box' },
+  { id: 'database', name: 'Databases', icon: 'database' },
+  { id: 'developer-tools', name: 'Developer Tools', icon: 'code' },
+  { id: 'machine-learning', name: 'Machine Learning', icon: 'brain' },
+  { id: 'management', name: 'Management', icon: 'settings' },
+  { id: 'messaging', name: 'Messaging', icon: 'message-square' },
+  { id: 'networking', name: 'Networking', icon: 'network' },
+  { id: 'security', name: 'Security', icon: 'shield' },
+  { id: 'serverless', name: 'Serverless', icon: 'zap' },
+  { id: 'storage', name: 'Storage', icon: 'hard-drive' },
 ];
 
 // Combined service icons export

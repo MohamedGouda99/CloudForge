@@ -722,3 +722,4 @@ export function getDatabaseIcon(terraformResource: string): string | undefined {
   return DATABASE_ICONS[terraformResource];
 }
 
+
