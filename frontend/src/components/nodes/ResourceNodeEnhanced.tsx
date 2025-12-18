@@ -1,14 +1,15 @@
-import { memo, useMemo, useState, useCallback, type CSSProperties } from 'react';
+import { memo, useMemo, useState, useCallback, useRef, useEffect, type CSSProperties } from 'react';
 import { Handle, Position, NodeProps, NodeResizer, useReactFlow } from 'reactflow';
 import CloudIcon from '../CloudIcon';
 import { getCloudIconPath } from '../../lib/resources/cloudIconsComplete';
 
-const GRID_SIZE = 10; // Increased from 1 for more stable resizing
+const GRID_SIZE = 10;
 const MIN_SIZE = 60;
 const MAX_SIZE = 400;
 const DEFAULT_NODE_SIZE = 120;
 const SELECTION_COLOR = '#E60000';
 const HANDLE_COLOR = '#38A1F8';
+const LABEL_OFFSET = 8; // Space between node and label
 
 type ResourceNodeData = {
   label?: string;
@@ -38,12 +39,15 @@ function ResourceNodeEnhanced({ id, data, selected }: NodeProps<ResourceNodeData
   const { setNodes, getNode } = useReactFlow();
   const [hovered, setHovered] = useState(false);
 
-  // Get current size from node data or style
+  // Get current dimensions from node style (support independent width/height)
   const currentNode = getNode(id);
   const styleWidth = typeof currentNode?.style?.width === 'number' ? currentNode.style.width : undefined;
+  const styleHeight = typeof currentNode?.style?.height === 'number' ? currentNode.style.height : undefined;
   const dataSize = typeof data.size === 'number' ? data.size : undefined;
-  
-  const size = clampSize(dataSize ?? styleWidth, MIN_SIZE, MAX_SIZE, DEFAULT_NODE_SIZE);
+
+  // Use independent width/height, fallback to size for backwards compatibility
+  const width = clampSize(styleWidth ?? dataSize, MIN_SIZE, MAX_SIZE, DEFAULT_NODE_SIZE);
+  const height = clampSize(styleHeight ?? dataSize, MIN_SIZE, MAX_SIZE, DEFAULT_NODE_SIZE);
 
   const iconPath = data.icon || getCloudIconPath(data.resourceType);
 
@@ -91,14 +95,39 @@ function ResourceNodeEnhanced({ id, data, selected }: NodeProps<ResourceNodeData
     return null;
   }, [iconPath]);
 
-  // Handle resize using NodeResizer's onResize callback
+  // Transient dimensions for instant visual feedback - independent width/height like Draw.io
+  const [transientDimensions, setTransientDimensions] = useState<{ width: number; height: number } | null>(null);
+
+  // Draw.io-style resize handler - each side resizes independently, others stay fixed
   const handleResize = useCallback(
     (_event: unknown, params: { width?: number; height?: number }) => {
-      // Use the larger dimension to maintain square aspect ratio
-      const newWidth = params.width ?? size;
-      const newHeight = params.height ?? size;
-      const newSize = snapToGrid(clampSize(Math.max(newWidth, newHeight), MIN_SIZE, MAX_SIZE, DEFAULT_NODE_SIZE));
+      const newWidth = params.width ?? width;
+      const newHeight = params.height ?? height;
 
+      // Clamp dimensions independently - no aspect ratio constraint
+      const clampedWidth = clampSize(newWidth, MIN_SIZE, MAX_SIZE, DEFAULT_NODE_SIZE);
+      const clampedHeight = clampSize(newHeight, MIN_SIZE, MAX_SIZE, DEFAULT_NODE_SIZE);
+
+      // Update ONLY local transient state - instant 1:1 visual feedback, zero lag
+      setTransientDimensions({ width: clampedWidth, height: clampedHeight });
+    },
+    [width, height]
+  );
+
+  // Snap to grid and commit final dimensions after resize ends
+  const handleResizeEnd = useCallback(
+    (_event: unknown, params: { width?: number; height?: number }) => {
+      const newWidth = params.width ?? width;
+      const newHeight = params.height ?? height;
+
+      // Snap each dimension independently to grid
+      const snappedWidth = snapToGrid(clampSize(newWidth, MIN_SIZE, MAX_SIZE, DEFAULT_NODE_SIZE));
+      const snappedHeight = snapToGrid(clampSize(newHeight, MIN_SIZE, MAX_SIZE, DEFAULT_NODE_SIZE));
+
+      // Clear transient state
+      setTransientDimensions(null);
+
+      // Commit final snapped dimensions to global state
       setNodes((nodes) =>
         nodes.map((node) =>
           node.id === id
@@ -106,58 +135,86 @@ function ResourceNodeEnhanced({ id, data, selected }: NodeProps<ResourceNodeData
                 ...node,
                 style: {
                   ...node.style,
-                  width: newSize,
-                  height: newSize,
+                  width: snappedWidth,
+                  height: snappedHeight,
                 },
                 data: {
                   ...node.data,
-                  size: newSize,
+                  size: undefined, // Remove legacy size field
                 },
               }
             : node
         )
       );
     },
-    [id, setNodes, size]
+    [id, setNodes, width, height]
   );
 
+  // Use transient dimensions during resize, otherwise use actual dimensions
+  const displayWidth = transientDimensions?.width ?? width;
+  const displayHeight = transientDimensions?.height ?? height;
+
   return (
-    <>
-      {/* Use React Flow's NodeResizer for accurate resizing */}
-      <NodeResizer
-        color={SELECTION_COLOR}
-        isVisible={selected}
-        minWidth={MIN_SIZE}
-        minHeight={MIN_SIZE}
-        maxWidth={MAX_SIZE}
-        maxHeight={MAX_SIZE}
-        onResize={handleResize}
-        keepAspectRatio
-        handleStyle={{
-          width: '14px',
-          height: '14px',
-          borderRadius: '50%',
-          backgroundColor: SELECTION_COLOR,
-          border: '3px solid white',
-          boxShadow: '0 2px 8px rgba(230, 0, 0, 0.4)',
-        }}
-        lineStyle={{
-          border: `1.5px dashed ${SELECTION_COLOR}`,
-          borderRadius: '8px',
-        }}
-      />
+    <div
+      style={{
+        position: 'relative',
+        width: displayWidth,
+        height: displayHeight,
+        background: 'transparent',
+      }}
+    >
+      {/* Draw.io-style NodeResizer: all 8 handles, independent side resizing, no aspect ratio lock */}
+      {selected && (
+        <NodeResizer
+          color={SELECTION_COLOR}
+          isVisible={true}
+          minWidth={MIN_SIZE}
+          minHeight={MIN_SIZE}
+          maxWidth={MAX_SIZE}
+          maxHeight={MAX_SIZE}
+          onResize={handleResize}
+          onResizeEnd={handleResizeEnd}
+          keepAspectRatio={false}
+          shouldResize={() => true}
+          handleStyle={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            backgroundColor: SELECTION_COLOR,
+            border: '2px solid white',
+            boxShadow: '0 2px 4px rgba(230, 0, 0, 0.4)',
+            zIndex: 1000,
+          }}
+          lineStyle={{
+            display: 'none',
+          }}
+        />
+      )}
+
+      {/* Custom selection border - positioned exactly on the node bounds */}
+      {selected && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            border: `2px solid ${SELECTION_COLOR}`,
+            borderRadius: '4px',
+            pointerEvents: 'none',
+            boxSizing: 'border-box',
+          }}
+        />
+      )}
 
       <div
-        className="relative flex flex-col items-center justify-center overflow-visible"
         style={{
-          width: size,
-          height: size,
+          width: '100%',
+          height: '100%',
           cursor: 'move',
-          border: 'none',
-          outline: 'none',
           background: 'transparent',
-          // Use CSS containment to reduce layout thrashing
-          contain: 'layout style',
+          position: 'relative',
         }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
@@ -182,59 +239,102 @@ function ResourceNodeEnhanced({ id, data, selected }: NodeProps<ResourceNodeData
           />
         ))}
 
-        {/* Main content area */}
+        {/* Icon - fills entire node like Draw.io/Brainboard */}
+        {resolvedIconUrl ? (
+          <img
+            src={resolvedIconUrl}
+            alt={data.resourceLabel || data.resourceType}
+            className="pointer-events-none select-none"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+            }}
+            draggable={false}
+          />
+        ) : (
+          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <CloudIcon icon={iconPath} size={Math.max(displayWidth, displayHeight)} className="w-full h-full object-cover" />
+          </div>
+        )}
+
+        {/* Configuration indicator - positioned outside the node bounds */}
+        {isConfigured && (
+          <span
+            style={{
+              position: 'absolute',
+              top: '-6px',
+              right: '-6px',
+              width: '16px',
+              height: '16px',
+              borderRadius: '50%',
+              backgroundColor: '#10B981',
+              border: '2px solid white',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              pointerEvents: 'none',
+            }}
+            title={`${configEntries.length} properties configured`}
+          >
+            <svg style={{ width: '10px', height: '10px', color: 'white' }} fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+          </span>
+        )}
+
+        {/* Label below the node - positioned outside the measured area */}
         <div
-          className="relative flex items-center justify-center w-full h-full"
           style={{
-            background: selected ? 'rgba(230, 0, 0, 0.03)' : 'transparent',
-            border: selected ? `2px solid ${SELECTION_COLOR}` : '1px solid transparent',
-            borderRadius: '8px',
-            boxShadow: selected ? '0 4px 16px rgba(230, 0, 0, 0.15)' : 'none',
-            padding: '8px',
-            transition: 'border-color 150ms ease, box-shadow 150ms ease, background 150ms ease',
+            position: 'absolute',
+            top: `${displayHeight + LABEL_OFFSET}px`,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            pointerEvents: 'none',
+            userSelect: 'none',
+            whiteSpace: 'nowrap',
+            maxWidth: '200px',
           }}
         >
-          {resolvedIconUrl ? (
-            <img
-              src={resolvedIconUrl}
-              alt={data.resourceLabel || data.resourceType}
-              className="pointer-events-none select-none w-full h-full object-contain"
-              draggable={false}
-            />
-          ) : (
-            <CloudIcon icon={iconPath} size={size - 24} className="w-full h-full" />
-          )}
-          
-          {/* Configuration indicator */}
-          {isConfigured && (
-            <span 
-              className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white shadow-md flex items-center justify-center"
-              title={`${configEntries.length} properties configured`}
-            >
-              <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-            </span>
-          )}
-        </div>
-
-        {/* Label below the node */}
-        <div className="absolute top-full mt-2 w-max max-w-[200px] text-center flex flex-col items-center pointer-events-none select-none">
-          <span 
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold shadow-md transition-colors duration-150 ${
-              selected 
-                ? 'bg-red-600 text-white' 
-                : 'bg-gray-900/90 dark:bg-gray-800 text-white'
-            }`}
+          <span
+            style={{
+              padding: '6px 12px',
+              borderRadius: '6px',
+              fontSize: '11px',
+              fontWeight: 600,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+              backgroundColor: selected ? '#E60000' : 'rgba(17, 24, 39, 0.9)',
+              color: 'white',
+              transition: 'background-color 150ms ease',
+            }}
           >
             {displayName}
           </span>
-          <span className="mt-1 text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400 font-mono truncate max-w-full">
+          <span
+            style={{
+              marginTop: '4px',
+              fontSize: '9px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              color: '#9CA3AF',
+              fontFamily: 'monospace',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              maxWidth: '100%',
+            }}
+          >
             {data.resourceType}
           </span>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 

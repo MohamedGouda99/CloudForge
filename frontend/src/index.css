@@ -169,11 +169,35 @@
 
 /* ReactFlow custom styles */
 .react-flow__node {
-  @apply transition-all duration-200;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  transition: none !important;
 }
 
+/* IMPORTANT: Disable ReactFlow's default selection outline - we handle it ourselves */
 .react-flow__node.selected {
-  @apply ring-2 ring-red-500 ring-offset-2;
+  /* Remove default selection styles completely */
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+  background: transparent !important;
+}
+
+/* Remove ReactFlow's selection rectangle completely */
+.react-flow__nodesselection-rect,
+.react-flow__selection {
+  display: none !important;
+}
+
+/* Remove any transform or positioning from NodeResizer border */
+.react-flow__resize-control {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.react-flow__resize-control.line {
+  border: none !important;
 }
 
 .react-flow__edge-path {

@@ -1,4 +1,4 @@
-import { memo, useMemo, useState, useCallback, type CSSProperties } from 'react';
+import { memo, useMemo, useState, useCallback, useRef, useEffect, type CSSProperties } from 'react';
 import { Handle, Position, NodeProps, NodeResizer, useReactFlow } from 'reactflow';
 import CloudIcon from '../CloudIcon';
 import { getCloudIconPath } from '../../lib/resources/cloudIconsComplete';
@@ -56,7 +56,7 @@ const snap = (value: number) => {
 function ContainerNodeEnhanced({ id, data, selected }: NodeProps<ContainerNodeData>) {
   const { setNodes, getNode } = useReactFlow();
   const [hovered, setHovered] = useState(false);
-  
+
   const currentNode = getNode(id);
 
   // Get dimensions from multiple sources with fallbacks
@@ -113,12 +113,65 @@ function ContainerNodeEnhanced({ id, data, selected }: NodeProps<ContainerNodeDa
     return null;
   }, [iconPath]);
 
-  // Memoized resize handler to prevent unnecessary re-renders
+  // Use RAF for ultra-smooth resizing performance
+  const rafRef = useRef<number | null>(null);
+  const [transientSize, setTransientSize] = useState<{ width: number; height: number } | null>(null);
+
+  // Optimized resize handler using RAF and local state
   const handleResize = useCallback(
     (_event: unknown, params: { width?: number; height?: number }) => {
+      // Cancel any pending RAF
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+      }
+
+      const nextWidth = clamp(params.width, MIN_WIDTH, MAX_WIDTH, DEFAULT_CONTAINER_SIZE.width);
+      const nextHeight = clamp(params.height, MIN_HEIGHT, MAX_HEIGHT, DEFAULT_CONTAINER_SIZE.height);
+
+      // Update local transient state for instant visual feedback
+      setTransientSize({ width: nextWidth, height: nextHeight });
+
+      // Schedule RAF to batch DOM updates
+      rafRef.current = requestAnimationFrame(() => {
+        setNodes((nodes) =>
+          nodes.map((node) =>
+            node.id === id
+              ? {
+                  ...node,
+                  style: {
+                    ...node.style,
+                    width: nextWidth,
+                    height: nextHeight,
+                  },
+                  data: {
+                    ...node.data,
+                    size: { width: nextWidth, height: nextHeight },
+                  },
+                }
+              : node
+          )
+        );
+      });
+    },
+    [id, setNodes]
+  );
+
+  // Snap to grid and finalize after resize ends
+  const handleResizeEnd = useCallback(
+    (_event: unknown, params: { width?: number; height?: number }) => {
+      // Cancel any pending RAF
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+
       const nextWidth = snap(clamp(params.width, MIN_WIDTH, MAX_WIDTH, DEFAULT_CONTAINER_SIZE.width));
       const nextHeight = snap(clamp(params.height, MIN_HEIGHT, MAX_HEIGHT, DEFAULT_CONTAINER_SIZE.height));
 
+      // Clear transient state
+      setTransientSize(null);
+
+      // Commit final snapped size
       setNodes((nodes) =>
         nodes.map((node) =>
           node.id === id
@@ -141,6 +194,19 @@ function ContainerNodeEnhanced({ id, data, selected }: NodeProps<ContainerNodeDa
     [id, setNodes]
   );
 
+  // Use transient size during resize, otherwise use actual size
+  const displayWidth = transientSize?.width ?? width;
+  const displayHeight = transientSize?.height ?? height;
+
+  // Cleanup RAF on unmount
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+      }
+    };
+  }, []);
+
   // Border color based on container type
   const borderColor = useMemo(() => {
     const type = data.resourceType?.toLowerCase() || '';
@@ -160,6 +226,7 @@ function ContainerNodeEnhanced({ id, data, selected }: NodeProps<ContainerNodeDa
         maxWidth={MAX_WIDTH}
         maxHeight={MAX_HEIGHT}
         onResize={handleResize}
+        onResizeEnd={handleResizeEnd}
         handleStyle={{
           width: '14px',
           height: '14px',
@@ -177,16 +244,19 @@ function ContainerNodeEnhanced({ id, data, selected }: NodeProps<ContainerNodeDa
       <div
         className="relative flex h-full w-full flex-col"
         style={{
-          width,
-          height,
-          border: `2px dashed ${selected ? SELECTION_COLOR : borderColor}`,
+          width: displayWidth,
+          height: displayHeight,
+          // Only show border when NOT selected (NodeResizer shows its own border when selected)
+          border: selected ? 'none' : `2px dashed ${borderColor}`,
           borderRadius: '12px',
-          background: selected ? 'rgba(42, 139, 255, 0.02)' : 'rgba(255, 255, 255, 0.4)',
+          background: 'rgba(255, 255, 255, 0.4)',
           backdropFilter: 'blur(2px)',
           cursor: 'move',
-          transition: 'border-color 150ms ease, background 150ms ease',
-          // CSS containment for performance
-          contain: 'layout style',
+          padding: 0,
+          margin: 0,
+          // Performance optimizations - critical for smooth drag
+          contain: 'size layout style paint',
+          willChange: selected ? 'transform' : 'auto',
         }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
@@ -232,9 +302,9 @@ function ContainerNodeEnhanced({ id, data, selected }: NodeProps<ContainerNodeDa
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <div 
+            <div
               className="font-semibold text-gray-800 truncate text-sm leading-tight"
-              style={{ maxWidth: width - 140 }}
+              style={{ maxWidth: displayWidth - 140 }}
             >
               {displayName}
             </div>
