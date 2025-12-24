@@ -163,6 +163,7 @@ export default function DesignerPageFinal() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(288); // Default 288px (w-72)
   const [propertiesPanelOpen, setPropertiesPanelOpen] = useState(true);
   const [showMinimap, setShowMinimap] = useState(true);
   const [zoom, setZoom] = useState(100);
@@ -209,6 +210,10 @@ export default function DesignerPageFinal() {
     nodeId: string;
   } | null>(null);
   const [configPanelOpen, setConfigPanelOpen] = useState(false);
+
+  // Right panel state (resizable and collapsible)
+  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
+  const [rightPanelWidth, setRightPanelWidth] = useState(360);
 
   // Credentials state
   const [credentials, setCredentials] = useState<any>(null);
@@ -1759,6 +1764,8 @@ export default function DesignerPageFinal() {
           onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
           onDragStart={handleDragStart}
           onResourceClick={addNode}
+          panelWidth={sidebarWidth}
+          onWidthChange={setSidebarWidth}
         />
 
         {/* Center - React Flow Canvas */}
@@ -1853,6 +1860,10 @@ export default function DesignerPageFinal() {
             onUpdateNode={handleUpdateNode}
             configPanelOpen={configPanelOpen}
             onCloseConfigPanel={() => setConfigPanelOpen(false)}
+            isCollapsed={rightPanelCollapsed}
+            onToggleCollapse={() => setRightPanelCollapsed(!rightPanelCollapsed)}
+            panelWidth={rightPanelWidth}
+            onWidthChange={setRightPanelWidth}
           />
 
           {/* AI Assistant Panel */}

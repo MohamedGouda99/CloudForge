@@ -1,0 +1,37 @@
+{
+  "name": "@cloudforge/terraform-generator",
+  "version": "1.0.0",
+  "description": "Data-driven Terraform generator for CloudForge",
+  "main": "index.ts",
+  "types": "index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "build": "tsc",
+    "lint": "eslint . --ext .ts",
+    "format": "prettier --write \"**/*.ts\""
+  },
+  "keywords": [
+    "terraform",
+    "infrastructure-as-code",
+    "code-generation",
+    "aws",
+    "azure",
+    "gcp",
+    "cloud"
+  ],
+  "author": "CloudForge Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "@vitest/coverage-v8": "^1.0.0",
+    "eslint": "^8.54.0",
+    "prettier": "^3.1.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  },
+  "dependencies": {}
+}

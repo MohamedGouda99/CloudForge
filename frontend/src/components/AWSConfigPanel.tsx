@@ -27,8 +27,8 @@ import {
   getDefaultValues,
   SchemaField,
   ResourceSchema,
+  SchemaBlock,
 } from '../lib/resources/resourceSchemas';
-import { ServiceBlockField } from '../lib/aws/serviceLoader';
 import CloudIcon from './CloudIcon';
 import { resolveResourceIcon } from '../lib/resources/iconResolver';
 
@@ -90,6 +90,43 @@ export default function AWSConfigPanel({
     setBlockValues(blocks);
   }, [node.id, schema, nodeData]);
 
+  // Sanitize name for Terraform identifier (consistent with backend)
+  const sanitizeTerraformName = useCallback((name: string): string => {
+    return name.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+  }, []);
+
+  // Reference object structure for ID-based references (auto-updates when names change)
+  interface TerraformReference {
+    __ref: true;
+    nodeId: string;
+    resourceType: string;
+    outputName: string;
+  }
+
+  // Check if a value is a structured reference
+  const isStructuredReference = useCallback((value: unknown): value is TerraformReference => {
+    return typeof value === 'object' && value !== null && '__ref' in value && (value as any).__ref === true;
+  }, []);
+
+  // Resolve a reference to its current terraform string (dynamically computed from current node names)
+  const resolveReferenceToTerraform = useCallback((ref: TerraformReference): string => {
+    const targetNode = allNodes.find(n => n.id === ref.nodeId);
+    if (!targetNode) return '';
+    const nodeDataRef = targetNode.data as Record<string, unknown>;
+    const displayName = (nodeDataRef.displayName as string) || (nodeDataRef.resourceLabel as string) || targetNode.id;
+    const sanitizedName = sanitizeTerraformName(displayName);
+    return `${ref.resourceType}.${sanitizedName}.${ref.outputName}`;
+  }, [allNodes, sanitizeTerraformName]);
+
+  // Get display value for a reference field (supports both structured and legacy string formats)
+  const getReferenceDisplayValue = useCallback((value: unknown): string => {
+    if (isStructuredReference(value)) {
+      return resolveReferenceToTerraform(value);
+    }
+    // Legacy: already a terraform string
+    return typeof value === 'string' ? value : '';
+  }, [isStructuredReference, resolveReferenceToTerraform]);
+
   // Get available resources for reference fields
   const getReferenceCandidates = useCallback(
     (field: SchemaField) => {
@@ -102,14 +139,17 @@ export default function AWSConfigPanel({
         })
         .map((n) => {
           const data = n.data as Record<string, unknown>;
+          const displayName = (data.displayName as string) || (data.resourceLabel as string) || n.id;
+          // Compute current terraform reference for display
+          const sanitizedName = sanitizeTerraformName(displayName);
           return {
             nodeId: n.id,
-            displayName: (data.displayName as string) || n.id,
-            terraformRef: `${refType}.${n.id}.${outputName}`,
+            displayName: displayName,
+            terraformRef: `${refType}.${sanitizedName}.${outputName}`,
           };
         });
     },
-    [allNodes, node.id]
+    [allNodes, node.id, sanitizeTerraformName]
   );
 
   const handleFieldChange = useCallback(
@@ -287,21 +327,50 @@ export default function AWSConfigPanel({
         {field.type === 'reference' && (
           <div className="space-y-2">
             <select
-              value={value as string}
-              onChange={(e) => handleFieldChange(field.name, e.target.value)}
+              value={(() => {
+                // Get the current value and extract nodeId for matching
+                if (isStructuredReference(value)) {
+                  return value.nodeId;
+                }
+                // Legacy string format - no match
+                return '';
+              })()}
+              onChange={(e) => {
+                const selectedNodeId = e.target.value;
+                if (!selectedNodeId || !field.reference) {
+                  handleFieldChange(field.name, '');
+                  return;
+                }
+                // Store as structured reference with nodeId (auto-updates when names change)
+                const structuredRef = {
+                  __ref: true as const,
+                  nodeId: selectedNodeId,
+                  resourceType: field.reference.resourceType,
+                  outputName: field.reference.outputName,
+                };
+                handleFieldChange(field.name, structuredRef);
+              }}
               className={`w-full px-3 py-2 rounded-lg border bg-background text-sm
-                ${error ? 'border-red-500' : 'border-border'} 
+                ${error ? 'border-red-500' : 'border-border'}
                 focus:outline-none focus:ring-2 focus:ring-primary/50`}
             >
               <option value="">Select resource...</option>
               {getReferenceCandidates(field).map((candidate) => (
-                <option key={candidate.nodeId} value={candidate.terraformRef}>
+                <option key={candidate.nodeId} value={candidate.nodeId}>
                   {candidate.displayName} ({candidate.terraformRef})
                 </option>
               ))}
             </select>
+            {/* Show current resolved reference */}
+            {value && (
+              <p className="text-xs text-green-600 dark:text-green-400 font-mono flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" />
+                {getReferenceDisplayValue(value)}
+              </p>
+            )}
             {field.reference && (
-              <p className="text-xs text-blue-500">
+              <p className="text-xs text-blue-500 flex items-center gap-1">
+                <Link2 className="w-3 h-3" />
                 References: {field.reference.resourceType}.{field.reference.outputName}
               </p>
             )}
@@ -339,7 +408,7 @@ export default function AWSConfigPanel({
   };
 
   // Render a block section
-  const renderBlock = (block: ServiceBlockField) => {
+  const renderBlock = (block: SchemaBlock) => {
     const instances = blockValues[block.name] || [];
     const isExpanded = expandedBlocks.has(block.name);
 
@@ -416,17 +485,82 @@ export default function AWSConfigPanel({
                       <div key={field.name} className="space-y-1">
                         <label className="text-xs font-medium text-foreground">
                           {field.label}
+                          {field.required && <span className="text-red-500 ml-1">*</span>}
                         </label>
-                        <input
-                          type={field.type === 'number' ? 'number' : 'text'}
-                          value={
-                            ((instance as Record<string, unknown>)[field.name] as string) || ''
-                          }
-                          onChange={(e) =>
-                            updateBlockInstance(block.name, index, field.name, e.target.value)
-                          }
-                          className="w-full px-2 py-1.5 rounded border border-border bg-background text-sm"
-                        />
+                        {field.type === 'number' ? (
+                          <input
+                            type="number"
+                            value={
+                              ((instance as Record<string, unknown>)[field.name] as number) ?? ''
+                            }
+                            onChange={(e) =>
+                              updateBlockInstance(block.name, index, field.name, e.target.valueAsNumber || 0)
+                            }
+                            className="w-full px-2 py-1.5 rounded border border-border bg-background text-sm"
+                          />
+                        ) : field.type === 'boolean' || field.type === 'checkbox' ? (
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={!!((instance as Record<string, unknown>)[field.name])}
+                              onChange={(e) =>
+                                updateBlockInstance(block.name, index, field.name, e.target.checked)
+                              }
+                              className="w-4 h-4 rounded border-border text-primary"
+                            />
+                            <span className="text-sm text-muted-foreground">Enable</span>
+                          </label>
+                        ) : field.type === 'list' ? (
+                          <input
+                            type="text"
+                            value={(() => {
+                              const val = (instance as Record<string, unknown>)[field.name];
+                              if (Array.isArray(val)) return val.join(', ');
+                              if (typeof val === 'string') return val;
+                              return '';
+                            })()}
+                            onChange={(e) => {
+                              // Parse comma-separated values into an array
+                              const rawValue = e.target.value;
+                              const arrayValue = rawValue
+                                .split(',')
+                                .map(s => s.trim())
+                                .filter(s => s.length > 0);
+                              updateBlockInstance(block.name, index, field.name, arrayValue);
+                            }}
+                            placeholder={field.description || 'Comma-separated values (e.g., 0.0.0.0/0, 10.0.0.0/8)'}
+                            className="w-full px-2 py-1.5 rounded border border-border bg-background text-sm"
+                          />
+                        ) : field.options ? (
+                          <select
+                            value={
+                              ((instance as Record<string, unknown>)[field.name] as string) || ''
+                            }
+                            onChange={(e) =>
+                              updateBlockInstance(block.name, index, field.name, e.target.value)
+                            }
+                            className="w-full px-2 py-1.5 rounded border border-border bg-background text-sm"
+                          >
+                            <option value="">Select...</option>
+                            {field.options.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            value={
+                              ((instance as Record<string, unknown>)[field.name] as string) || ''
+                            }
+                            onChange={(e) =>
+                              updateBlockInstance(block.name, index, field.name, e.target.value)
+                            }
+                            placeholder={field.description || ''}
+                            className="w-full px-2 py-1.5 rounded border border-border bg-background text-sm"
+                          />
+                        )}
                       </div>
                     ))}
                   </div>
@@ -593,7 +727,7 @@ export default function AWSConfigPanel({
               <span>Preview of generated Terraform code</span>
             </div>
             <pre className="p-4 bg-secondary/50 rounded-lg text-xs font-mono overflow-x-auto">
-              {generatePreview(schema, formValues, blockValues)}
+              {generatePreview(schema, formValues, blockValues, allNodes)}
             </pre>
           </div>
         )}
@@ -695,11 +829,34 @@ function TagsInput({
   );
 }
 
+// Sanitize terraform name (standalone for generatePreview)
+function sanitizeName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+}
+
+// Resolve a reference value to terraform string
+function resolveRefValue(value: unknown, allNodes: Node[]): string {
+  // Check if it's a structured reference
+  if (typeof value === 'object' && value !== null && '__ref' in value && (value as any).__ref === true) {
+    const ref = value as { __ref: true; nodeId: string; resourceType: string; outputName: string };
+    const targetNode = allNodes.find(n => n.id === ref.nodeId);
+    if (targetNode) {
+      const nodeDataRef = targetNode.data as Record<string, unknown>;
+      const displayName = (nodeDataRef.displayName as string) || (nodeDataRef.resourceLabel as string) || targetNode.id;
+      return `${ref.resourceType}.${sanitizeName(displayName)}.${ref.outputName}`;
+    }
+    return '';
+  }
+  // Legacy string format
+  return typeof value === 'string' ? value : '';
+}
+
 // Generate Terraform preview
 function generatePreview(
   schema: ResourceSchema,
   values: Record<string, unknown>,
-  blocks: Record<string, unknown[]>
+  blocks: Record<string, unknown[]>,
+  allNodes: Node[]
 ): string {
   const resourceName = (values.name as string) || 'example';
   const lines: string[] = [];
@@ -713,7 +870,11 @@ function generatePreview(
       } else if (field.type === 'number') {
         lines.push(`  ${field.name} = ${value}`);
       } else if (field.type === 'reference') {
-        lines.push(`  ${field.name} = ${value}`);
+        // Resolve structured references to terraform strings
+        const resolvedRef = resolveRefValue(value, allNodes);
+        if (resolvedRef) {
+          lines.push(`  ${field.name} = ${resolvedRef}`);
+        }
       } else if (typeof value === 'object') {
         lines.push(`  ${field.name} = ${JSON.stringify(value)}`);
       } else {
@@ -722,13 +883,33 @@ function generatePreview(
     }
   }
 
+  // Find block schemas for proper type formatting
+  const blockSchemas = schema.blocks || [];
+
   for (const [blockName, instances] of Object.entries(blocks)) {
+    const blockSchema = blockSchemas.find(b => b.name === blockName);
+
     for (const instance of instances) {
       lines.push('');
       lines.push(`  ${blockName} {`);
       for (const [k, v] of Object.entries(instance as Record<string, unknown>)) {
-        if (v !== undefined && v !== null && v !== '') {
-          lines.push(`    ${k} = "${v}"`);
+        if (v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0)) {
+          // Find field type from schema
+          const fieldSchema = blockSchema?.fields.find(f => f.name === k);
+          const fieldType = fieldSchema?.type || 'text';
+
+          if (fieldType === 'number') {
+            lines.push(`    ${k} = ${v}`);
+          } else if (fieldType === 'boolean' || fieldType === 'checkbox') {
+            lines.push(`    ${k} = ${v ? 'true' : 'false'}`);
+          } else if (fieldType === 'list' || Array.isArray(v)) {
+            // Format as Terraform list
+            const items = Array.isArray(v) ? v : [v];
+            const formattedItems = items.map(item => `"${item}"`).join(', ');
+            lines.push(`    ${k} = [${formattedItems}]`);
+          } else {
+            lines.push(`    ${k} = "${v}"`);
+          }
         }
       }
       lines.push('  }');
@@ -738,6 +919,7 @@ function generatePreview(
   lines.push('}');
   return lines.join('\n');
 }
+
 
 
 

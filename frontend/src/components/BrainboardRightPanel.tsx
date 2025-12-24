@@ -1,22 +1,19 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Node } from 'reactflow';
-import { 
-  ChevronRight, 
-  ChevronDown, 
-  Code2, 
-  Layout, 
-  FileCode, 
-  Settings, 
-  X, 
+import {
+  ChevronRight,
+  ChevronDown,
+  Code2,
+  Layout,
+  FileCode,
+  X,
   Save,
-  AlertCircle,
   CheckCircle2,
   Rocket,
   Link2,
   Plus,
-  Trash2,
   Layers,
-  Info
+  Trash2,
 } from 'lucide-react';
 import CloudIcon from './CloudIcon';
 import { getCloudIconPath } from '../lib/resources/cloudIconsComplete';
@@ -32,7 +29,17 @@ interface BrainboardRightPanelProps {
   onUpdateNode?: (nodeId: string, updates: any) => void;
   configPanelOpen?: boolean;
   onCloseConfigPanel?: () => void;
+  // New props for resizable and collapsible panel
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
+  panelWidth?: number;
+  onWidthChange?: (width: number) => void;
 }
+
+// Constants for panel sizing
+const MIN_PANEL_WIDTH = 280;
+const MAX_PANEL_WIDTH = 600;
+const DEFAULT_PANEL_WIDTH = 360;
 
 type TabType = 'resources' | 'code' | 'issues' | 'deploy';
 
@@ -133,6 +140,43 @@ const DEFAULT_PROPERTIES = [
   { name: 'description', label: 'Description', type: 'textarea' as const, placeholder: 'Optional description' },
 ];
 
+// Sanitize name for Terraform identifier
+const sanitizeTerraformName = (name: string): string => {
+  return name.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+};
+
+// Reference object structure for ID-based references
+interface TerraformReference {
+  __ref: true;
+  nodeId: string;
+  resourceType: string;
+  outputName: string;
+}
+
+// Check if a value is a structured reference
+const isStructuredReference = (value: unknown): value is TerraformReference => {
+  return typeof value === 'object' && value !== null && '__ref' in value && (value as any).__ref === true;
+};
+
+// Resolve a reference to its current terraform string
+const resolveReferenceToTerraform = (ref: TerraformReference, nodes: Node[]): string => {
+  const targetNode = nodes.find(n => n.id === ref.nodeId);
+  if (!targetNode) return '';
+  const nodeData = targetNode.data as any;
+  const displayName = nodeData?.displayName || nodeData?.resourceLabel || targetNode.id;
+  const sanitizedName = sanitizeTerraformName(displayName);
+  return `${ref.resourceType}.${sanitizedName}.${ref.outputName}`;
+};
+
+// Get display value for a reference field (either structured or legacy string)
+const getReferenceDisplayValue = (value: unknown, nodes: Node[]): string => {
+  if (isStructuredReference(value)) {
+    return resolveReferenceToTerraform(value, nodes);
+  }
+  // Legacy: already a terraform string
+  return typeof value === 'string' ? value : '';
+};
+
 // Helper to map schema field types to form field types
 function mapSchemaFieldType(schemaType: string): 'text' | 'number' | 'select' | 'checkbox' | 'textarea' | 'tags' | 'reference' {
   switch (schemaType) {
@@ -163,12 +207,66 @@ export default function BrainboardRightPanel({
   onUpdateNode,
   configPanelOpen = false,
   onCloseConfigPanel,
+  isCollapsed = false,
+  onToggleCollapse,
+  panelWidth = DEFAULT_PANEL_WIDTH,
+  onWidthChange,
 }: BrainboardRightPanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>('resources');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['compute', 'network', 'storage']));
   const [expandedResources, setExpandedResources] = useState<Set<string>>(new Set());
   const [configFormData, setConfigFormData] = useState<Record<string, any>>({});
+  const [blockFormData, setBlockFormData] = useState<Record<string, any[]>>({});
+  const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set());
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [selectedTerraformFile, setSelectedTerraformFile] = useState<string>('providers.tf');
+
+  // Resizing state
+  const [isResizing, setIsResizing] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Handle resize drag
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    let rafId: number;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!onWidthChange) return;
+
+      // Use requestAnimationFrame for smooth 60fps performance
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const windowWidth = window.innerWidth;
+        const newWidth = windowWidth - e.clientX;
+        const clampedWidth = Math.min(Math.max(newWidth, MIN_PANEL_WIDTH), MAX_PANEL_WIDTH);
+        onWidthChange(clampedWidth);
+      });
+    };
+
+    const handleMouseUp = () => {
+      cancelAnimationFrame(rafId);
+      setIsResizing(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'ew-resize';
+    document.body.style.userSelect = 'none';
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing, onWidthChange]);
 
   // Get properties for the selected resource type - now uses schema-based approach
   const resourceSchema = useMemo(() => {
@@ -216,7 +314,7 @@ export default function BrainboardRightPanel({
       setActiveTab('resources');
       const nodeData = selectedNode.data as any;
       const existingConfig = nodeData?.config || {};
-      
+
       // Initialize form with existing config and defaults
       const initialData: Record<string, any> = {};
       resourceProperties.forEach(prop => {
@@ -230,10 +328,35 @@ export default function BrainboardRightPanel({
       });
       // Also include displayName
       initialData.displayName = nodeData?.displayName || existingConfig.name || '';
-      
+
       setConfigFormData(initialData);
+
+      // Initialize block form data from existing config
+      const initialBlocks: Record<string, any[]> = {};
+      resourceBlocks.forEach(block => {
+        const blockData = existingConfig[block.name];
+        if (Array.isArray(blockData) && blockData.length > 0) {
+          initialBlocks[block.name] = blockData;
+        } else if (block.multiple) {
+          // For multiple blocks, start with empty array
+          initialBlocks[block.name] = [];
+        } else {
+          // For single blocks, start with empty object in array
+          initialBlocks[block.name] = [{}];
+        }
+      });
+      setBlockFormData(initialBlocks);
+      // Expand blocks that have data
+      const blocksWithData = new Set<string>();
+      resourceBlocks.forEach(block => {
+        if (initialBlocks[block.name]?.length > 0 &&
+            initialBlocks[block.name].some((inst: any) => Object.keys(inst).length > 0)) {
+          blocksWithData.add(block.name);
+        }
+      });
+      setExpandedBlocks(blocksWithData);
     }
-  }, [configPanelOpen, selectedNode?.id, resourceProperties]);
+  }, [configPanelOpen, selectedNode?.id, resourceProperties, resourceBlocks]);
 
   // Group resources by category
   const groupedResources = useMemo(() => {
@@ -333,23 +456,84 @@ export default function BrainboardRightPanel({
     setSaveStatus('idle');
   }, []);
 
+  // Block field handlers
+  const toggleBlockExpand = useCallback((blockName: string) => {
+    setExpandedBlocks(prev => {
+      const next = new Set(prev);
+      if (next.has(blockName)) {
+        next.delete(blockName);
+      } else {
+        next.add(blockName);
+      }
+      return next;
+    });
+  }, []);
+
+  const addBlockInstance = useCallback((blockName: string) => {
+    setBlockFormData(prev => ({
+      ...prev,
+      [blockName]: [...(prev[blockName] || []), {}],
+    }));
+    setExpandedBlocks(prev => new Set([...prev, blockName]));
+    setSaveStatus('idle');
+  }, []);
+
+  const removeBlockInstance = useCallback((blockName: string, index: number) => {
+    setBlockFormData(prev => ({
+      ...prev,
+      [blockName]: (prev[blockName] || []).filter((_, i) => i !== index),
+    }));
+    setSaveStatus('idle');
+  }, []);
+
+  const updateBlockField = useCallback((blockName: string, index: number, fieldName: string, value: any) => {
+    setBlockFormData(prev => ({
+      ...prev,
+      [blockName]: (prev[blockName] || []).map((instance, i) =>
+        i === index ? { ...instance, [fieldName]: value } : instance
+      ),
+    }));
+    setSaveStatus('idle');
+  }, []);
+
   const handleSave = useCallback(() => {
     if (!selectedNode || !onUpdateNode) return;
-    
+
     setSaveStatus('saving');
-    
+
     const { displayName, ...configData } = configFormData;
-    
+
+    // Merge config data with block data
+    // Filter out empty block instances
+    const cleanedBlocks: Record<string, any[]> = {};
+    for (const [blockName, instances] of Object.entries(blockFormData)) {
+      const nonEmptyInstances = instances.filter((inst: any) => {
+        // Keep instances that have at least one non-empty value
+        return Object.values(inst).some(v =>
+          v !== undefined && v !== null && v !== '' &&
+          !(Array.isArray(v) && v.length === 0)
+        );
+      });
+      if (nonEmptyInstances.length > 0) {
+        cleanedBlocks[blockName] = nonEmptyInstances;
+      }
+    }
+
+    const fullConfig = {
+      ...configData,
+      ...cleanedBlocks,
+    };
+
     onUpdateNode(selectedNode.id, {
       displayName: displayName || configData.name || (selectedNode.data as any)?.resourceLabel,
-      config: configData,
+      config: fullConfig,
     });
-    
+
     setTimeout(() => {
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2000);
     }, 300);
-  }, [selectedNode, onUpdateNode, configFormData]);
+  }, [selectedNode, onUpdateNode, configFormData, blockFormData]);
 
   const renderResourceProperties = useCallback((node: Node) => {
     const data = node.data as any;
@@ -382,6 +566,46 @@ export default function BrainboardRightPanel({
     );
   }, []);
 
+  // Get ordered list of terraform files for display
+  const sortedTerraformFiles = useMemo(() => {
+    const files = Object.keys(terraformFiles);
+    if (files.length === 0) return [];
+
+    // Priority order for displaying files
+    const priority = [
+      'providers.tf',
+      'versions.tf',
+      'main.tf',
+      'variables.tf',
+      'outputs.tf',
+      'terraform.tfvars',
+      'modules/infrastructure/main.tf',
+      'modules/infrastructure/outputs.tf',
+      'modules/infrastructure/variables.tf',
+    ];
+
+    return files.sort((a, b) => {
+      const aIndex = priority.indexOf(a);
+      const bIndex = priority.indexOf(b);
+      if (aIndex === -1 && bIndex === -1) return a.localeCompare(b);
+      if (aIndex === -1) return 1;
+      if (bIndex === -1) return -1;
+      return aIndex - bIndex;
+    });
+  }, [terraformFiles]);
+
+  // Get content of selected file
+  const selectedFileContent = useMemo(() => {
+    if (sortedTerraformFiles.length === 0) {
+      return '# No Terraform code generated yet\n# Add resources and save to generate code';
+    }
+    // If selected file doesn't exist, default to first file
+    const fileToShow = terraformFiles[selectedTerraformFile]
+      ? selectedTerraformFile
+      : sortedTerraformFiles[0];
+    return terraformFiles[fileToShow] || '# File content not available';
+  }, [terraformFiles, selectedTerraformFile, sortedTerraformFiles]);
+
   const mainTerraformFile = terraformFiles['modules/infrastructure/main.tf'] ||
                             terraformFiles['main.tf'] ||
                             '# No Terraform code generated yet\n# Add resources and save to generate code';
@@ -389,52 +613,101 @@ export default function BrainboardRightPanel({
   const containerNodes = nodes.filter(n => ['vpc', 'subnet', 'region', 'container'].includes(n.type || ''));
   const resourceNodes = nodes.filter(n => !['vpc', 'subnet', 'region', 'container'].includes(n.type || ''));
 
+  // Calculate current width based on collapsed state
+  const currentWidth = isCollapsed ? 0 : panelWidth;
+
   return (
-    <div className="w-80 h-full bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 flex flex-col">
-      {/* Tabs Header */}
-      <div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-800">
-        <div className="flex">
+    <div className="h-full relative flex">
+      {/* Toggle Arrow Button - Outside panel for proper positioning */}
+      <button
+        onClick={onToggleCollapse}
+        className="absolute -left-5 top-1/2 -translate-y-1/2 z-30 w-5 h-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 border-r-0 rounded-l-md shadow-sm flex items-center justify-center hover:bg-[#714EFF] hover:border-[#714EFF] transition-all duration-300 group"
+        title={isCollapsed ? "Expand panel" : "Collapse panel"}
+        style={{
+          transition: 'all 300ms cubic-bezier(0.4, 0, 0.2, 1)'
+        }}
+      >
+        <ChevronRight
+          className="w-3.5 h-3.5 text-gray-400 group-hover:text-white transition-all duration-300"
+          style={{
+            transform: isCollapsed ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 300ms cubic-bezier(0.4, 0, 0.2, 1)'
+          }}
+        />
+      </button>
+
+      {/* Main Panel */}
+      <div
+        ref={panelRef}
+        style={{
+          width: currentWidth,
+          minWidth: isCollapsed ? 0 : MIN_PANEL_WIDTH,
+          transition: isResizing ? 'none' : 'width 300ms cubic-bezier(0.4, 0, 0.2, 1), min-width 300ms cubic-bezier(0.4, 0, 0.2, 1)'
+        }}
+        className="h-full bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 flex flex-col relative shadow-lg overflow-hidden"
+      >
+        {/* Resize Handle - only show when expanded */}
+        {!isCollapsed && (
+          <div
+            onMouseDown={handleMouseDown}
+            className={`absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize z-10 ${isResizing ? 'bg-[#714EFF]' : 'bg-transparent hover:bg-[#714EFF]/50'} transition-colors`}
+          />
+        )}
+
+        {/* Panel Content - with opacity transition */}
+        <div
+          className="flex flex-col h-full"
+          style={{
+            opacity: isCollapsed ? 0 : 1,
+            transition: 'opacity 200ms ease-in-out',
+            transitionDelay: isCollapsed ? '0ms' : '150ms',
+            pointerEvents: isCollapsed ? 'none' : 'auto'
+          }}
+        >
+
+      {/* Panel Header */}
+      <div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-900">
+        <div className="flex items-center justify-center px-3 py-2">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-[#714EFF] animate-pulse" />
+            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Inspector</span>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex px-2 pb-2 gap-1">
           <button
             onClick={() => setActiveTab('resources')}
-            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-all relative ${
+            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-all ${
               activeTab === 'resources'
-                ? 'text-[#714EFF] bg-white dark:bg-gray-900'
-                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 bg-gray-50 dark:bg-gray-800'
+                ? 'text-white bg-[#714EFF] shadow-md shadow-[#714EFF]/25'
+                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
             }`}
           >
-            <Layout className="w-4 h-4" />
+            <Layout className="w-3.5 h-3.5" />
             Resources
-            {activeTab === 'resources' && (
-              <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-[#714EFF] rounded-full" />
-            )}
           </button>
           <button
             onClick={() => setActiveTab('code')}
-            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-all relative ${
+            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-all ${
               activeTab === 'code'
-                ? 'text-[#714EFF] bg-white dark:bg-gray-900'
-                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 bg-gray-50 dark:bg-gray-800'
+                ? 'text-white bg-[#714EFF] shadow-md shadow-[#714EFF]/25'
+                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
             }`}
           >
-            <Code2 className="w-4 h-4" />
+            <Code2 className="w-3.5 h-3.5" />
             Code
-            {activeTab === 'code' && (
-              <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-[#714EFF] rounded-full" />
-            )}
           </button>
           <button
             onClick={() => setActiveTab('deploy')}
-            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-all relative ${
+            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-all ${
               activeTab === 'deploy'
-                ? 'text-[#714EFF] bg-white dark:bg-gray-900'
-                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 bg-gray-50 dark:bg-gray-800'
+                ? 'text-white bg-[#714EFF] shadow-md shadow-[#714EFF]/25'
+                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
             }`}
           >
-            <Rocket className="w-4 h-4" />
+            <Rocket className="w-3.5 h-3.5" />
             Deploy
-            {activeTab === 'deploy' && (
-              <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-[#714EFF] rounded-full" />
-            )}
           </button>
         </div>
       </div>
@@ -699,9 +972,31 @@ export default function BrainboardRightPanel({
                   {prop.type === 'reference' && (
                     <div className="space-y-1">
                       <select
-                        value={configFormData[prop.name] || ''}
-                        onChange={(e) => handleFieldChange(prop.name, e.target.value)}
-                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg 
+                        value={(() => {
+                          // Get the current value and extract nodeId for matching
+                          const currentValue = configFormData[prop.name];
+                          if (isStructuredReference(currentValue)) {
+                            return currentValue.nodeId;
+                          }
+                          // Legacy string format - try to find matching node
+                          return '';
+                        })()}
+                        onChange={(e) => {
+                          const selectedNodeId = e.target.value;
+                          if (!selectedNodeId || !prop.reference) {
+                            handleFieldChange(prop.name, '');
+                            return;
+                          }
+                          // Store as structured reference with nodeId
+                          const structuredRef: TerraformReference = {
+                            __ref: true,
+                            nodeId: selectedNodeId,
+                            resourceType: prop.reference.resourceType,
+                            outputName: prop.reference.outputName,
+                          };
+                          handleFieldChange(prop.name, structuredRef);
+                        }}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg
                                  bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
                                  focus:outline-none focus:ring-2 focus:ring-[#714EFF]/30 focus:border-[#714EFF]"
                       >
@@ -713,14 +1008,24 @@ export default function BrainboardRightPanel({
                           })
                           .map(n => {
                             const nData = n.data as any;
-                            const ref = `${prop.reference?.resourceType}.${n.id}.${prop.reference?.outputName}`;
+                            const displayName = nData?.displayName || nData?.resourceLabel || n.id;
+                            // Compute current terraform reference for display
+                            const sanitizedName = sanitizeTerraformName(displayName);
+                            const terraformRef = `${prop.reference?.resourceType}.${sanitizedName}.${prop.reference?.outputName}`;
                             return (
-                              <option key={n.id} value={ref}>
-                                {nData?.displayName || n.id} ({ref})
+                              <option key={n.id} value={n.id}>
+                                {displayName} ({terraformRef})
                               </option>
                             );
                           })}
                       </select>
+                      {/* Show current resolved reference */}
+                      {configFormData[prop.name] && (
+                        <p className="text-[10px] text-green-600 dark:text-green-400 flex items-center gap-1 font-mono">
+                          <CheckCircle2 className="w-3 h-3" />
+                          {getReferenceDisplayValue(configFormData[prop.name], nodes)}
+                        </p>
+                      )}
                       {prop.reference && (
                         <p className="text-[10px] text-blue-500 flex items-center gap-1">
                           <Link2 className="w-3 h-3" />
@@ -730,7 +1035,7 @@ export default function BrainboardRightPanel({
                     </div>
                   )}
 
-                  {prop.description && (
+                  {'description' in prop && prop.description && (
                     <p className="text-[10px] text-gray-400">{prop.description}</p>
                   )}
                 </div>
@@ -744,39 +1049,161 @@ export default function BrainboardRightPanel({
                     Configuration Blocks
                   </h4>
                   <div className="space-y-2">
-                    {resourceBlocks.map(block => (
-                      <div key={block.name} className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                            {block.label}
-                            {block.multiple && <span className="ml-1 text-gray-400">(multiple)</span>}
-                          </span>
-                          {block.multiple && (
-                            <button className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600">
-                              <Plus className="w-3.5 h-3.5 text-gray-500" />
-                            </button>
-                          )}
-                        </div>
-                        {block.description && (
-                          <p className="text-[10px] text-gray-400 mb-2">{block.description}</p>
-                        )}
-                        <div className="space-y-2">
-                          {block.fields.slice(0, 3).map(field => (
-                            <div key={field.name} className="flex items-center gap-2 text-xs">
-                              <span className="text-gray-500 min-w-[80px]">{field.label}</span>
-                              <input
-                                type="text"
-                                placeholder={field.description || field.label}
-                                className="flex-1 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900"
-                              />
+                    {resourceBlocks.map(block => {
+                      const instances = blockFormData[block.name] || [];
+                      const isExpanded = expandedBlocks.has(block.name);
+
+                      return (
+                        <div key={block.name} className="bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                          {/* Block Header */}
+                          <button
+                            onClick={() => toggleBlockExpand(block.name)}
+                            className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          >
+                            <div className="flex items-center gap-2">
+                              {isExpanded ? (
+                                <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                              ) : (
+                                <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+                              )}
+                              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                                {block.label}
+                                {block.multiple && (
+                                  <span className="ml-1 text-gray-400">({instances.length})</span>
+                                )}
+                              </span>
                             </div>
-                          ))}
-                          {block.fields.length > 3 && (
-                            <p className="text-[10px] text-gray-400">+{block.fields.length - 3} more fields</p>
+                            {block.multiple && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  addBlockInstance(block.name);
+                                }}
+                                className="p-1 rounded hover:bg-[#714EFF]/20 text-[#714EFF]"
+                                title={`Add ${block.label}`}
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </button>
+
+                          {/* Block Content - expanded */}
+                          {isExpanded && (
+                            <div className="px-3 pb-3 space-y-3">
+                              {block.description && (
+                                <p className="text-[10px] text-gray-400">{block.description}</p>
+                              )}
+
+                              {instances.length === 0 ? (
+                                <div className="text-center py-3 text-xs text-gray-400">
+                                  <p>No {block.label.toLowerCase()} configured</p>
+                                  <button
+                                    onClick={() => addBlockInstance(block.name)}
+                                    className="mt-1 text-[#714EFF] hover:underline"
+                                  >
+                                    Add {block.label}
+                                  </button>
+                                </div>
+                              ) : (
+                                instances.map((instance: any, index: number) => (
+                                  <div
+                                    key={index}
+                                    className="p-2 bg-white dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-600 space-y-2"
+                                  >
+                                    {/* Instance header with delete button */}
+                                    <div className="flex items-center justify-between pb-1 border-b border-gray-100 dark:border-gray-700">
+                                      <span className="text-[10px] font-medium text-gray-500">
+                                        {block.label} #{index + 1}
+                                      </span>
+                                      <button
+                                        onClick={() => removeBlockInstance(block.name, index)}
+                                        className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500"
+                                        title="Remove"
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                      </button>
+                                    </div>
+
+                                    {/* All fields for this instance */}
+                                    {block.fields.map(field => (
+                                      <div key={field.name} className="flex items-center gap-2 text-xs">
+                                        <span className="text-gray-500 min-w-[80px] truncate" title={field.label}>
+                                          {field.label}
+                                          {field.required && <span className="text-red-500 ml-0.5">*</span>}
+                                        </span>
+                                        {field.type === 'number' ? (
+                                          <input
+                                            type="number"
+                                            value={instance[field.name] ?? ''}
+                                            onChange={(e) => updateBlockField(
+                                              block.name, index, field.name,
+                                              e.target.valueAsNumber || 0
+                                            )}
+                                            placeholder={field.description || field.label}
+                                            className="flex-1 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900"
+                                          />
+                                        ) : field.type === 'boolean' || field.type === 'checkbox' ? (
+                                          <input
+                                            type="checkbox"
+                                            checked={!!instance[field.name]}
+                                            onChange={(e) => updateBlockField(
+                                              block.name, index, field.name, e.target.checked
+                                            )}
+                                            className="w-4 h-4 rounded border-gray-300 text-[#714EFF]"
+                                          />
+                                        ) : field.type === 'list' ? (
+                                          <input
+                                            type="text"
+                                            value={Array.isArray(instance[field.name])
+                                              ? instance[field.name].join(', ')
+                                              : instance[field.name] || ''
+                                            }
+                                            onChange={(e) => {
+                                              const arrayValue = e.target.value
+                                                .split(',')
+                                                .map(s => s.trim())
+                                                .filter(s => s.length > 0);
+                                              updateBlockField(block.name, index, field.name, arrayValue);
+                                            }}
+                                            placeholder={field.description || 'Comma-separated values'}
+                                            className="flex-1 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900"
+                                          />
+                                        ) : field.options ? (
+                                          <select
+                                            value={instance[field.name] || ''}
+                                            onChange={(e) => updateBlockField(
+                                              block.name, index, field.name, e.target.value
+                                            )}
+                                            className="flex-1 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900"
+                                          >
+                                            <option value="">Select...</option>
+                                            {field.options.map(opt => (
+                                              <option key={opt.value} value={opt.value}>
+                                                {opt.label}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        ) : (
+                                          <input
+                                            type="text"
+                                            value={instance[field.name] || ''}
+                                            onChange={(e) => updateBlockField(
+                                              block.name, index, field.name, e.target.value
+                                            )}
+                                            placeholder={field.description || field.label}
+                                            className="flex-1 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900"
+                                          />
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ))
+                              )}
+                            </div>
                           )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -837,7 +1264,7 @@ export default function BrainboardRightPanel({
 
         {/* Code Tab */}
         {activeTab === 'code' && (
-          <div className="h-full">
+          <div className="h-full flex flex-col">
             {Object.keys(terraformFiles).length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-gray-500 p-6">
                 <Code2 className="w-16 h-16 mb-4 text-gray-300 dark:text-gray-600" />
@@ -847,21 +1274,49 @@ export default function BrainboardRightPanel({
                 </p>
               </div>
             ) : (
-              <div className="h-full overflow-auto">
-                <SyntaxHighlighter
-                  language="hcl"
-                  style={vscDarkPlus}
-                  customStyle={{
-                    margin: 0,
-                    borderRadius: 0,
-                    fontSize: '11px',
-                    lineHeight: '1.5',
-                  }}
-                  showLineNumbers
-                >
-                  {mainTerraformFile}
-                </SyntaxHighlighter>
-              </div>
+              <>
+                {/* File selector tabs */}
+                <div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                  <div className="flex items-center gap-1 px-2 py-1 overflow-x-auto hide-scrollbar">
+                    {sortedTerraformFiles.map((file) => {
+                      const shortName = file.split('/').pop() || file;
+                      const isSelected = selectedTerraformFile === file ||
+                        (!terraformFiles[selectedTerraformFile] && file === sortedTerraformFiles[0]);
+                      return (
+                        <button
+                          key={file}
+                          onClick={() => setSelectedTerraformFile(file)}
+                          className={`flex-shrink-0 px-2 py-1 text-[10px] font-mono rounded transition-colors ${
+                            isSelected
+                              ? 'bg-[#714EFF] text-white'
+                              : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
+                          }`}
+                          title={file}
+                        >
+                          {shortName}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                {/* File content */}
+                <div className="flex-1 overflow-auto">
+                  <SyntaxHighlighter
+                    language="hcl"
+                    style={vscDarkPlus}
+                    customStyle={{
+                      margin: 0,
+                      borderRadius: 0,
+                      fontSize: '11px',
+                      lineHeight: '1.5',
+                      minHeight: '100%',
+                    }}
+                    showLineNumbers
+                  >
+                    {selectedFileContent}
+                  </SyntaxHighlighter>
+                </div>
+              </>
             )}
           </div>
         )}
@@ -881,14 +1336,28 @@ export default function BrainboardRightPanel({
       </div>
 
       {/* Footer */}
-      <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-2">
-        <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-          <span>{resourceNodes.length} resources · {containerNodes.length} containers</span>
+      <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850 px-4 py-2.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{resourceNodes.length} resources</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-blue-500" />
+              <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{containerNodes.length} containers</span>
+            </div>
+          </div>
           {activeTab === 'code' && Object.keys(terraformFiles).length > 0 && (
-            <span>{Object.keys(terraformFiles).length} files</span>
+            <div className="flex items-center gap-1.5">
+              <FileCode className="w-3.5 h-3.5 text-gray-400" />
+              <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{Object.keys(terraformFiles).length} files</span>
+            </div>
           )}
         </div>
       </div>
+      </div>{/* End Panel Content wrapper */}
+      </div>{/* End Main Panel */}
     </div>
   );
 }
