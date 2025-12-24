@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies including Node.js for TypeScript generator
 RUN apt-get update && apt-get install -y \
     gcc \
     postgresql-client \
@@ -10,6 +10,13 @@ RUN apt-get update && apt-get install -y \
     wget \
     unzip \
     curl \
+    ca-certificates \
+    gnupg \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update \
+    && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Terraform
@@ -40,6 +47,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
+
+# Install TypeScript generator dependencies
+RUN if [ -d "/app/src/terraform" ]; then \
+    cd /app/src/terraform && \
+    npm install --production && \
+    npm install -g tsx; \
+    fi
 
 # Create directory for generated Terraform files
 RUN mkdir -p /app/generated_terraform

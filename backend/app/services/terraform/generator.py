@@ -2,6 +2,8 @@ from typing import List, Dict, Any, Tuple
 from jinja2 import Environment, FileSystemLoader, Template  # noqa: F401 (Template reserved for future templating)
 import os
 from app.models import Resource, Project, CloudProvider
+from app.services.terraform.value_detector import ValueDetector
+from app.services.terraform.schema_driven_generator import get_schema_driven_generator
 
 
 class TerraformGenerator:
@@ -9,6 +11,43 @@ class TerraformGenerator:
 
     def __init__(self):
         self.env = Environment(loader=FileSystemLoader("app/services/terraform/templates"))
+
+    def _get_config_value(self, config: Dict[str, Any], *keys: str) -> Any:
+        """
+        Get configuration value, treating empty strings and False as None.
+        This ensures user-provided values are used instead of falling back to defaults.
+
+        IMPORTANT: Filters out:
+        - Empty strings ('')
+        - Whitespace-only strings
+        - Boolean False (assumes unchecked checkboxes = not configured)
+
+        Args:
+            config: Resource configuration dictionary
+            *keys: One or more keys to try (first non-empty value wins)
+
+        Returns:
+            The first non-empty value found, or None
+        """
+        for key in keys:
+            value = config.get(key)
+
+            # Filter out None
+            if value is None:
+                continue
+
+            # Filter out False (unchecked checkboxes from frontend)
+            if value is False:
+                continue
+
+            # Filter out empty/whitespace strings
+            if isinstance(value, str) and not value.strip():
+                continue
+
+            # Valid value - return it
+            return value
+
+        return None
 
     def generate_terraform(self, project: Project, resources: List[Resource]) -> Dict[str, str]:
         """
@@ -94,6 +133,15 @@ terraform {
       source  = "hashicorp/archive"
       version = "~> 2.0"
     }
+  }
+
+  # S3 backend for remote state storage
+  backend "s3" {
+    bucket         = var.terraform_state_bucket
+    key            = var.terraform_state_key
+    region         = var.aws_region
+    encrypt        = true
+    dynamodb_table = var.terraform_lock_table
   }
 }
 """
@@ -213,6 +261,7 @@ terraform {
         data_blocks: List[str] = []
 
         if cloud_provider == CloudProvider.AWS:
+            # Generate availability zone data sources
             availability_zones: Dict[str, Dict[str, Any]] = context["aws"]["availability_zones"]
             for identifier, meta in availability_zones.items():
                 block_lines = [
@@ -225,7 +274,80 @@ terraform {
                 block_lines.append("}")
                 data_blocks.append("\n".join(block_lines))
 
+            # Generate AMI data sources for instances without explicit AMI
+            ami_data_sources = context.get("ami_data_sources", [])
+            for ami_ds_name in ami_data_sources:
+                block_lines = [
+                    f'data "aws_ami" "{ami_ds_name}" {{',
+                    '  most_recent = true',
+                    '  owners      = ["amazon"]',
+                    '',
+                    '  filter {',
+                    '    name   = "name"',
+                    '    values = ["amzn2-ami-hvm-*-x86_64-gp2"]',
+                    '  }',
+                    '',
+                    '  filter {',
+                    '    name   = "virtualization-type"',
+                    '    values = ["hvm"]',
+                    '  }',
+                    '}'
+                ]
+                data_blocks.append("\n".join(block_lines))
+
         return data_blocks
+
+    def _generate_iam_resources(
+        self,
+        context: Dict[str, Any],
+        cloud_provider: CloudProvider
+    ) -> List[str]:
+        """Generate IAM roles and policies for resources that need them."""
+
+        iam_blocks: List[str] = []
+
+        if cloud_provider == CloudProvider.AWS:
+            # Generate Lambda execution roles
+            lambda_roles = context.get("lambda_iam_roles", [])
+            for lambda_name in lambda_roles:
+                # IAM role
+                role_block = f'''resource "aws_iam_role" "{lambda_name}_role" {{
+  name = "{lambda_name}-execution-role"
+
+  assume_role_policy = jsonencode({{
+    Version = "2012-10-17"
+    Statement = [
+      {{
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {{
+          Service = "lambda.amazonaws.com"
+        }}
+      }}
+    ]
+  }})
+
+  tags = {{
+    Name = "{lambda_name}-execution-role"
+  }}
+}}'''
+                iam_blocks.append(role_block)
+
+                # Basic execution policy attachment
+                basic_policy_block = f'''resource "aws_iam_role_policy_attachment" "{lambda_name}_basic" {{
+  role       = aws_iam_role.{lambda_name}_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}}'''
+                iam_blocks.append(basic_policy_block)
+
+                # VPC execution policy attachment (if Lambda needs VPC access)
+                vpc_policy_block = f'''resource "aws_iam_role_policy_attachment" "{lambda_name}_vpc" {{
+  role       = aws_iam_role.{lambda_name}_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}}'''
+                iam_blocks.append(vpc_policy_block)
+
+        return iam_blocks
 
     # -------------------------------------------------------------------------
     # Resource orchestration
@@ -255,6 +377,12 @@ terraform {
                 category = self._categorize_resource(resource.resource_type)
                 categorized.setdefault(category, []).append(resource_block)
 
+        # Generate auto-created IAM roles after processing all resources
+        iam_blocks = self._generate_iam_resources(context, cloud_provider)
+        if iam_blocks:
+            blocks.extend(iam_blocks)
+            categorized.setdefault("iam", []).extend(iam_blocks)
+
         return "\n\n".join(blocks), categorized
 
     def _generate_resource_block(
@@ -273,32 +401,9 @@ terraform {
         if resource.resource_type in logical_only_types or resource.resource_type.endswith("_container"):
             return ""
 
-        generators = {
-            # AWS Resources
-            "aws_instance": lambda res: self._generate_aws_instance(res, context),
-            "aws_vpc": lambda res: self._generate_aws_vpc(res, context),
-            "aws_subnet": lambda res: self._generate_aws_subnet(res, context),
-            "aws_security_group": lambda res: self._generate_aws_security_group(res, context),
-            "aws_s3_bucket": lambda res: self._generate_aws_s3_bucket(res, context),
-            "aws_rds_instance": lambda res: self._generate_aws_rds_instance(res, context),
-            "aws_lambda_function": lambda res: self._generate_aws_lambda(res, context),
-            "aws_nat_gateway": lambda res: self._generate_aws_nat_gateway(res, context),
-
-            # Azure Resources
-            "azure_virtual_machine": lambda res: self._generate_azure_vm(res, context),
-            "azure_virtual_network": lambda res: self._generate_azure_vnet(res, context),
-            "azure_storage_account": lambda res: self._generate_azure_storage(res, context),
-
-            # GCP Resources
-            "gcp_compute_instance": lambda res: self._generate_gcp_instance(res, context),
-            "gcp_compute_network": lambda res: self._generate_gcp_network(res, context),
-            "gcp_storage_bucket": lambda res: self._generate_gcp_bucket(res, context),
-        }
-
-        generator_func = generators.get(resource.resource_type)
-        if generator_func:
-            return generator_func(resource)
-
+        # Use schema-driven generator for ALL resources
+        # This supports AWS, Azure, GCP, and any other cloud provider
+        # No need for custom generators - the schema-driven approach handles everything
         return self._generate_generic_resource(resource, context)
 
     def _categorize_resource(self, resource_type: str) -> str:
@@ -324,64 +429,53 @@ terraform {
     def _generate_generic_resource(
         self,
         resource: Resource,
-        _context: Dict[str, Any]
+        context: Dict[str, Any]
     ) -> str:
-        """Fallback generator for resources without explicit handlers."""
+        """
+        Fallback generator for resources without explicit handlers.
+        Uses schema-driven generator to support ALL services dynamically.
+        """
 
-        config = resource.config or {}
-        sanitized_name = self._sanitize_identifier(resource.resource_name)
+        # Get filtered config (no empty strings or False values)
+        raw_config = resource.config or {}
 
-        if not config:
-            return (
-                f'# {resource.resource_type}.{sanitized_name} is defined without configuration.\n'
-                f'# Add properties in the designer to generate Terraform for this resource.\n'
-                f'resource "{resource.resource_type}" "{sanitized_name}" {{\n}}\n'
-            )
+        # Filter config using _get_config_value logic
+        filtered_config = {}
+        for key, value in raw_config.items():
+            # Use the same filtering logic as _get_config_value
+            if value is None or value is False:
+                continue
+            if isinstance(value, str) and not value.strip():
+                continue
+            filtered_config[key] = value
 
-        lines = [f'resource "{resource.resource_type}" "{sanitized_name}" {{']
-
-        for key, value in config.items():
-            formatted_value = self._format_hcl_value(value, indent_level=2)
-            if "\n" in formatted_value:
-                indented_value = "\n".join(
-                    f"  {line}" if index > 0 else f"  {key} = {line}"
-                    for index, line in enumerate(formatted_value.split("\n"))
-                )
-                lines.append(indented_value)
-            else:
-                lines.append(f"  {key} = {formatted_value}")
-
-        lines.append("}")
-        return "\n".join(lines)
+        # Use schema-driven generator for dynamic HCL generation
+        schema_generator = get_schema_driven_generator()
+        return schema_generator.generate_resource(resource, filtered_config, context)
 
     # -------------------------------------------------------------------------
     # Formatting helpers
     # -------------------------------------------------------------------------
 
     def _format_hcl_value(self, value: Any, indent_level: int = 2) -> str:
-        """Format Python values into HCL-compatible strings."""
+        """
+        Format Python values into HCL-compatible strings.
+        Uses ValueDetector to intelligently determine if values should be quoted.
+        """
 
         indent = " " * indent_level
 
+        # Handle booleans
         if isinstance(value, bool):
             return "true" if value else "false"
+
+        # Handle numbers
         if isinstance(value, (int, float)):
             return str(value)
+
+        # Handle strings - use ValueDetector for intelligent formatting
         if isinstance(value, str):
-            stripped = value.strip()
-            # BRAINBOARD-STYLE: Handle Terraform interpolation syntax
-            if stripped.startswith("${") and stripped.endswith("}"):
-                return stripped[2:-1]
-            # BRAINBOARD-STYLE: Handle Terraform references (data sources, variables, locals, resources)
-            if (stripped.startswith("data.") or
-                stripped.startswith("var.") or
-                stripped.startswith("local.") or
-                stripped.startswith("aws_") or  # AWS resource references
-                stripped.startswith("azurerm_") or  # Azure resource references
-                stripped.startswith("google_")):  # GCP resource references
-                return stripped
-            escaped = value.replace('"', '\\"')
-            return f'"{escaped}"'
+            return ValueDetector.format_for_terraform(value)
         if isinstance(value, list):
             if not value:
                 return "[]"
@@ -446,108 +540,35 @@ terraform {
         return None
 
     # -------------------------------------------------------------------------
-    # AWS resource generators
+    # All resource generation is now handled by the schema-driven generator
+    # No need for custom generators - removed for clarity and maintainability
     # -------------------------------------------------------------------------
 
-    def _generate_aws_instance(self, resource: Resource, context: Dict[str, Any]) -> str:
-        config = resource.config or {}
-        sanitized_name = self._sanitize_identifier(resource.resource_name)
+    # (Old custom generators for aws_instance, aws_vpc, aws_subnet, etc. removed)
+    # (Old custom generators for Azure and GCP resources removed)
+    # All services now use the schema-driven generator in schema_driven_generator.py
 
-        lines = [f'resource "aws_instance" "{sanitized_name}" {{']
-
-        # BRAINBOARD-STYLE: Use actual user config, only fall back to defaults if truly empty
-        ami_value = config.get("ami") or config.get("ami_id")
-        if not ami_value:
-            # Only use default as last resort
-            ami_value = "ami-0c55b159cbfafe1f0"
-        lines.append(f"  ami           = {self._format_hcl_value(ami_value)}")
-
-        instance_type = config.get("instance_type")
-        if not instance_type:
-            # Only use default as last resort
-            instance_type = "t2.micro"
-        lines.append(f"  instance_type = {self._format_hcl_value(instance_type)}")
-
-        # BRAINBOARD-STYLE: Use auto-wired subnet_id from edges, or explicit config, or fallback
-        subnet_id = config.get("subnet_id")
-        if not subnet_id:
-            # Check if it's a Terraform reference (from auto-wiring)
-            subnet_id = "var.subnet_id"
-        lines.append(f"  subnet_id     = {self._format_hcl_value(subnet_id)}")
-
-        # BRAINBOARD-STYLE: Handle security groups (can be auto-wired from edges)
-        vpc_security_group_ids = config.get("vpc_security_group_ids")
-        if vpc_security_group_ids:
-            if isinstance(vpc_security_group_ids, list):
-                # Format as Terraform list
-                formatted_sgs = "[" + ", ".join(self._format_hcl_value(sg) for sg in vpc_security_group_ids) + "]"
-                lines.append(f"  vpc_security_group_ids = {formatted_sgs}")
-            else:
-                lines.append(f"  vpc_security_group_ids = {self._format_hcl_value(vpc_security_group_ids)}")
-
-        key_name = config.get("key_name")
-        if key_name:
-            lines.append(f"  key_name      = {self._format_hcl_value(key_name)}")
-
-        az_value = config.get("availability_zone")
-        az_reference = self._resolve_availability_zone_reference(az_value, context)
-        if az_reference:
-            lines.append(f"  availability_zone = {az_reference}")
-        elif az_value:
-            lines.append(f"  availability_zone = {self._format_hcl_value(az_value)}")
-
-        # Enforce secure metadata access
-        lines.append("  metadata_options {")
-        lines.append('    http_tokens = "required"')
-        lines.append("  }")
-
-        # Enable detailed monitoring by default (can be overridden)
-        monitoring = config.get("monitoring", True)
-        if isinstance(monitoring, bool):
-            lines.append(f"  monitoring = {str(monitoring).lower()}")
-        else:
-            lines.append(f"  monitoring = {self._format_hcl_value(monitoring)}")
-
-        if "associate_public_ip_address" in config:
-            lines.append(
-                "  associate_public_ip_address = "
-                f"{self._format_hcl_value(config.get('associate_public_ip_address', True))}"
-            )
-
-        # Encrypt root volume by default
-        lines.append("  root_block_device {")
-        lines.append("    encrypted = true")
-        lines.append("  }")
-
-        if config.get("user_data"):
-            lines.append("  user_data = <<-EOT")
-            lines.append(config["user_data"])
-            lines.append("EOT")
-
-        # BRAINBOARD-STYLE: Include user-defined tags
-        tags = config.get("tags", {})
-        if not isinstance(tags, dict):
-            tags = {}
-
-        lines.append("")
-        lines.append("  tags = {")
-        lines.append(f'    Name = "{resource.resource_name}"')
-        for key, value in tags.items():
-            if key != "Name":  # Avoid duplicate Name tag
-                lines.append(f'    {key} = "{value}"')
-        lines.append("  }")
-        lines.append("}")
-
-        return "\n".join(lines)
+    # -------------------------------------------------------------------------
+    # Variables & outputs (moved to end of file)
+    # -------------------------------------------------------------------------
 
     def _generate_aws_vpc(self, resource: Resource, _context: Dict[str, Any]) -> str:
         config = resource.config or {}
         sanitized_name = self._sanitize_identifier(resource.resource_name)
+
+        cidr_block = self._get_config_value(config, 'cidr_block') or '10.0.0.0/16'
+        enable_dns_hostnames = self._get_config_value(config, 'enable_dns_hostnames')
+        if enable_dns_hostnames is None:
+            enable_dns_hostnames = True
+        enable_dns_support = self._get_config_value(config, 'enable_dns_support')
+        if enable_dns_support is None:
+            enable_dns_support = True
+
         return f"""
 resource "aws_vpc" "{sanitized_name}" {{
-  cidr_block           = "{config.get('cidr_block', '10.0.0.0/16')}"
-  enable_dns_hostnames = {str(config.get('enable_dns_hostnames', True)).lower()}
-  enable_dns_support   = {str(config.get('enable_dns_support', True)).lower()}
+  cidr_block           = "{cidr_block}"
+  enable_dns_hostnames = {str(enable_dns_hostnames).lower()}
+  enable_dns_support   = {str(enable_dns_support).lower()}
 
   tags = {{
     Name = "{resource.resource_name}"
@@ -560,14 +581,16 @@ resource "aws_vpc" "{sanitized_name}" {{
         sanitized_name = self._sanitize_identifier(resource.resource_name)
 
         lines = [f'resource "aws_subnet" "{sanitized_name}" {{']
-        vpc_id = config.get('vpc_id')
+        vpc_id = self._get_config_value(config, 'vpc_id')
         if not vpc_id:
             # Enforce explicit VPC wiring to avoid default VPC usage
             vpc_id = 'var.vpc_id'
         lines.append(f"  vpc_id            = {self._format_hcl_value(vpc_id)}")
-        lines.append(f"  cidr_block        = {self._format_hcl_value(config.get('cidr_block', '10.0.1.0/24'))}")
 
-        az_value = config.get("availability_zone")
+        cidr_block = self._get_config_value(config, 'cidr_block') or '10.0.1.0/24'
+        lines.append(f"  cidr_block        = {self._format_hcl_value(cidr_block)}")
+
+        az_value = self._get_config_value(config, "availability_zone")
         az_reference = self._resolve_availability_zone_reference(az_value, context)
         if az_reference:
             lines.append(f"  availability_zone = {az_reference}")
@@ -584,7 +607,7 @@ resource "aws_vpc" "{sanitized_name}" {{
 
     def _generate_aws_security_group(self, resource: Resource, _context: Dict[str, Any]) -> str:
         config = resource.config or {}
-        ingress_rules = config.get("ingress_rules", [])
+        ingress_rules = self._get_config_value(config, "ingress_rules") or []
         ingress_blocks = "\n  ".join([
             f"""ingress {{
     from_port   = {rule.get('from_port', 80)}
@@ -595,11 +618,14 @@ resource "aws_vpc" "{sanitized_name}" {{
             for rule in ingress_rules
         ])
 
+        description = self._get_config_value(config, 'description') or 'Security group'
+        vpc_id = self._get_config_value(config, 'vpc_id') or 'aws_vpc.main.id'
+
         return f"""
 resource "aws_security_group" "{resource.resource_name}" {{
   name        = "{resource.resource_name}"
-  description = "{config.get('description', 'Security group')}"
-  vpc_id      = {config.get('vpc_id', 'aws_vpc.main.id')}
+  description = "{description}"
+  vpc_id      = {vpc_id}
 
   {ingress_blocks}
 
@@ -618,9 +644,11 @@ resource "aws_security_group" "{resource.resource_name}" {{
 
     def _generate_aws_s3_bucket(self, resource: Resource, _context: Dict[str, Any]) -> str:
         config = resource.config or {}
+        bucket_name = self._get_config_value(config, 'bucket') or resource.resource_name
+
         return f"""
 resource "aws_s3_bucket" "{resource.resource_name}" {{
-  bucket = "{config.get('bucket', resource.resource_name)}"
+  bucket = "{bucket_name}"
 
   tags = {{
     Name = "{resource.resource_name}"
@@ -630,16 +658,25 @@ resource "aws_s3_bucket" "{resource.resource_name}" {{
 
     def _generate_aws_rds_instance(self, resource: Resource, _context: Dict[str, Any]) -> str:
         config = resource.config or {}
+
+        allocated_storage = self._get_config_value(config, 'allocated_storage') or 20
+        db_name = self._get_config_value(config, 'db_name') or 'mydb'
+        engine = self._get_config_value(config, 'engine') or 'mysql'
+        engine_version = self._get_config_value(config, 'engine_version') or '8.0'
+        instance_class = self._get_config_value(config, 'instance_class') or 'db.t3.micro'
+        username = self._get_config_value(config, 'username') or 'admin'
+        parameter_group_name = self._get_config_value(config, 'parameter_group_name') or 'default.mysql8.0'
+
         return f"""
 resource "aws_db_instance" "{resource.resource_name}" {{
-  allocated_storage    = {config.get('allocated_storage', 20)}
-  db_name              = "{config.get('db_name', 'mydb')}"
-  engine               = "{config.get('engine', 'mysql')}"
-  engine_version       = "{config.get('engine_version', '8.0')}"
-  instance_class       = "{config.get('instance_class', 'db.t3.micro')}"
-  username             = "{config.get('username', 'admin')}"
+  allocated_storage    = {allocated_storage}
+  db_name              = "{db_name}"
+  engine               = "{engine}"
+  engine_version       = "{engine_version}"
+  instance_class       = "{instance_class}"
+  username             = "{username}"
   password             = var.db_password
-  parameter_group_name = "{config.get('parameter_group_name', 'default.mysql8.0')}"
+  parameter_group_name = "{parameter_group_name}"
   skip_final_snapshot  = true
 
   tags = {{
@@ -648,10 +685,10 @@ resource "aws_db_instance" "{resource.resource_name}" {{
 }}
 """
 
-    def _generate_aws_lambda(self, resource: Resource, _context: Dict[str, Any]) -> str:
+    def _generate_aws_lambda(self, resource: Resource, context: Dict[str, Any]) -> str:
         config = resource.config or {}
         sanitized_name = self._sanitize_identifier(resource.resource_name)
-        zip_filename = config.get('filename', f'{sanitized_name}.zip')
+        zip_filename = self._get_config_value(config, 'filename') or f'{sanitized_name}.zip'
 
         # Generate archive data source for the Lambda function code
         archive_data_source = f"""
@@ -676,23 +713,30 @@ EOT
         lines = [f'resource "aws_lambda_function" "{sanitized_name}" {{']
 
         # BRAINBOARD-STYLE: Use actual config values
-        function_name = config.get('function_name') or resource.resource_name
+        function_name = self._get_config_value(config, 'function_name') or resource.resource_name
         lines.append(f'  function_name = "{function_name}"')
 
-        runtime = config.get('runtime') or 'python3.11'
+        runtime = self._get_config_value(config, 'runtime') or 'python3.11'
         lines.append(f'  runtime       = "{runtime}"')
 
-        handler = config.get('handler') or 'lambda_function.lambda_handler'
+        handler = self._get_config_value(config, 'handler') or 'lambda_function.lambda_handler'
         lines.append(f'  handler       = "{handler}"')
 
-        role = config.get('role') or config.get('role_arn') or 'arn:aws:iam::123456789012:role/lambda_execution_role'
+        # Auto-generate IAM role instead of hardcoded ARN
+        role = self._get_config_value(config, 'role', 'role_arn')
+        if not role:
+            # Track that we need to generate IAM role for this Lambda
+            if "lambda_iam_roles" not in context:
+                context["lambda_iam_roles"] = []
+            context["lambda_iam_roles"].append(sanitized_name)
+            role = f"aws_iam_role.{sanitized_name}_role.arn"
         lines.append(f'  role          = {self._format_hcl_value(role)}')
 
         lines.append(f"  filename         = data.archive_file.{sanitized_name}_code.output_path")
         lines.append(f"  source_code_hash = data.archive_file.{sanitized_name}_code.output_base64sha256")
 
         # BRAINBOARD-STYLE: Handle VPC config (auto-wired from edges)
-        vpc_config = config.get('vpc_config')
+        vpc_config = self._get_config_value(config, 'vpc_config')
         if vpc_config and isinstance(vpc_config, dict):
             subnet_ids = vpc_config.get('subnet_ids', [])
             security_group_ids = vpc_config.get('security_group_ids', [])
@@ -707,16 +751,16 @@ EOT
                 lines.append("  }")
 
         # Memory and timeout from config
-        memory_size = config.get('memory_size')
+        memory_size = self._get_config_value(config, 'memory_size')
         if memory_size:
             lines.append(f"  memory_size = {memory_size}")
 
-        timeout = config.get('timeout')
+        timeout = self._get_config_value(config, 'timeout')
         if timeout:
             lines.append(f"  timeout = {timeout}")
 
         # Environment variables
-        environment = config.get('environment')
+        environment = self._get_config_value(config, 'environment')
         if environment and isinstance(environment, dict) and environment:
             lines.append("  environment {")
             lines.append("    variables = {")
@@ -758,7 +802,7 @@ resource "aws_eip" "{resource.resource_name}_eip" {{
 
         # For subnet_id, try to use configured value or reference to a subnet resource
         # If subnet_id is provided in config, use it; otherwise reference the first available subnet or use a variable
-        subnet_id = config.get('subnet_id', '')
+        subnet_id = self._get_config_value(config, 'subnet_id')
 
         if subnet_id:
             # If it looks like a Terraform reference (contains '.'), use it as-is
@@ -950,6 +994,23 @@ variable "aws_secret_key" {
   description = "AWS secret access key"
   type        = string
   sensitive   = true
+}
+
+variable "terraform_state_bucket" {
+  description = "S3 bucket name for Terraform state storage"
+  type        = string
+}
+
+variable "terraform_state_key" {
+  description = "S3 key path for Terraform state file"
+  type        = string
+  default     = "terraform.tfstate"
+}
+
+variable "terraform_lock_table" {
+  description = "DynamoDB table name for Terraform state locking"
+  type        = string
+  default     = "terraform-state-lock"
 }""")
 
         elif cloud_provider == CloudProvider.AZURE:

@@ -44,12 +44,14 @@ services:
       INFRACOST_API_KEY: ***REDACTED_INFRACOST_KEY***
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+      NODE_ENV: development
     ports:
       - "8000:8000"
     volumes:
       - ./backend:/app
       - generated_terraform:/app/generated_terraform
       - ./Cloud_Services:/app/Cloud_Services:ro
+      - backend_node_modules:/app/src/terraform/node_modules
     depends_on:
       postgres:
         condition: service_healthy
@@ -107,3 +109,4 @@ volumes:
   redis_data:
   generated_terraform:
   frontend_node_modules:
+  backend_node_modules:

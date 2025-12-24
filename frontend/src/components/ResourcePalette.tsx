@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   ChevronDown,
   ChevronRight,
@@ -15,6 +15,11 @@ import {
   AppWindow,
   Circle,
 } from 'lucide-react';
+
+// Constants for panel sizing
+const MIN_PANEL_WIDTH = 240;
+const MAX_PANEL_WIDTH = 400;
+const DEFAULT_PANEL_WIDTH = 288;
 import CloudIcon from './CloudIcon';
 import {
   getResourcesForProvider,
@@ -31,6 +36,9 @@ export interface ResourcePaletteProps {
   onCollapsedChange?: (collapsed: boolean) => void;
   onToggleCollapse?: () => void;
   onResourceClick?: (resource: CloudResource) => void;
+  // New props for resizable and animated panel
+  panelWidth?: number;
+  onWidthChange?: (width: number) => void;
 }
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
@@ -204,12 +212,57 @@ export default function ResourcePalette({
   onCollapsedChange,
   onToggleCollapse,
   onResourceClick,
+  panelWidth = DEFAULT_PANEL_WIDTH,
+  onWidthChange,
 }: ResourcePaletteProps) {
   const [internalProvider, setInternalProvider] = useState<CloudProvider>(provider);
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['compute', 'storage', 'database']));
+  const [isResizing, setIsResizing] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const debouncedSearchTerm = useDebounce(searchTerm, 200);
+
+  // Handle resize drag
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    let rafId: number;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!onWidthChange) return;
+
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const newWidth = e.clientX;
+        const clampedWidth = Math.min(Math.max(newWidth, MIN_PANEL_WIDTH), MAX_PANEL_WIDTH);
+        onWidthChange(clampedWidth);
+      });
+    };
+
+    const handleMouseUp = () => {
+      cancelAnimationFrame(rafId);
+      setIsResizing(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'ew-resize';
+    document.body.style.userSelect = 'none';
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing, onWidthChange]);
 
   useEffect(() => {
     setInternalProvider(provider);
@@ -286,53 +339,20 @@ export default function ResourcePalette({
     setSearchTerm('');
   }, []);
 
-  if (collapsed) {
-    return (
-      <div className="w-14 h-full flex flex-col items-center py-3 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800">
-        <button
-          onClick={handleCollapseToggle}
-          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          title="Expand palette"
-        >
-          <ChevronRight className="w-5 h-5 text-gray-500" />
-        </button>
-        <div className="flex-1 flex flex-col items-center gap-2 mt-4">
-          {PROVIDER_ICONS.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => {
-                setInternalProvider(p.id);
-                if (onToggleCollapse) {
-                  onToggleCollapse();
-                } else {
-                  onCollapsedChange?.(false);
-                }
-              }}
-              className={`w-10 h-10 p-1.5 rounded-lg transition-all ${
-                internalProvider === p.id
-                  ? 'ring-2 ring-purple-500 bg-purple-50 dark:bg-purple-900/20'
-                  : 'hover:bg-gray-100 dark:hover:bg-gray-800'
-              }`}
-              title={p.label}
-            >
-              <img 
-                src={p.icon} 
-                alt={p.label} 
-                className="w-full h-full object-contain"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.style.display = 'none';
-                }}
-              />
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  }
+  // Calculate current width based on collapsed state
+  const currentWidth = collapsed ? 0 : panelWidth;
 
   return (
-    <div className="w-72 h-full flex flex-col bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 overflow-hidden">
+    <div className="h-full relative flex" ref={panelRef}>
+      {/* Main Panel with animated width */}
+      <div
+        className="h-full flex flex-col bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 overflow-hidden"
+        style={{
+          width: currentWidth,
+          minWidth: collapsed ? 0 : MIN_PANEL_WIDTH,
+          transition: isResizing ? 'none' : 'width 300ms cubic-bezier(0.4, 0, 0.2, 1), min-width 300ms cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
+      >
       {/* Header with Terraform version - Brainboard style */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-800">
         <h2 className="text-sm font-semibold text-foreground">Resources</h2>
@@ -481,6 +501,40 @@ export default function ResourcePalette({
           Drag resources to canvas
         </p>
       </div>
+      </div>
+      {/* End of Main Panel */}
+
+      {/* Toggle Arrow Button - Floating on right edge */}
+      <button
+        onClick={handleCollapseToggle}
+        className="absolute -right-5 top-1/2 -translate-y-1/2 z-30 w-5 h-10
+                   bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700
+                   rounded-r-lg shadow-md hover:bg-gray-50 dark:hover:bg-gray-700
+                   flex items-center justify-center transition-colors"
+        title={collapsed ? 'Expand palette' : 'Collapse palette'}
+      >
+        <ChevronRight
+          className="w-4 h-4 text-gray-500"
+          style={{
+            transform: collapsed ? 'rotate(0deg)' : 'rotate(180deg)',
+            transition: 'transform 300ms cubic-bezier(0.4, 0, 0.2, 1)',
+          }}
+        />
+      </button>
+
+      {/* Resize Handle - Only visible when not collapsed */}
+      {!collapsed && (
+        <div
+          onMouseDown={handleMouseDown}
+          className="absolute top-0 -right-1 w-2 h-full cursor-ew-resize z-20
+                     hover:bg-primary/20 active:bg-primary/30 transition-colors"
+          style={{
+            opacity: isResizing ? 1 : 0,
+          }}
+          onMouseEnter={(e) => { (e.target as HTMLElement).style.opacity = '1'; }}
+          onMouseLeave={(e) => { if (!isResizing) (e.target as HTMLElement).style.opacity = '0'; }}
+        />
+      )}
     </div>
   );
 }

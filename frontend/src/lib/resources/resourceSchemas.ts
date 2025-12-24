@@ -239,7 +239,7 @@ import {
 
 export interface SchemaField {
   name: string;
-  type: 'string' | 'number' | 'boolean' | 'select' | 'text' | 'checkbox' | 'tags' | 'reference' | 'textarea';
+  type: 'string' | 'number' | 'boolean' | 'select' | 'text' | 'checkbox' | 'tags' | 'reference' | 'textarea' | 'list';
   label: string;
   required?: boolean;
   default?: unknown;
@@ -290,12 +290,14 @@ const DEFAULT_FIELDS: SchemaField[] = [
 function mapInputType(inputType: string, hasOptions: boolean, hasReference: boolean): SchemaField['type'] {
   if (hasReference) return 'reference';
   if (hasOptions) return 'select';
-  
+
   switch (inputType) {
     case 'number': return 'number';
     case 'bool': return 'checkbox';
+    case 'boolean': return 'checkbox';
     case 'string': return 'text';
-    case 'list(string)': return 'tags';
+    case 'list(string)': return 'list';
+    case 'set(string)': return 'list';
     case 'map(string)': return 'tags';
     default: return 'text';
   }

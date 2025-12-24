@@ -101,6 +101,16 @@
 }
 
 @layer utilities {
+  /* Hide scrollbar utility */
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Vodafone-specific utilities */
   .vodafone-gradient {
     background: linear-gradient(135deg, #E60000 0%, #C00000 100%);

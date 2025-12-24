@@ -644,3 +644,4 @@ export function getContainersIcon(terraformResource: string): string {
 
 
 
+

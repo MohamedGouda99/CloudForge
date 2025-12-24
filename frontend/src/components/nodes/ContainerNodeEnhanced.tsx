@@ -1,6 +1,5 @@
 import { memo, useMemo, useState, useCallback, useRef, useEffect, type CSSProperties } from 'react';
 import { Handle, Position, NodeProps, NodeResizer, useReactFlow } from 'reactflow';
-import CloudIcon from '../CloudIcon';
 import { getCloudIconPath } from '../../lib/resources/cloudIconsComplete';
 
 const GRID_SIZE = 10;
@@ -14,12 +13,6 @@ const DEFAULT_CONTAINER_SIZE = {
 };
 const SELECTION_COLOR = '#2A8BFF';
 const HANDLE_COLOR = '#38A1F8';
-
-const getConfigName = (config?: Record<string, unknown>): string | undefined => {
-  if (!config) return undefined;
-  const raw = config.name;
-  return typeof raw === 'string' && raw.trim() ? raw : undefined;
-};
 
 type ContainerNodeData = {
   label?: string;
@@ -68,26 +61,18 @@ function ContainerNodeEnhanced({ id, data, selected }: NodeProps<ContainerNodeDa
   const width = snap(clamp(dataWidth ?? styleWidth, MIN_WIDTH, MAX_WIDTH, DEFAULT_CONTAINER_SIZE.width));
   const height = snap(clamp(dataHeight ?? styleHeight, MIN_HEIGHT, MAX_HEIGHT, DEFAULT_CONTAINER_SIZE.height));
 
+  // Get icon path for the container type
   const iconPath = data.icon || getCloudIconPath(data.resourceType);
-  const category = data.category || data.resourceCategory || 'container';
-  const configName = getConfigName(data.config);
-  
-  const displayName = useMemo(() => {
-    return (
-      (typeof data.displayName === 'string' && data.displayName.trim() ? data.displayName : undefined) ||
-      configName ||
-      (typeof data.label === 'string' && data.label.trim() ? data.label : undefined) ||
-      data.resourceLabel ||
-      data.resourceType
-    );
-  }, [data.displayName, configName, data.label, data.resourceLabel, data.resourceType]);
-
-  const configEntries = useMemo(() => {
-    if (!data.config) return [];
-    return Object.entries(data.config).filter(
-      ([_, value]) => value !== undefined && value !== '' && value !== null
-    );
-  }, [data.config]);
+  const resolvedIconUrl = useMemo(() => {
+    if (!iconPath) return null;
+    if (iconPath.startsWith('http')) return iconPath;
+    if (iconPath.startsWith('/api/')) {
+      const base = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      return `${base}${iconPath}`;
+    }
+    if (iconPath.endsWith('.svg') || iconPath.endsWith('.png')) return iconPath;
+    return null;
+  }, [iconPath]);
 
   const handlesVisible = selected || hovered;
   const connectionHandleStyle: CSSProperties = {
@@ -101,17 +86,6 @@ function ContainerNodeEnhanced({ id, data, selected }: NodeProps<ContainerNodeDa
     opacity: handlesVisible ? 1 : 0,
     pointerEvents: handlesVisible ? 'auto' : 'none',
   };
-
-  const resolvedIconUrl = useMemo(() => {
-    if (!iconPath) return null;
-    if (iconPath.startsWith('http')) return iconPath;
-    if (iconPath.startsWith('/api/')) {
-      const base = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      return `${base}${iconPath}`;
-    }
-    if (iconPath.endsWith('.svg') || iconPath.endsWith('.png')) return iconPath;
-    return null;
-  }, [iconPath]);
 
   // Use RAF for ultra-smooth resizing performance
   const rafRef = useRef<number | null>(null);
@@ -210,9 +184,10 @@ function ContainerNodeEnhanced({ id, data, selected }: NodeProps<ContainerNodeDa
   // Border color based on container type
   const borderColor = useMemo(() => {
     const type = data.resourceType?.toLowerCase() || '';
-    if (type.includes('vpc') || type.includes('virtual_network')) return '#8B5CF6';
-    if (type.includes('subnet')) return '#10B981';
-    if (type.includes('region') || type.includes('resource_group')) return '#F59E0B';
+    if (type.includes('vpc') || type.includes('virtual_network')) return '#10B981'; // Green for VPC
+    if (type.includes('subnet')) return '#3B82F6'; // Blue for Subnet
+    if (type.includes('region') || type.includes('resource_group')) return '#F59E0B'; // Orange for region/resource group
+    if (type.includes('availability_zone')) return '#8B5CF6'; // Purple for AZ
     return '#6B7280';
   }, [data.resourceType]);
 
@@ -249,8 +224,8 @@ function ContainerNodeEnhanced({ id, data, selected }: NodeProps<ContainerNodeDa
           // Only show border when NOT selected (NodeResizer shows its own border when selected)
           border: selected ? 'none' : `2px dashed ${borderColor}`,
           borderRadius: '12px',
-          background: 'rgba(255, 255, 255, 0.4)',
-          backdropFilter: 'blur(2px)',
+          // All containers are transparent
+          background: 'transparent',
           cursor: 'move',
           padding: 0,
           margin: 0,
@@ -281,73 +256,18 @@ function ContainerNodeEnhanced({ id, data, selected }: NodeProps<ContainerNodeDa
           />
         ))}
 
-        {/* Header with icon and name - Brainboard style */}
-        <div 
-          className="absolute top-3 left-3 flex items-center gap-2.5 px-3 py-2 rounded-lg bg-white/95 border shadow-sm max-w-[calc(100%-24px)]"
-          style={{ borderColor: `${borderColor}40` }}
-        >
-          <div 
-            className="flex-shrink-0 w-8 h-8 rounded-md flex items-center justify-center"
-            style={{ backgroundColor: `${borderColor}15` }}
+        {/* Small icon in top-left corner to identify container type */}
+        {resolvedIconUrl && (
+          <div
+            className="absolute top-2 left-2 w-7 h-7 rounded-md flex items-center justify-center bg-white/80 border shadow-sm"
+            style={{ borderColor: `${borderColor}40` }}
           >
-            {resolvedIconUrl ? (
-              <img 
-                src={resolvedIconUrl} 
-                alt={data.resourceLabel || data.resourceType} 
-                className="w-5 h-5 object-contain"
-                draggable={false}
-              />
-            ) : (
-              <CloudIcon icon={iconPath} size={20} />
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div
-              className="font-semibold text-gray-800 truncate text-sm leading-tight"
-              style={{ maxWidth: displayWidth - 140 }}
-            >
-              {displayName}
-            </div>
-            <div className="text-[10px] uppercase tracking-wider font-medium mt-0.5" style={{ color: borderColor }}>
-              {category}
-            </div>
-          </div>
-        </div>
-
-        {/* Drop zone indicator */}
-        <div 
-          className="absolute inset-6 top-16 rounded-lg border-2 border-dashed pointer-events-none flex items-center justify-center"
-          style={{ borderColor: `${borderColor}30` }}
-        >
-          <span className="text-xs text-gray-400 font-medium">
-            Drop resources here
-          </span>
-        </div>
-
-        {/* Configuration panel - Brainboard style */}
-        {configEntries.length > 0 && (
-          <div 
-            className="absolute bottom-3 right-3 rounded-lg bg-white/95 border px-3 py-2 text-xs shadow-sm max-w-[280px]"
-            style={{ borderColor: `${borderColor}30` }}
-          >
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <span 
-                className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: borderColor }}
-              />
-              <span className="font-semibold text-gray-700">Configuration</span>
-            </div>
-            <ul className="space-y-1">
-              {configEntries.slice(0, 4).map(([key, value]) => (
-                <li key={key} className="flex items-center gap-1.5 text-gray-600">
-                  <span className="font-medium text-gray-700">{key}:</span>
-                  <span className="truncate" title={String(value)}>{String(value)}</span>
-                </li>
-              ))}
-              {configEntries.length > 4 && (
-                <li className="text-gray-400 italic">+{configEntries.length - 4} more properties</li>
-              )}
-            </ul>
+            <img
+              src={resolvedIconUrl}
+              alt={data.resourceType}
+              className="w-4 h-4 object-contain"
+              draggable={false}
+            />
           </div>
         )}
       </div>
