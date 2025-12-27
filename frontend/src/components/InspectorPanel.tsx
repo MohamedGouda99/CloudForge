@@ -21,7 +21,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { getResourceSchema, hasRichSchema, SchemaBlock as ServiceBlockField } from '../lib/resources/resourceSchemas';
 
-interface BrainboardRightPanelProps {
+interface InspectorPanelProps {
   nodes: Node[];
   terraformFiles: Record<string, string>;
   selectedNode: Node | null;
@@ -199,7 +199,7 @@ function mapSchemaFieldType(schemaType: string): 'text' | 'number' | 'select' | 
   }
 }
 
-export default function BrainboardRightPanel({
+export default function InspectorPanel({
   nodes,
   terraformFiles,
   selectedNode,
@@ -211,7 +211,7 @@ export default function BrainboardRightPanel({
   onToggleCollapse,
   panelWidth = DEFAULT_PANEL_WIDTH,
   onWidthChange,
-}: BrainboardRightPanelProps) {
+}: InspectorPanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>('resources');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['compute', 'network', 'storage']));
   const [expandedResources, setExpandedResources] = useState<Set<string>>(new Set());
@@ -891,7 +891,7 @@ export default function BrainboardRightPanel({
           </div>
         )}
 
-        {/* Config Panel - Brainboard Style */}
+        {/* Config Panel */}
         {activeTab === 'resources' && configPanelOpen && selectedNode && (
           <div className="flex flex-col h-full">
             {/* Config Header */}

@@ -65,7 +65,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   other: 'Other',
 };
 
-// Brainboard-style provider icons with local PNG files
+// Provider icons with local PNG files
 const PROVIDER_ICONS: { id: CloudProvider; label: string; icon: string }[] = [
   { id: 'aws', label: 'AWS', icon: '/cloud_icons/AWS/aws.png' },
   { id: 'azure', label: 'Azure', icon: '/cloud_icons/Azure/azure.png' },
@@ -353,7 +353,7 @@ export default function ResourcePalette({
           transition: isResizing ? 'none' : 'width 300ms cubic-bezier(0.4, 0, 0.2, 1), min-width 300ms cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
-      {/* Header with Terraform version - Brainboard style */}
+      {/* Header with Terraform version */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-800">
         <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Resources</h2>
         <button
@@ -365,7 +365,7 @@ export default function ResourcePalette({
         </button>
       </div>
 
-      {/* Terraform version selector - Brainboard style */}
+      {/* Terraform version selector */}
       <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
         <span className="text-xs text-gray-500 dark:text-gray-400">Terraform</span>
         <select className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-red-500/30">
@@ -376,7 +376,7 @@ export default function ResourcePalette({
         </select>
       </div>
 
-      {/* Quick add buttons - Brainboard style */}
+      {/* Quick add buttons */}
       <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-800">
         <div className="flex gap-1">
           <button className="flex-1 px-2 py-1.5 text-xs font-medium rounded bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
@@ -391,7 +391,7 @@ export default function ResourcePalette({
         </div>
       </div>
 
-      {/* Modules section - Brainboard style */}
+      {/* Modules section */}
       <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-800">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-medium text-gray-900 dark:text-white">Modules</span>
@@ -406,7 +406,7 @@ export default function ResourcePalette({
         </div>
       </div>
 
-      {/* Brainboard-style provider icon tiles */}
+      {/* Provider icon tiles */}
       <div className="px-3 py-3 border-b border-gray-200 dark:border-gray-800">
         <div className="grid grid-cols-3 gap-2">
           {PROVIDER_ICONS.map((p) => (

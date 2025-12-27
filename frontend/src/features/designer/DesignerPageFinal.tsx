@@ -39,7 +39,7 @@ import TerraformLogsPanel from '../../components/TerraformLogsPanel';
 import InfracostReportPanel from './InfracostReportPanel';
 import ResourcePalette from '../../components/ResourcePalette';
 import DesignerToolbar from '../../components/DesignerToolbar';
-import BrainboardRightPanel from '../../components/BrainboardRightPanel';
+import InspectorPanel from '../../components/InspectorPanel';
 import ResourceContextMenu from '../../components/ResourceContextMenu';
 
 interface Project {
@@ -1973,7 +1973,7 @@ export default function DesignerPageFinal() {
                 <Controls showZoom={false} showFitView={false} />
                 {showMinimap && <MiniMap />}
                 
-                {/* Node counter - Brainboard style */}
+                {/* Node counter */}
                 <div className="absolute bottom-4 left-4 px-3 py-1.5 bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 flex items-center gap-2 text-xs font-medium">
                   <span className="text-gray-500 dark:text-gray-400">Nodes:</span>
                   <span className="text-primary font-bold">{nodes.length}</span>
@@ -1985,8 +1985,8 @@ export default function DesignerPageFinal() {
             </DesignerWithCodeView>
           </div>
 
-          {/* Right Sidebar - Brainboard-style Panel */}
-          <BrainboardRightPanel
+          {/* Right Sidebar - Inspector Panel */}
+          <InspectorPanel
             nodes={nodes}
             terraformFiles={terraformFiles}
             selectedNode={selectedNode}

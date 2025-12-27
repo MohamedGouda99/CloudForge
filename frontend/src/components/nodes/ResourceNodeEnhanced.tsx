@@ -243,7 +243,7 @@ function ResourceNodeEnhanced({ id, data, selected }: NodeProps<ResourceNodeData
           />
         ))}
 
-        {/* Icon - fills entire node like Draw.io/Brainboard */}
+        {/* Icon - fills entire node */}
         {resolvedIconUrl ? (
           <img
             src={resolvedIconUrl}
