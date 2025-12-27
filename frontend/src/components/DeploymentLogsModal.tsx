@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { Loader2, PlayCircle, Trash2, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Loader2, PlayCircle, Trash2, CheckCircle2, AlertTriangle, StopCircle } from 'lucide-react';
 import { ansiToHtml } from '../lib/utils/ansi';
 
 type DeployStatus = 'running' | 'success' | 'error' | 'idle';
@@ -10,6 +10,7 @@ interface DeploymentLogsModalProps {
   mode: 'deploy' | 'destroy';
   logs: string[];
   status: DeployStatus;
+  onTerminate?: () => Promise<void>;
 }
 
 const operationMeta = {
@@ -35,8 +36,10 @@ export default function DeploymentLogsModal({
   mode,
   logs,
   status,
+  onTerminate,
 }: DeploymentLogsModalProps) {
   const logsEndRef = useRef<HTMLDivElement>(null);
+  const [isTerminating, setIsTerminating] = useState(false);
 
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -55,6 +58,16 @@ export default function DeploymentLogsModal({
     : hasError
     ? 'Operation failed'
     : meta.idleLabel;
+
+  const handleTerminate = async () => {
+    if (!onTerminate || isTerminating) return;
+    setIsTerminating(true);
+    try {
+      await onTerminate();
+    } finally {
+      setIsTerminating(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
@@ -105,7 +118,23 @@ export default function DeploymentLogsModal({
                 <span className="text-sm font-medium">An error occurred</span>
               </div>
             )}
-            <div className="ml-auto text-xs text-gray-500">{logs.length} log lines</div>
+            <div className="ml-auto flex items-center gap-3">
+              {isRunning && onTerminate && (
+                <button
+                  onClick={handleTerminate}
+                  disabled={isTerminating}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isTerminating ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <StopCircle className="w-4 h-4" />
+                  )}
+                  {isTerminating ? 'Stopping...' : 'Stop'}
+                </button>
+              )}
+              <span className="text-xs text-gray-500">{logs.length} log lines</span>
+            </div>
           </div>
         </div>
 

@@ -21,11 +21,16 @@ from app.services.terraform.generator import TerraformGenerator
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
 
+# Global dictionary to track running Terraform processes by project_id
+# Key: project_id, Value: subprocess.Popen object
+running_processes: Dict[int, subprocess.Popen] = {}
+
 
 class TerraformCredentials(BaseModel):
     aws_region: Optional[str] = None
     aws_access_key_id: Optional[str] = None
     aws_secret_access_key: Optional[str] = None
+    aws_endpoint_url: Optional[str] = None  # For LocalStack/custom endpoints
     azure_subscription_id: Optional[str] = None
     azure_tenant_id: Optional[str] = None
     azure_client_id: Optional[str] = None
@@ -34,6 +39,15 @@ class TerraformCredentials(BaseModel):
     gcp_project_id: Optional[str] = None
     gcp_region: Optional[str] = None
     gcp_credentials_json: Optional[str] = None
+
+
+class GenerateRequest(BaseModel):
+    """Request body for Terraform generation with optional region override"""
+    aws_region: Optional[str] = None
+    aws_endpoint_url: Optional[str] = None  # For LocalStack/custom endpoints
+    azure_location: Optional[str] = None
+    gcp_region: Optional[str] = None
+    gcp_project: Optional[str] = None
 
 
 def build_terraform_env(
@@ -65,6 +79,15 @@ def build_terraform_env(
         env['TF_VAR_aws_region'] = credentials.aws_region  # type: ignore[arg-type]
         env['TF_VAR_aws_access_key'] = credentials.aws_access_key_id  # type: ignore[arg-type]
         env['TF_VAR_aws_secret_key'] = credentials.aws_secret_access_key  # type: ignore[arg-type]
+
+        # LocalStack/custom endpoint support
+        if credentials.aws_endpoint_url:
+            env['AWS_ENDPOINT_URL'] = credentials.aws_endpoint_url
+            env['TF_VAR_aws_endpoint_url'] = credentials.aws_endpoint_url
+            # Skip validations for LocalStack/custom endpoints
+            env['AWS_SKIP_CREDENTIALS_VALIDATION'] = 'true'
+            env['AWS_SKIP_METADATA_API_CHECK'] = 'true'
+            env['AWS_SKIP_REQUESTING_ACCOUNT_ID'] = 'true'
 
     elif project.cloud_provider == CloudProvider.AZURE:
         required_fields = [
@@ -142,10 +165,29 @@ def cleanup_temp_files(file_paths: List[str]) -> None:
             pass
 
 
-def ensure_terraform_files(project: Project, project_id: int, db: Session) -> str:
+def ensure_terraform_files(
+    project: Project,
+    project_id: int,
+    db: Session,
+    region_config: Dict[str, str] = None
+) -> str:
     """
-    Ensure Terraform files are generated for a project, always regenerating to stay in sync with current architecture.
+    Ensure Terraform files are generated for a project, regenerating .tf files while preserving state.
     Returns the project directory path.
+
+    IMPORTANT: This function PRESERVES:
+    - terraform.tfstate (current state of deployed infrastructure)
+    - terraform.tfstate.backup (backup of previous state)
+    - .terraform/ directory (providers, plugins, modules cache)
+    - tfplan (plan output file)
+
+    This ensures that Terraform can correctly track already-deployed resources.
+
+    Args:
+        project: Project model
+        project_id: Project ID
+        db: Database session
+        region_config: Optional dict with region/endpoint config (aws_region, aws_endpoint_url, etc.)
     """
     project_dir = os.path.join(settings.TERRAFORM_WORKSPACE_DIR, f"project_{project_id}")
 
@@ -159,27 +201,47 @@ def ensure_terraform_files(project: Project, project_id: int, db: Session) -> st
         )
 
     # Generate Terraform code from current architecture state
+    # Pass region_config for LocalStack/custom endpoint support
     generator = TerraformGenerator()
-    terraform_files = generator.generate_terraform(project, resources)
+    terraform_files = generator.generate_terraform(project, resources, region_config=region_config)
 
     # Create project directory
     os.makedirs(project_dir, exist_ok=True)
 
-    # Clean up ALL old terraform files to ensure fresh generation
-    import shutil
+    # Files and directories that MUST be preserved (state and cache)
+    # These are critical for Terraform to track deployed resources
+    PRESERVE_FILES = {
+        'terraform.tfstate',
+        'terraform.tfstate.backup',
+        'tfplan',
+        '.terraform.lock.hcl',
+    }
+    PRESERVE_DIRS = {
+        '.terraform',
+    }
+
+    # Clean up old .tf files but PRESERVE state files and .terraform directory
     if os.path.exists(project_dir):
-        # Remove all files in the directory but keep the directory
         for filename in os.listdir(project_dir):
             file_path = os.path.join(project_dir, filename)
             try:
+                # Skip preserved files
+                if filename in PRESERVE_FILES:
+                    continue
+                # Skip preserved directories
+                if filename in PRESERVE_DIRS:
+                    continue
+                # Only delete .tf, .tfvars, and config files (regenerated each time)
                 if os.path.isfile(file_path):
-                    os.remove(file_path)
-                elif os.path.isdir(file_path):
-                    shutil.rmtree(file_path)
+                    # Delete terraform config files that will be regenerated
+                    if filename.endswith(('.tf', '.tfvars', '.yml', '.yaml', '.toml')):
+                        os.remove(file_path)
+                # Don't delete any directories except those we explicitly want to regenerate
             except Exception as e:
-                pass
+                import logging
+                logging.getLogger(__name__).warning(f"Could not clean up {file_path}: {e}")
 
-    # Write fresh Terraform files
+    # Write fresh Terraform configuration files
     for filename, content in terraform_files.items():
         file_path = os.path.join(project_dir, filename)
         parent_dir = os.path.dirname(file_path)
@@ -194,10 +256,11 @@ def ensure_terraform_files(project: Project, project_id: int, db: Session) -> st
 @router.post("/generate/{project_id}", response_model=Dict[str, str])
 def generate_terraform(
     project_id: int,
+    request: Optional[GenerateRequest] = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Generate Terraform code for a project"""
+    """Generate Terraform code for a project with optional region override"""
     # Verify project ownership
     project = db.query(Project).filter(
         Project.id == project_id,
@@ -219,9 +282,27 @@ def generate_terraform(
             detail="Project has no resources to generate Terraform code"
         )
 
-    # Generate Terraform code
+    # Build region config from request
+    region_config = {}
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"GENERATE: Received request={request}")
+    if request:
+        if request.aws_region:
+            region_config['aws_region'] = request.aws_region
+        if request.aws_endpoint_url:
+            region_config['aws_endpoint_url'] = request.aws_endpoint_url
+        if request.azure_location:
+            region_config['azure_location'] = request.azure_location
+        if request.gcp_region:
+            region_config['gcp_region'] = request.gcp_region
+        if request.gcp_project:
+            region_config['gcp_project'] = request.gcp_project
+    logger.info(f"GENERATE: Built region_config={region_config}")
+
+    # Generate Terraform code with region config
     generator = TerraformGenerator()
-    terraform_files = generator.generate_terraform(project, resources)
+    terraform_files = generator.generate_terraform(project, resources, region_config=region_config)
 
     # Save to database
     latest_output = db.query(TerraformOutputModel).filter(
@@ -343,7 +424,12 @@ def get_terraform_files(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Return generated Terraform files as a map of path -> content."""
+    """Return generated Terraform files as a map of path -> content.
+
+    NOTE: This endpoint does NOT regenerate files. It only reads existing files
+    that were generated by the /generate endpoint. This preserves region config
+    and other settings that were used during generation.
+    """
     project = db.query(Project).filter(
         Project.id == project_id,
         Project.owner_id == current_user.id
@@ -355,7 +441,8 @@ def get_terraform_files(
             detail="Project not found"
         )
 
-    project_dir = ensure_terraform_files(project, project_id, db)
+    # Just read existing files - don't regenerate (preserves region config)
+    project_dir = os.path.join(settings.TERRAFORM_WORKSPACE_DIR, f"project_{project_id}")
 
     file_map: Dict[str, str] = {}
     allowed_suffixes = (".tf", ".tfvars", ".toml", ".yml", ".yaml")
@@ -697,6 +784,7 @@ async def plan_infrastructure_stream(
     aws_region: Optional[str] = None,
     aws_access_key_id: Optional[str] = None,
     aws_secret_access_key: Optional[str] = None,
+    aws_endpoint_url: Optional[str] = None,
     azure_subscription_id: Optional[str] = None,
     azure_tenant_id: Optional[str] = None,
     azure_client_id: Optional[str] = None,
@@ -728,12 +816,20 @@ async def plan_infrastructure_stream(
             detail="Project not found"
         )
 
-    project_dir = ensure_terraform_files(project, project_id, db)
+    # Build region_config for Terraform generation (includes LocalStack endpoint if provided)
+    region_config: Dict[str, str] = {}
+    if aws_region:
+        region_config['aws_region'] = aws_region
+    if aws_endpoint_url:
+        region_config['aws_endpoint_url'] = aws_endpoint_url
+
+    project_dir = ensure_terraform_files(project, project_id, db, region_config=region_config)
 
     credentials = TerraformCredentials(
         aws_region=aws_region,
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
+        aws_endpoint_url=aws_endpoint_url,
         azure_subscription_id=azure_subscription_id,
         azure_tenant_id=azure_tenant_id,
         azure_client_id=azure_client_id,
@@ -845,6 +941,7 @@ async def deploy_infrastructure_stream(
     aws_region: Optional[str] = None,
     aws_access_key_id: Optional[str] = None,
     aws_secret_access_key: Optional[str] = None,
+    aws_endpoint_url: Optional[str] = None,
     azure_subscription_id: Optional[str] = None,
     azure_tenant_id: Optional[str] = None,
     azure_client_id: Optional[str] = None,
@@ -876,13 +973,21 @@ async def deploy_infrastructure_stream(
             detail="Project not found"
         )
 
+    # Build region_config for Terraform generation (includes LocalStack endpoint if provided)
+    region_config: Dict[str, str] = {}
+    if aws_region:
+        region_config['aws_region'] = aws_region
+    if aws_endpoint_url:
+        region_config['aws_endpoint_url'] = aws_endpoint_url
+
     # Ensure Terraform files exist (auto-generate if needed)
-    project_dir = ensure_terraform_files(project, project_id, db)
+    project_dir = ensure_terraform_files(project, project_id, db, region_config=region_config)
 
     credentials = TerraformCredentials(
         aws_region=aws_region,
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
+        aws_endpoint_url=aws_endpoint_url,
         azure_subscription_id=azure_subscription_id,
         azure_tenant_id=azure_tenant_id,
         azure_client_id=azure_client_id,
@@ -954,8 +1059,16 @@ async def deploy_infrastructure_stream(
                 bufsize=1
             )
 
-            async for line in stream_terraform_output(apply_process):
-                yield line
+            # Track the running process for potential termination
+            running_processes[project_id] = apply_process
+
+            try:
+                async for line in stream_terraform_output(apply_process):
+                    yield line
+            finally:
+                # Clean up tracking when done
+                if project_id in running_processes:
+                    del running_processes[project_id]
 
             if apply_process.returncode == 0:
                 yield "data: \n=== Deployment completed successfully! ===\n\n"
@@ -979,6 +1092,78 @@ async def deploy_infrastructure_stream(
             "X-Accel-Buffering": "no"
         }
     )
+
+
+@router.post("/terminate/{project_id}")
+def terminate_terraform(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Terminate a running Terraform process for a project"""
+    import signal
+    import logging
+    logger = logging.getLogger(__name__)
+
+    # Verify project ownership
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == current_user.id
+    ).first()
+
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found"
+        )
+
+    # Check if there's a running process for this project
+    if project_id not in running_processes:
+        return {
+            "success": False,
+            "message": "No running Terraform process found for this project"
+        }
+
+    process = running_processes[project_id]
+
+    try:
+        # Check if process is still running
+        if process.poll() is None:
+            logger.info(f"Terminating Terraform process for project {project_id}")
+            # Try graceful termination first (SIGTERM)
+            process.terminate()
+            try:
+                # Wait up to 5 seconds for graceful termination
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                # Force kill if it doesn't terminate gracefully
+                logger.warning(f"Force killing Terraform process for project {project_id}")
+                process.kill()
+                process.wait()
+
+            # Remove from tracking
+            del running_processes[project_id]
+
+            return {
+                "success": True,
+                "message": "Terraform process terminated successfully"
+            }
+        else:
+            # Process already finished
+            del running_processes[project_id]
+            return {
+                "success": True,
+                "message": "Process had already completed"
+            }
+    except Exception as e:
+        logger.error(f"Error terminating process for project {project_id}: {str(e)}")
+        # Try to clean up
+        if project_id in running_processes:
+            del running_processes[project_id]
+        return {
+            "success": False,
+            "message": f"Error terminating process: {str(e)}"
+        }
 
 
 @router.post("/validate/{project_id}")
@@ -1076,6 +1261,7 @@ async def destroy_infrastructure_stream(
     aws_region: Optional[str] = None,
     aws_access_key_id: Optional[str] = None,
     aws_secret_access_key: Optional[str] = None,
+    aws_endpoint_url: Optional[str] = None,
     azure_subscription_id: Optional[str] = None,
     azure_tenant_id: Optional[str] = None,
     azure_client_id: Optional[str] = None,
@@ -1106,13 +1292,21 @@ async def destroy_infrastructure_stream(
             detail="Project not found"
         )
 
+    # Build region_config for Terraform generation (includes LocalStack endpoint if provided)
+    region_config: Dict[str, str] = {}
+    if aws_region:
+        region_config['aws_region'] = aws_region
+    if aws_endpoint_url:
+        region_config['aws_endpoint_url'] = aws_endpoint_url
+
     # Ensure Terraform files exist (auto-generate if needed)
-    project_dir = ensure_terraform_files(project, project_id, db)
+    project_dir = ensure_terraform_files(project, project_id, db, region_config=region_config)
 
     credentials = TerraformCredentials(
         aws_region=aws_region,
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
+        aws_endpoint_url=aws_endpoint_url,
         azure_subscription_id=azure_subscription_id,
         azure_tenant_id=azure_tenant_id,
         azure_client_id=azure_client_id,
@@ -1165,8 +1359,16 @@ async def destroy_infrastructure_stream(
                 bufsize=1
             )
 
-            async for line in stream_terraform_output(destroy_process):
-                yield line
+            # Track the running process for potential termination
+            running_processes[project_id] = destroy_process
+
+            try:
+                async for line in stream_terraform_output(destroy_process):
+                    yield line
+            finally:
+                # Clean up tracking when done
+                if project_id in running_processes:
+                    del running_processes[project_id]
 
             if destroy_process.returncode == 0:
                 yield "data: \n=== Infrastructure destroyed successfully! ===\n\n"

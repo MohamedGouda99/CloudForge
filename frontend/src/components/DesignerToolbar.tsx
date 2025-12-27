@@ -22,6 +22,7 @@ import {
   User,
   Home,
   ChevronRight,
+  Key,
 } from 'lucide-react';
 import { CloudProvider } from '../lib/resources';
 import CloudIcon from './CloudIcon';
@@ -297,7 +298,9 @@ export default function DesignerToolbar({
   provider,
   hasUnsavedChanges,
   isSaving,
+  hasCredentials,
   onSave,
+  onCredentials,
   onExport,
   onImport,
   onToggleSidebar,
@@ -471,6 +474,18 @@ export default function DesignerToolbar({
         <ToolbarDivider />
 
         <ToolbarGroup>
+          <Tooltip content={hasCredentials ? "Credentials Configured" : "Set Credentials"}>
+            <button
+              onClick={onCredentials || (() => {})}
+              className={`h-8 w-8 inline-flex items-center justify-center rounded-lg text-sm font-medium
+                transition-all border border-border/80
+                ${hasCredentials
+                  ? 'bg-green-500/10 text-green-600 border-green-500/30 hover:bg-green-500/20 dark:text-green-400'
+                  : 'bg-amber-500/10 text-amber-600 border-amber-500/30 hover:bg-amber-500/20 dark:text-amber-400'}`}
+            >
+              <Key className="h-4 w-4" />
+            </button>
+          </Tooltip>
           <ToolbarButton
             icon={<Bot className="h-4 w-4" />}
             label="AI Assistant"

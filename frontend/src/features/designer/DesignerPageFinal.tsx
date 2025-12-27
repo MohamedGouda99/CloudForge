@@ -224,6 +224,40 @@ export default function DesignerPageFinal() {
 
   const provider = (project?.cloud_provider as CloudProvider) || 'aws';
 
+  // Helper function to get region config from credentials for Terraform generation
+  const getRegionConfig = useCallback(() => {
+    // Try to get credentials from state or localStorage
+    const creds = credentials || (() => {
+      try {
+        const stored = localStorage.getItem(`credentials_${provider}`);
+        console.log('[DEBUG] getRegionConfig - falling back to localStorage:', stored);
+        return stored ? JSON.parse(stored) : null;
+      } catch {
+        return null;
+      }
+    })();
+
+    console.log('[DEBUG] getRegionConfig - creds source:', credentials ? 'state' : 'localStorage');
+    console.log('[DEBUG] getRegionConfig - creds.aws_endpoint_url:', creds?.aws_endpoint_url);
+
+    if (!creds) return {};
+
+    const config: Record<string, string> = {};
+
+    if (provider === 'aws') {
+      if (creds.aws_region) config.aws_region = creds.aws_region;
+      if (creds.aws_endpoint_url) config.aws_endpoint_url = creds.aws_endpoint_url;
+    } else if (provider === 'azure' && creds.azure_location) {
+      config.azure_location = creds.azure_location;
+    } else if (provider === 'gcp') {
+      if (creds.gcp_region) config.gcp_region = creds.gcp_region;
+      if (creds.gcp_project_id) config.gcp_project = creds.gcp_project_id;
+    }
+
+    console.log('[DEBUG] getRegionConfig - returning config:', JSON.stringify(config));
+    return config;
+  }, [credentials, provider]);
+
   const appendTerraformLogs = useCallback(
     (lines: string | string[], options?: { includePreview?: boolean }) => {
       const entries = Array.isArray(lines) ? lines : [lines];
@@ -290,6 +324,38 @@ export default function DesignerPageFinal() {
     }
   }, []);
 
+  // Terminate running Terraform process on the backend
+  const terminateTerraform = useCallback(async () => {
+    if (!projectId || !token) return;
+
+    try {
+      appendDeployLogs('[INFO] Terminating Terraform process...');
+      appendTerraformLogs('[INFO] Terminating Terraform process...', { includePreview: false });
+
+      const response = await apiClient.post(
+        `/api/terraform/terminate/${projectId}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        appendDeployLogs('[INFO] ' + response.data.message);
+        appendTerraformLogs('[INFO] ' + response.data.message, { includePreview: false });
+        // Close the event source
+        stopDeployStream();
+        setDeployStatus('error');
+        setLogsPanelStatus('error');
+      } else {
+        appendDeployLogs('[WARNING] ' + response.data.message);
+        appendTerraformLogs('[WARNING] ' + response.data.message, { includePreview: false });
+      }
+    } catch (error: any) {
+      console.error('Failed to terminate Terraform process:', error);
+      appendDeployLogs('[ERROR] Failed to terminate process: ' + (error.message || 'Unknown error'));
+      appendTerraformLogs('[ERROR] Failed to terminate process: ' + (error.message || 'Unknown error'), { includePreview: false });
+    }
+  }, [projectId, token, appendDeployLogs, appendTerraformLogs, stopDeployStream]);
+
   const startPlanStream = useCallback(() => {
     if (!projectId || !project) {
       appendTerraformLogs('[ERROR] Missing project context for terraform plan.');
@@ -315,7 +381,12 @@ export default function DesignerPageFinal() {
       return;
     }
 
+    // DEBUG: Log credentials being used for plan
+    console.log('[DEBUG] startPlanStream - credentials:', JSON.stringify(credentials, null, 2));
+    console.log('[DEBUG] startPlanStream - aws_endpoint_url:', credentials.aws_endpoint_url);
+
     const credsQuery = buildCredentialsQuery(project.cloud_provider as CloudProvider, credentials);
+    console.log('[DEBUG] startPlanStream - credsQuery:', credsQuery);
     if (!credsQuery) {
       appendTerraformLogs('[ERROR] Credentials are incomplete for the selected provider.');
       setPlanPreviewStatus('error');
@@ -498,8 +569,11 @@ export default function DesignerPageFinal() {
     if (project) {
       const storageKey = `credentials_${project.cloud_provider}`;
       const savedCreds = localStorage.getItem(storageKey);
+      console.log('[DEBUG] Loading credentials from localStorage:', storageKey, savedCreds);
       if (savedCreds) {
-        setCredentials(JSON.parse(savedCreds));
+        const parsed = JSON.parse(savedCreds);
+        console.log('[DEBUG] Parsed credentials - aws_endpoint_url:', parsed.aws_endpoint_url);
+        setCredentials(parsed);
       }
     }
   }, [project]);
@@ -614,6 +688,22 @@ export default function DesignerPageFinal() {
         } catch (e) {
           console.error('Failed to parse diagram data:', e);
         }
+      }
+
+      // Fetch existing Terraform files for this project
+      try {
+        const filesResponse = await apiClient.get(
+          `/api/terraform/files/${projectId}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        if (filesResponse.data && Object.keys(filesResponse.data).length > 0) {
+          setTerraformFiles(filesResponse.data);
+        }
+      } catch (tfError) {
+        // Terraform files might not exist yet, that's okay
+        console.log('No existing Terraform files found');
       }
     } catch (error: any) {
       console.error('Failed to load project:', error);
@@ -905,16 +995,55 @@ export default function DesignerPageFinal() {
     setSelectedNode(null);
   };
 
-  const handleCredentialsSave = (creds: any) => {
+  const handleCredentialsSave = async (creds: any) => {
+    // DEBUG: Log what credentials are being saved
+    console.log('[DEBUG] handleCredentialsSave - creds received:', JSON.stringify(creds, null, 2));
+    console.log('[DEBUG] handleCredentialsSave - aws_endpoint_url:', creds.aws_endpoint_url);
+
+    // Update credentials in state and localStorage
     setCredentials(creds);
     localStorage.setItem(`credentials_${provider}`, JSON.stringify(creds));
     setCredentialsModalOpen(false);
+
+    // Build region config from the new credentials IMMEDIATELY
+    const regionConfig: Record<string, string> = {};
+    if (provider === 'aws') {
+      if (creds.aws_region) regionConfig.aws_region = creds.aws_region;
+      if (creds.aws_endpoint_url) regionConfig.aws_endpoint_url = creds.aws_endpoint_url;
+    } else if (provider === 'azure' && creds.azure_location) {
+      regionConfig.azure_location = creds.azure_location;
+    } else if (provider === 'gcp') {
+      if (creds.gcp_region) regionConfig.gcp_region = creds.gcp_region;
+      if (creds.gcp_project_id) regionConfig.gcp_project = creds.gcp_project_id;
+    }
+
+    // Regenerate Terraform code with the new credentials/region
+    if (projectId && nodes.length > 0) {
+      // Cancel any pending autosave to avoid race conditions
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+
+      // Wait for any in-progress save to complete
+      while (isSavingRef.current) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      try {
+        // Save project and regenerate Terraform with the NEW region config
+        // Pass regionConfig directly to avoid stale state issues
+        await saveProject({ silent: true, regionConfig });
+      } catch (error) {
+        console.error('Failed to regenerate Terraform with new credentials:', error);
+      }
+    }
   };
 
   const saveProject = useCallback(
-    async (options?: { silent?: boolean }) => {
+    async (options?: { silent?: boolean; regionConfig?: Record<string, string>; skipTerraformGeneration?: boolean }) => {
       if (isSavingRef.current) return;
-      
+
       const diagramData = JSON.parse(
         JSON.stringify({
           nodes: nodes.map(sanitizeNodeForSave),
@@ -923,10 +1052,12 @@ export default function DesignerPageFinal() {
       );
 
       const dataStr = JSON.stringify(diagramData);
-      if (options?.silent && lastSavedDataRef.current === dataStr) {
+      // Don't skip if regionConfig is provided - we need to regenerate Terraform with new region
+      const hasRegionConfigUpdate = options?.regionConfig && Object.keys(options.regionConfig).length > 0;
+      if (options?.silent && lastSavedDataRef.current === dataStr && !hasRegionConfigUpdate) {
         return;
       }
-      
+
       try {
         isSavingRef.current = true;
         setSaving(true);
@@ -946,12 +1077,15 @@ export default function DesignerPageFinal() {
 
         lastSavedDataRef.current = dataStr;
 
-        // Auto-generate Terraform in real-time after saving
-        if (nodes.length > 0) {
+        // Auto-generate Terraform in real-time after saving (unless skipped)
+        if (nodes.length > 0 && !options?.skipTerraformGeneration) {
           try {
+            // Use provided regionConfig or fall back to getRegionConfig()
+            const regionToUse = options?.regionConfig ?? getRegionConfig();
+
             await apiClient.post(
               `/api/terraform/generate/${projectId}`,
-              {},
+              regionToUse,
               {
                 headers: { Authorization: `Bearer ${token}` },
               }
@@ -1052,7 +1186,7 @@ export default function DesignerPageFinal() {
       // Generate
       await apiClient.post(
         `/api/terraform/generate/${projectId}`,
-        {},
+        getRegionConfig(),
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -1106,9 +1240,14 @@ export default function DesignerPageFinal() {
       appendTerraformLogs('[OK] Project saved.', { includePreview: false });
       appendTerraformLogs('> Generating Terraform files...', { includePreview: false });
       setPlanPreviewContent('Starting terraform plan...\n');
+
+      // DEBUG: Log what region config is being sent for terraform generation
+      const regionConfigForGenerate = getRegionConfig();
+      console.log('[DEBUG] showPlanPreview - regionConfig for generate:', JSON.stringify(regionConfigForGenerate));
+
       await apiClient.post(
         `/api/terraform/generate/${projectId}`,
-        {},
+        regionConfigForGenerate,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -1157,7 +1296,7 @@ export default function DesignerPageFinal() {
       if (!options?.skipGenerate) {
         await apiClient.post(
           `/api/terraform/generate/${projectId}`,
-          {},
+          getRegionConfig(),
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -1195,7 +1334,7 @@ export default function DesignerPageFinal() {
       await saveProject({ silent: true });
       await apiClient.post(
         `/api/terraform/generate/${projectId}`,
-        {},
+        getRegionConfig(),
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -1232,7 +1371,7 @@ export default function DesignerPageFinal() {
       setTerraformLogs(prev => [...prev, '> Generating Terraform files...']);
       await apiClient.post(
         `/api/terraform/generate/${projectId}`,
-        {},
+        getRegionConfig(),
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -1966,6 +2105,7 @@ export default function DesignerPageFinal() {
         mode={deployMode}
         logs={deployLogs}
         status={deployStatus}
+        onTerminate={terminateTerraform}
       />
 
       <PlanPreviewModal

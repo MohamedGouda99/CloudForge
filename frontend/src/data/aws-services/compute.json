@@ -20,7 +20,7 @@
             "type": "string",
             "description": "Instance type",
             "example": "t3.micro",
-            "options": ["t3.nano", "t3.micro", "t3.small", "t3.medium", "t3.large", "t3.xlarge", "t3.2xlarge", "m5.large", "m5.xlarge", "m5.2xlarge", "m5.4xlarge", "c5.large", "c5.xlarge", "r5.large", "r5.xlarge"]
+            "options": ["t3.nano", "t3.micro", "t3.small", "t3.medium", "t3.large", "t3.xlarge", "t3.2xlarge", "m5.small", "m5.large", "m5.xlarge", "m5.2xlarge", "m5.4xlarge", "c5.large", "c5.xlarge", "r5.large", "r5.xlarge"]
           }
         ],
         "optional": [

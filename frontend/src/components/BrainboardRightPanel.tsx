@@ -219,7 +219,7 @@ export default function BrainboardRightPanel({
   const [blockFormData, setBlockFormData] = useState<Record<string, any[]>>({});
   const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set());
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const [selectedTerraformFile, setSelectedTerraformFile] = useState<string>('providers.tf');
+  const [selectedTerraformFile, setSelectedTerraformFile] = useState<string>('main.tf');
 
   // Resizing state
   const [isResizing, setIsResizing] = useState(false);
@@ -571,17 +571,13 @@ export default function BrainboardRightPanel({
     const files = Object.keys(terraformFiles);
     if (files.length === 0) return [];
 
-    // Priority order for displaying files
+    // Priority order for displaying files (main.tf first to show resources)
     const priority = [
-      'providers.tf',
-      'versions.tf',
       'main.tf',
+      'providers.tf',
       'variables.tf',
       'outputs.tf',
       'terraform.tfvars',
-      'modules/infrastructure/main.tf',
-      'modules/infrastructure/outputs.tf',
-      'modules/infrastructure/variables.tf',
     ];
 
     return files.sort((a, b) => {
