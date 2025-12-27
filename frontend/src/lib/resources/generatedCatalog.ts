@@ -1661,6 +1661,7 @@ export const GENERATED_ICON_MAP: Record<string, string> = {
   "aws_keyspaces_keyspace": "/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Database/64/Arch_Amazon-Keyspaces_64.svg",
   "aws_memorydb_cluster": "/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Database/64/Arch_Amazon-MemoryDB_64.svg",
   "aws_vpc": "/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Networking-Content-Delivery/64/Arch_Amazon-Virtual-Private-Cloud_64.svg",
+  "aws_internet_gateway": "/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Networking-Content-Delivery/64/Arch_Amazon-VPC-Internet-Gateway_64.svg",
   "aws_route53_zone": "/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Networking-Content-Delivery/64/Arch_Amazon-Route-53_64.svg",
   "aws_cloudfront_distribution": "/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Networking-Content-Delivery/64/Arch_Amazon-CloudFront_64.svg",
   "aws_api_gateway_rest_api": "/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Networking-Content-Delivery/64/Arch_Amazon-API-Gateway_64.svg",

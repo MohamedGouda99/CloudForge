@@ -161,6 +161,8 @@ function ResourceNodeEnhanced({ id, data, selected }: NodeProps<ResourceNodeData
         width: displayWidth,
         height: displayHeight,
         background: 'transparent',
+        border: 'none',
+        outline: 'none',
       }}
     >
       {/* Draw.io-style NodeResizer: all 8 handles, independent side resizing, no aspect ratio lock */}
@@ -215,6 +217,8 @@ function ResourceNodeEnhanced({ id, data, selected }: NodeProps<ResourceNodeData
           cursor: 'move',
           background: 'transparent',
           position: 'relative',
+          border: 'none',
+          outline: 'none',
         }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
@@ -252,6 +256,9 @@ function ResourceNodeEnhanced({ id, data, selected }: NodeProps<ResourceNodeData
               width: '100%',
               height: '100%',
               objectFit: 'cover',
+              border: 'none',
+              outline: 'none',
+              boxShadow: 'none',
             }}
             draggable={false}
           />
@@ -287,50 +294,31 @@ function ResourceNodeEnhanced({ id, data, selected }: NodeProps<ResourceNodeData
           </span>
         )}
 
-        {/* Label below the node - positioned outside the measured area */}
+        {/* Label below the node */}
         <div
           style={{
             position: 'absolute',
             top: `${displayHeight + LABEL_OFFSET}px`,
             left: '50%',
             transform: 'translateX(-50%)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
             pointerEvents: 'none',
             userSelect: 'none',
             whiteSpace: 'nowrap',
-            maxWidth: '200px',
           }}
         >
           <span
             style={{
-              padding: '6px 12px',
-              borderRadius: '6px',
-              fontSize: '11px',
+              padding: '3px 8px',
+              borderRadius: '4px',
+              fontSize: '10px',
               fontWeight: 600,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-              backgroundColor: selected ? '#E60000' : 'rgba(17, 24, 39, 0.9)',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
+              backgroundColor: selected ? '#E60000' : 'rgba(17, 24, 39, 0.85)',
               color: 'white',
               transition: 'background-color 150ms ease',
             }}
           >
             {displayName}
-          </span>
-          <span
-            style={{
-              marginTop: '4px',
-              fontSize: '9px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-              color: '#9CA3AF',
-              fontFamily: 'monospace',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              maxWidth: '100%',
-            }}
-          >
-            {data.resourceType}
           </span>
         </div>
       </div>
