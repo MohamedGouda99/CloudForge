@@ -502,7 +502,7 @@ def update_project(
                                         config['log_group_name'] = f"aws_cloudwatch_log_group.{parent_tf_name}.name"
                                         logger.info(f"Containment auto-wire: {resource_type}.log_group_name = aws_cloudwatch_log_group.{parent_tf_name}.name")
 
-                    # EDGE-BASED AUTO-WIRING (Brainboard-style)
+                    # EDGE-BASED AUTO-WIRING
                     # When resources are connected via edges, auto-wire references
                     node_id = node['id']
                     if node_id in edge_map:
@@ -520,7 +520,7 @@ def update_project(
                             # Use pre-computed sanitized name for consistent Terraform references
                             source_tf_name = node_id_to_tf_name.get(source_node_id, f"resource_{source_node_id}")
 
-                            # Auto-wire common dependency patterns (like Brainboard)
+                            # Auto-wire common dependency patterns
                             if resource_type == 'aws_instance':
                                 if source_type == 'aws_subnet':
                                     config['subnet_id'] = f"aws_subnet.{source_tf_name}.id"

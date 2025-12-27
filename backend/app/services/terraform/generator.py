@@ -1285,7 +1285,7 @@ EOT
 
         lines = [f'resource "aws_lambda_function" "{sanitized_name}" {{']
 
-        # BRAINBOARD-STYLE: Use actual config values
+        # Use actual config values
         function_name = self._get_config_value(config, 'function_name') or resource.resource_name
         lines.append(f'  function_name = "{function_name}"')
 
@@ -1308,7 +1308,7 @@ EOT
         lines.append(f"  filename         = data.archive_file.{sanitized_name}_code.output_path")
         lines.append(f"  source_code_hash = data.archive_file.{sanitized_name}_code.output_base64sha256")
 
-        # BRAINBOARD-STYLE: Handle VPC config (auto-wired from edges)
+        # Handle VPC config (auto-wired from edges)
         vpc_config = self._get_config_value(config, 'vpc_config')
         if vpc_config and isinstance(vpc_config, dict):
             subnet_ids = vpc_config.get('subnet_ids', [])
@@ -1342,7 +1342,7 @@ EOT
             lines.append("    }")
             lines.append("  }")
 
-        # BRAINBOARD-STYLE: Include user-defined tags
+        # Include user-defined tags
         tags = config.get("tags", {})
         if not isinstance(tags, dict):
             tags = {}

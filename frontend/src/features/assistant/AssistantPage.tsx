@@ -110,7 +110,7 @@ export default function AssistantPage() {
                 Generate production-grade Terraform in seconds
               </h1>
               <p className="text-gray-600 dark:text-gray-300 max-w-2xl">
-                Guided prompts, Vodafone guardrails, and Brainboard-inspired interactions for AWS, Azure, and GCP. Ship secure landing zones and application stacks without leaving the canvas.
+                Guided prompts, Vodafone guardrails, and intuitive interactions for AWS, Azure, and GCP. Ship secure landing zones and application stacks without leaving the canvas.
               </p>
               <div className="flex flex-wrap gap-3 text-sm text-gray-600 dark:text-gray-300">
                 <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800">
@@ -132,7 +132,7 @@ export default function AssistantPage() {
               <div>
                 <div className="text-sm uppercase tracking-wide text-white/80">Current provider</div>
                 <div className="text-xl font-bold">Vodafone Multi-Cloud</div>
-                <div className="text-white/80 text-sm">Brainboard-grade UX</div>
+                <div className="text-white/80 text-sm">Enterprise-grade UX</div>
               </div>
             </div>
           </div>
