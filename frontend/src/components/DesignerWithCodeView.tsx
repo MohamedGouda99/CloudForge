@@ -67,7 +67,29 @@ export default function DesignerWithCodeView({
   }, [isControlled, showCode]);
 
   useEffect(() => {
-    const fetchFiles = async () => {
+    // Get region config from localStorage credentials
+  const getRegionConfig = (): Record<string, string> => {
+    const credStr = localStorage.getItem(`credentials_${provider}`);
+    if (!credStr) return {};
+    try {
+      const creds = JSON.parse(credStr);
+      const config: Record<string, string> = {};
+      if (provider === 'aws') {
+        if (creds.aws_region) config.aws_region = creds.aws_region;
+        if (creds.aws_endpoint_url) config.aws_endpoint_url = creds.aws_endpoint_url;
+      } else if (provider === 'azure' && creds.azure_location) {
+        config.azure_location = creds.azure_location;
+      } else if (provider === 'gcp') {
+        if (creds.gcp_region) config.gcp_region = creds.gcp_region;
+        if (creds.gcp_project_id) config.gcp_project = creds.gcp_project_id;
+      }
+      return config;
+    } catch {
+      return {};
+    }
+  };
+
+  const fetchFiles = async () => {
       if (!visible || !projectId || !token) {
         setFileList([]);
         setActiveFile(null);
@@ -76,10 +98,10 @@ export default function DesignerWithCodeView({
 
       setLoadingFiles(true);
       try {
-        // Ensure generation is up to date in the backend
+        // Ensure generation is up to date in the backend with region config
         await apiClient.post(
           `/api/terraform/generate/${projectId}`,
-          {},
+          getRegionConfig(),
           { headers: { Authorization: `Bearer ${token}` } }
         );
 

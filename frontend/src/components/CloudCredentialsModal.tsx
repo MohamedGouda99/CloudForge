@@ -22,9 +22,17 @@ export default function CloudCredentialsModal({
   const [credentials, setCredentials] = useState<any>(initialCredentials || {});
   const [showSecrets, setShowSecrets] = useState(false);
 
+  // DEBUG: Log initialCredentials when modal opens
+  console.log('[DEBUG] CloudCredentialsModal - isOpen:', isOpen, 'initialCredentials:', initialCredentials);
+  console.log('[DEBUG] CloudCredentialsModal - initialCredentials?.aws_endpoint_url:', initialCredentials?.aws_endpoint_url);
+
   useEffect(() => {
-    // Initialize with defaults based on provider
-    if (!initialCredentials) {
+    // Update credentials when initialCredentials changes (e.g., loaded from localStorage)
+    if (initialCredentials) {
+      console.log('[DEBUG] CloudCredentialsModal useEffect - setting credentials from initialCredentials');
+      setCredentials(initialCredentials);
+    } else {
+      // Initialize with defaults based on provider if no initial credentials provided
       switch (cloudProvider) {
         case 'aws':
           setCredentials({
@@ -89,6 +97,9 @@ export default function CloudCredentialsModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // DEBUG: Log what credentials are being submitted
+    console.log('[DEBUG] CloudCredentialsModal handleSubmit - credentials:', JSON.stringify(credentials, null, 2));
+    console.log('[DEBUG] CloudCredentialsModal handleSubmit - aws_endpoint_url:', credentials.aws_endpoint_url);
     onSave(credentials);
   };
 
@@ -195,6 +206,33 @@ export default function CloudCredentialsModal({
                     {showSecrets ? '👁️' : '👁️‍🗨️'}
                   </button>
                 </div>
+              </div>
+
+              {/* Advanced: Custom Endpoint (for LocalStack) */}
+              <div className="border-t border-gray-200 pt-4 mt-4">
+                <details className="group">
+                  <summary className="flex items-center justify-between cursor-pointer text-sm font-medium text-gray-700 hover:text-gray-900">
+                    <span>Advanced Options</span>
+                    <svg className="w-4 h-4 transform group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </summary>
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Custom Endpoint URL (LocalStack)
+                    </label>
+                    <input
+                      type="text"
+                      value={credentials.aws_endpoint_url || ''}
+                      onChange={(e) => setCredentials({ ...credentials, aws_endpoint_url: e.target.value })}
+                      placeholder="http://localhost:4566"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Leave empty for real AWS. Use http://localhost:4566 for LocalStack.
+                    </p>
+                  </div>
+                </details>
               </div>
             </>
           )}

@@ -1,9 +1,229 @@
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Set
 from jinja2 import Environment, FileSystemLoader, Template  # noqa: F401 (Template reserved for future templating)
 import os
+import re
 from app.models import Resource, Project, CloudProvider
 from app.services.terraform.value_detector import ValueDetector
 from app.services.terraform.schema_driven_generator import get_schema_driven_generator
+
+
+class VariableCollector:
+    """
+    Collects hardcoded values that should become Terraform variables.
+
+    Rules:
+    - If a value is a REFERENCE (aws_*.*.*, var.*, data.*, local.*) -> NO variable needed
+    - If a value is HARDCODED (literal string, number) -> CREATE a variable
+    - Variables are named: {resource_type}_{resource_name}_{field_name}
+    """
+
+    # Fields that should ALWAYS be variables (important config)
+    ALWAYS_VARIABLE = {
+        'cidr_block', 'availability_zone', 'instance_type', 'ami', 'engine',
+        'engine_version', 'instance_class', 'allocated_storage', 'db_name',
+        'username', 'bucket', 'function_name', 'runtime', 'handler',
+        'memory_size', 'timeout', 'machine_type', 'zone', 'image',
+        'vm_size', 'location', 'sku', 'tier'
+    }
+
+    # Fields that should NEVER be variables (always hardcoded or reference)
+    NEVER_VARIABLE = {
+        'vpc_id', 'subnet_id', 'security_group_ids', 'vpc_security_group_ids',
+        'target_group_arn', 'role', 'role_arn', 'iam_instance_profile',
+        'key_name', 'kms_key_id', 'network_interface_id', 'allocation_id',
+        'gateway_id', 'nat_gateway_id', 'internet_gateway_id', 'route_table_id',
+        'db_subnet_group_name', 'parameter_group_name', 'option_group_name',
+        'cluster_identifier', 'replication_group_id', 'source_security_group_id'
+    }
+
+    # Reference patterns
+    REFERENCE_PATTERNS = [
+        re.compile(r'^aws_[a-zA-Z_]+\.[a-zA-Z_][a-zA-Z0-9_]*\.'),  # aws_*.name.
+        re.compile(r'^azurerm_[a-zA-Z_]+\.[a-zA-Z_][a-zA-Z0-9_]*\.'),  # azurerm_*.name.
+        re.compile(r'^google_[a-zA-Z_]+\.[a-zA-Z_][a-zA-Z0-9_]*\.'),  # google_*.name.
+        re.compile(r'^var\.'),  # var.*
+        re.compile(r'^data\.'),  # data.*
+        re.compile(r'^local\.'),  # local.*
+        re.compile(r'^module\.'),  # module.*
+        re.compile(r'^\$\{'),  # ${...} interpolation
+    ]
+
+    def __init__(self, region: str = None):
+        self.variables: Dict[str, Dict[str, Any]] = {}  # var_name -> {value, type, description}
+        self._seen_names: Set[str] = set()
+        self._region = region  # AWS region for deriving availability zones
+
+    def derive_availability_zone(self, original_az: str) -> str:
+        """
+        Derive availability zone from the configured region.
+
+        If the original_az belongs to a different region than self._region,
+        replace the region prefix with the configured region.
+
+        Example:
+        - original_az = "us-east-1a", self._region = "us-west-2"
+        - Returns: "us-west-2a"
+        """
+        if not self._region or not original_az:
+            return original_az
+
+        # Extract the AZ suffix (a, b, c, d, etc.)
+        # AWS AZ format: {region}{az-letter}, e.g., us-east-1a, eu-west-1b
+        az_match = re.match(r'^(.+?)([a-z])$', original_az.strip())
+        if az_match:
+            az_suffix = az_match.group(2)
+            return f"{self._region}{az_suffix}"
+
+        # Couldn't parse, return original with region prefix
+        return f"{self._region}a"
+
+    def is_reference(self, value: Any) -> bool:
+        """Check if a value is a Terraform reference (should NOT be variabilized)."""
+        if not isinstance(value, str):
+            return False
+
+        value = value.strip()
+        for pattern in self.REFERENCE_PATTERNS:
+            if pattern.match(value):
+                return True
+        return False
+
+    def should_create_variable(self, field_name: str, value: Any, resource_type: str) -> bool:
+        """Determine if a field should have a variable created for it."""
+        # Never create variables for these fields (they're always references)
+        if field_name in self.NEVER_VARIABLE:
+            return False
+
+        # If value is already a reference, don't create variable
+        if self.is_reference(value):
+            return False
+
+        # If value is empty/None/False, don't create variable
+        if value is None or value == '' or value is False:
+            return False
+
+        # Always create variables for important config fields
+        if field_name in self.ALWAYS_VARIABLE:
+            return True
+
+        # For string values that look like hardcoded config, create variable
+        if isinstance(value, str) and value.strip():
+            return True
+
+        # For numbers that are meaningful config, create variable
+        if isinstance(value, (int, float)) and field_name not in {'from_port', 'to_port'}:
+            return True
+
+        return False
+
+    def add_variable(
+        self,
+        resource_type: str,
+        resource_name: str,
+        field_name: str,
+        value: Any,
+        description: str = None
+    ) -> str:
+        """
+        Add a variable and return the var.xxx reference to use.
+
+        Returns the variable reference string (e.g., "var.vpc_cidr_block")
+        """
+        # For availability_zone fields, derive from configured region
+        if field_name == 'availability_zone' and isinstance(value, str):
+            value = self.derive_availability_zone(value)
+
+        # Create a descriptive variable name
+        # Simplify: use resource_name + field_name for readability
+        clean_resource = self._sanitize_name(resource_name)
+        var_name = f"{clean_resource}_{field_name}"
+
+        # Handle duplicates
+        original_name = var_name
+        counter = 1
+        while var_name in self._seen_names:
+            var_name = f"{original_name}_{counter}"
+            counter += 1
+
+        self._seen_names.add(var_name)
+
+        # Determine type
+        if isinstance(value, bool):
+            var_type = "bool"
+        elif isinstance(value, int):
+            var_type = "number"
+        elif isinstance(value, float):
+            var_type = "number"
+        elif isinstance(value, list):
+            var_type = "list(string)"
+        else:
+            var_type = "string"
+
+        # Store variable info
+        self.variables[var_name] = {
+            'value': value,
+            'type': var_type,
+            'description': description or f"{field_name} for {resource_name}",
+            'resource_type': resource_type,
+            'field_name': field_name,
+        }
+
+        return f"var.{var_name}"
+
+    def _sanitize_name(self, name: str) -> str:
+        """Sanitize a name for use in variable names."""
+        cleaned = re.sub(r'[^a-zA-Z0-9]', '_', name.strip())
+        cleaned = re.sub(r'_+', '_', cleaned).strip('_').lower()
+        return cleaned or "resource"
+
+    def generate_variables_tf(self) -> str:
+        """Generate the variables.tf content."""
+        if not self.variables:
+            return "# No variables defined"
+
+        lines = []
+        for var_name, info in sorted(self.variables.items()):
+            lines.append(f'variable "{var_name}" {{')
+            lines.append(f'  description = "{info["description"]}"')
+            lines.append(f'  type        = {info["type"]}')
+
+            # Add default value for strings and numbers
+            if info['type'] == 'string':
+                escaped_value = str(info['value']).replace('"', '\\"')
+                lines.append(f'  default     = "{escaped_value}"')
+            elif info['type'] == 'number':
+                lines.append(f'  default     = {info["value"]}')
+            elif info['type'] == 'bool':
+                lines.append(f'  default     = {"true" if info["value"] else "false"}')
+            elif info['type'] == 'list(string)':
+                list_str = "[" + ", ".join(f'"{v}"' for v in info['value']) + "]"
+                lines.append(f'  default     = {list_str}')
+
+            lines.append('}')
+            lines.append('')
+
+        return '\n'.join(lines)
+
+    def generate_tfvars(self) -> str:
+        """Generate the terraform.tfvars content."""
+        if not self.variables:
+            return "# No variables to configure"
+
+        lines = []
+        for var_name, info in sorted(self.variables.items()):
+            value = info['value']
+            if info['type'] == 'string':
+                escaped_value = str(value).replace('"', '\\"')
+                lines.append(f'{var_name} = "{escaped_value}"')
+            elif info['type'] == 'number':
+                lines.append(f'{var_name} = {value}')
+            elif info['type'] == 'bool':
+                lines.append(f'{var_name} = {"true" if value else "false"}')
+            elif info['type'] == 'list(string)':
+                list_str = "[" + ", ".join(f'"{v}"' for v in value) + "]"
+                lines.append(f'{var_name} = {list_str}')
+
+        return '\n'.join(lines)
 
 
 class TerraformGenerator:
@@ -49,72 +269,425 @@ class TerraformGenerator:
 
         return None
 
-    def generate_terraform(self, project: Project, resources: List[Resource]) -> Dict[str, str]:
+    def generate_terraform(
+        self,
+        project: Project,
+        resources: List[Resource],
+        region_config: Dict[str, str] = None
+    ) -> Dict[str, str]:
         """
-        Generate complete Terraform configuration using a root/module layout.
-        Root files manage providers and module wiring; resources live under modules/infrastructure.
+        Generate complete Terraform configuration in a flat structure.
+        All resources are generated directly in main.tf without modules.
+
+        INTELLIGENT VARIABLE SYSTEM:
+        - References (aws_*.*.id, var.*, data.*) -> Use as-is, NO variable
+        - Hardcoded values (strings, numbers) -> Create variable, use var.xxx
+
+        Args:
+            project: Project model
+            resources: List of resources
+            region_config: Optional dict with region overrides from frontend:
+                - aws_region: AWS region (e.g., "us-west-2")
+                - azure_location: Azure location (e.g., "westeurope")
+                - gcp_region: GCP region (e.g., "europe-west1")
+                - gcp_project: GCP project ID
+                - aws_endpoint_url: Custom AWS endpoint (for LocalStack)
         """
+        region_config = region_config or {}
 
-        versions_config = self._generate_versions(project.cloud_provider)
-        provider_config = self._generate_provider(project.cloud_provider)
-        module_body, _categorized = self._generate_resources(resources, project.cloud_provider)
-        module_outputs, output_names = self._generate_outputs(resources)
-        variables_config = self._generate_variables(resources, project.cloud_provider)
-        tfvars_config = self._generate_tfvars(project.cloud_provider)
+        # Determine the region for variable collector (used for deriving availability zones)
+        configured_region = None
+        if project.cloud_provider == CloudProvider.AWS:
+            configured_region = region_config.get('aws_region', 'us-east-1')
+        elif project.cloud_provider == CloudProvider.GCP:
+            configured_region = region_config.get('gcp_region', 'us-central1')
+        # Azure uses locations, not regions with AZ suffixes
 
-        # Root module wiring
-        main_config = '\n'.join([
-            'module "infrastructure" {',
-            '  source = "./modules/infrastructure"',
-            '}',
-            ''
-        ])
+        # Check if using custom endpoint (LocalStack)
+        use_custom_endpoint = bool(region_config.get('aws_endpoint_url'))
 
-        # Forward module outputs to root so callers can consume them easily
-        root_outputs = self._forward_module_outputs(output_names, module_name="infrastructure")
+        # Create variable collector for intelligent variable extraction
+        var_collector = VariableCollector(region=configured_region)
+
+        # Generate resources with intelligent variable extraction
+        main_body = self._generate_resources_intelligent(resources, project.cloud_provider, var_collector)
+
+        # Generate provider config (with LocalStack support if custom endpoint)
+        provider_config = self._generate_provider(project.cloud_provider, use_custom_endpoint)
+        terraform_block = self._generate_terraform_block(project.cloud_provider)
+
+        # Add provider-specific variables with user-configured region values
+        if project.cloud_provider == CloudProvider.AWS:
+            aws_region = region_config.get('aws_region', 'us-east-1')
+            var_collector.variables['aws_region'] = {
+                'value': aws_region,
+                'type': 'string',
+                'description': 'AWS region for resource deployment',
+                'resource_type': 'provider',
+                'field_name': 'region',
+            }
+            var_collector._seen_names.add('aws_region')
+        elif project.cloud_provider == CloudProvider.AZURE:
+            azure_location = region_config.get('azure_location', 'eastus')
+            var_collector.variables['azure_location'] = {
+                'value': azure_location,
+                'type': 'string',
+                'description': 'Azure region for resource deployment',
+                'resource_type': 'provider',
+                'field_name': 'location',
+            }
+            var_collector._seen_names.add('azure_location')
+        elif project.cloud_provider == CloudProvider.GCP:
+            gcp_region = region_config.get('gcp_region', 'us-central1')
+            gcp_project = region_config.get('gcp_project', 'your-project-id')
+            var_collector.variables['gcp_region'] = {
+                'value': gcp_region,
+                'type': 'string',
+                'description': 'GCP region for resource deployment',
+                'resource_type': 'provider',
+                'field_name': 'region',
+            }
+            var_collector._seen_names.add('gcp_region')
+            var_collector.variables['gcp_project'] = {
+                'value': gcp_project,
+                'type': 'string',
+                'description': 'GCP project ID',
+                'resource_type': 'provider',
+                'field_name': 'project',
+            }
+            var_collector._seen_names.add('gcp_project')
+
+        # Generate outputs
+        outputs_config, _output_names = self._generate_outputs_flat(resources)
+
+        # Generate variables and tfvars from collector
+        variables_config = var_collector.generate_variables_tf()
+        tfvars_config = var_collector.generate_tfvars()
 
         files: Dict[str, str] = {
-            "versions.tf": versions_config,
-            "providers.tf": provider_config,
-            "main.tf": main_config,
+            "providers.tf": terraform_block + "\n" + provider_config,
+            "main.tf": main_body or "# No resources defined\n# Add resources from the canvas to generate Terraform code",
             "variables.tf": variables_config,
-            "outputs.tf": root_outputs,
+            "outputs.tf": outputs_config,
             "terraform.tfvars": tfvars_config,
-            "modules/infrastructure/main.tf": module_body or "# No resources defined",
-            "modules/infrastructure/outputs.tf": module_outputs or "# No outputs defined",
-            "modules/infrastructure/variables.tf": "# Module inherits root provider inputs",
-            ".tfsec.yml": self._generate_tfsec_config(),
-            ".terrascan.toml": self._generate_terrascan_config(),
-            "infracost.yml": self._generate_infracost_config(),
         }
 
         return files
 
-    def _generate_provider(self, cloud_provider: CloudProvider) -> str:
+    def _generate_resources_intelligent(
+        self,
+        resources: List[Resource],
+        cloud_provider: CloudProvider,
+        var_collector: VariableCollector
+    ) -> str:
+        """
+        Generate resources with intelligent variable extraction.
+
+        For each field:
+        - If it's a reference (aws_*.*.id) -> use directly
+        - If it's hardcoded -> create variable and use var.xxx
+        """
+        context = self._build_resource_context(resources, cloud_provider)
+        blocks: List[str] = []
+
+        # Generate data sources first
+        data_source_blocks = self._generate_data_sources(context, cloud_provider)
+        if data_source_blocks:
+            blocks.extend(data_source_blocks)
+
+        # Generate each resource with intelligent variables
+        for resource in resources:
+            # Skip logical-only types
+            if resource.resource_type in {"aws_region", "aws_availability_zone"} or \
+               resource.resource_type.endswith("_container"):
+                continue
+
+            resource_block = self._generate_resource_intelligent(resource, context, var_collector)
+            if resource_block:
+                blocks.append(resource_block)
+
+        # Generate auto-created IAM roles
+        iam_blocks = self._generate_iam_resources(context, cloud_provider)
+        if iam_blocks:
+            blocks.extend(iam_blocks)
+
+        return "\n\n".join(blocks)
+
+    def _generate_resource_intelligent(
+        self,
+        resource: Resource,
+        context: Dict[str, Any],
+        var_collector: VariableCollector
+    ) -> str:
+        """
+        Generate a single resource block with intelligent variable extraction.
+
+        Logic:
+        - For fields that are references (aws_*.*.id, var.*, etc.) -> use directly
+        - For fields that are hardcoded -> create variable, use var.xxx
+        - Block fields (ingress, egress) -> keep values inside blocks as-is
+        """
+        resource_type = resource.resource_type
+        resource_name = self._sanitize_identifier(resource.resource_name)
+        raw_config = resource.config or {}
+
+        lines = [f'resource "{resource_type}" "{resource_name}" {{']
+
+        # Track which fields to skip (internal/handled separately)
+        skip_fields = {'name', 'tags', 'ingress', 'egress'}
+
+        # Process all config fields
+        for field_name, field_value in raw_config.items():
+            # Skip internal fields and block fields
+            if field_name in skip_fields:
+                continue
+
+            # Skip empty values
+            if field_value is None or field_value == '' or field_value is False:
+                continue
+
+            # Handle nested blocks (like vpc_config, root_block_device)
+            if isinstance(field_value, dict) and field_value:
+                block_lines = self._format_block_intelligent(field_name, field_value, resource, var_collector)
+                lines.extend(block_lines)
+                continue
+
+            # Handle list values
+            if isinstance(field_value, list) and field_value:
+                formatted = self._format_list_value(field_value)
+                lines.append(f"  {field_name} = {formatted}")
+                continue
+
+            # INTELLIGENT VARIABLE LOGIC
+            # Check if this is a reference (should NOT be variabilized)
+            if var_collector.is_reference(field_value):
+                # Check if this field should be a list (like vpc_security_group_ids)
+                # Import the list type fields from schema_driven_generator
+                from app.services.terraform.schema_driven_generator import LIST_TYPE_FIELDS
+                list_fields = LIST_TYPE_FIELDS.get(resource_type, set())
+                if field_name in list_fields:
+                    # Wrap single reference in brackets for list fields
+                    lines.append(f"  {field_name} = [{field_value}]")
+                else:
+                    # It's a reference - use directly without quotes
+                    lines.append(f"  {field_name} = {field_value}")
+            elif var_collector.should_create_variable(field_name, field_value, resource_type):
+                # It's a hardcoded value - create variable
+                var_ref = var_collector.add_variable(
+                    resource_type,
+                    resource.resource_name,
+                    field_name,
+                    field_value,
+                    f"{field_name} for {resource.resource_name}"
+                )
+                lines.append(f"  {field_name} = {var_ref}")
+            else:
+                # Use value directly (booleans, special cases)
+                formatted = self._format_value_for_hcl(field_value)
+                lines.append(f"  {field_name} = {formatted}")
+
+        # Handle ingress blocks for security groups
+        ingress_rules = raw_config.get('ingress', [])
+        if ingress_rules:
+            for rule in (ingress_rules if isinstance(ingress_rules, list) else [ingress_rules]):
+                if isinstance(rule, dict) and rule:
+                    lines.extend(self._format_security_rule_block('ingress', rule))
+
+        # Handle egress blocks for security groups
+        egress_rules = raw_config.get('egress', [])
+        if egress_rules:
+            for rule in (egress_rules if isinstance(egress_rules, list) else [egress_rules]):
+                if isinstance(rule, dict) and rule:
+                    lines.extend(self._format_security_rule_block('egress', rule))
+
+        # Always add tags
+        tags = raw_config.get('tags', {})
+        if not isinstance(tags, dict):
+            tags = {}
+
+        lines.append("")
+        lines.append("  tags = {")
+        lines.append(f'    Name = "{resource.resource_name}"')
+        for key, value in tags.items():
+            if key != "Name":
+                lines.append(f'    {key} = "{value}"')
+        lines.append("  }")
+        lines.append("}")
+
+        return "\n".join(lines)
+
+    def _format_block_intelligent(
+        self,
+        block_name: str,
+        block_data: Dict[str, Any],
+        resource: Resource,
+        var_collector: VariableCollector
+    ) -> List[str]:
+        """Format a nested block with intelligent variable handling."""
+        lines = [f"  {block_name} {{"]
+
+        for key, value in block_data.items():
+            if value is None or value == '' or value is False:
+                continue
+
+            # For block fields, we typically use the value directly
+            # (references or hardcoded - most block internals stay as-is)
+            if var_collector.is_reference(value):
+                lines.append(f"    {key} = {value}")
+            elif isinstance(value, list):
+                formatted = self._format_list_value(value)
+                lines.append(f"    {key} = {formatted}")
+            else:
+                formatted = self._format_value_for_hcl(value)
+                lines.append(f"    {key} = {formatted}")
+
+        lines.append("  }")
+        return lines
+
+    def _format_security_rule_block(self, block_name: str, rule: Dict[str, Any]) -> List[str]:
+        """Format ingress/egress block for security groups."""
+        lines = [f"  {block_name} {{"]
+
+        # Handle from_port and to_port (numbers)
+        if 'from_port' in rule:
+            lines.append(f"    from_port = {rule['from_port']}")
+        if 'to_port' in rule:
+            lines.append(f"    to_port = {rule['to_port']}")
+
+        # Handle protocol (string)
+        if 'protocol' in rule and rule['protocol']:
+            lines.append(f'    protocol = "{rule["protocol"]}"')
+
+        # Handle cidr_blocks (list)
+        if 'cidr_blocks' in rule and rule['cidr_blocks']:
+            cidr = rule['cidr_blocks']
+            if isinstance(cidr, list):
+                cidr_str = "[" + ", ".join(f'"{c}"' for c in cidr) + "]"
+            else:
+                cidr_str = f'["{cidr}"]'
+            lines.append(f"    cidr_blocks = {cidr_str}")
+
+        # Handle description
+        if 'description' in rule and rule['description']:
+            lines.append(f'    description = "{rule["description"]}"')
+
+        lines.append("  }")
+        return lines
+
+    def _format_value_for_hcl(self, value: Any) -> str:
+        """Format a value for HCL output."""
+        if isinstance(value, bool):
+            return "true" if value else "false"
+        elif isinstance(value, (int, float)):
+            return str(value)
+        elif isinstance(value, str):
+            escaped = value.replace('"', '\\"')
+            return f'"{escaped}"'
+        elif isinstance(value, list):
+            return self._format_list_value(value)
+        else:
+            return f'"{str(value)}"'
+
+    def _format_list_value(self, values: List[Any]) -> str:
+        """Format a list for HCL."""
+        if not values:
+            return "[]"
+
+        formatted_items = []
+        for v in values:
+            if isinstance(v, str):
+                formatted_items.append(f'"{v}"')
+            elif isinstance(v, (int, float)):
+                formatted_items.append(str(v))
+            elif isinstance(v, bool):
+                formatted_items.append("true" if v else "false")
+            else:
+                formatted_items.append(f'"{str(v)}"')
+
+        return "[" + ", ".join(formatted_items) + "]"
+
+    def _generate_terraform_block(self, cloud_provider: CloudProvider) -> str:
+        """Generate terraform block with required providers (no remote backend for simplicity)."""
+
+        if cloud_provider == CloudProvider.AWS:
+            return """terraform {
+  required_version = ">= 1.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+"""
+        elif cloud_provider == CloudProvider.AZURE:
+            return """terraform {
+  required_version = ">= 1.0"
+
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 3.0"
+    }
+  }
+}
+"""
+        elif cloud_provider == CloudProvider.GCP:
+            return """terraform {
+  required_version = ">= 1.0"
+
+  required_providers {
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 5.0"
+    }
+  }
+}
+"""
+        else:
+            return """terraform {
+  required_version = ">= 1.0"
+}
+"""
+
+    def _generate_provider(self, cloud_provider: CloudProvider, use_custom_endpoint: bool = False) -> str:
         """Generate provider configuration."""
 
-        providers = {
-            CloudProvider.AWS: """
+        if cloud_provider == CloudProvider.AWS:
+            if use_custom_endpoint:
+                # LocalStack/custom endpoint configuration
+                return """
+provider "aws" {
+  region                      = var.aws_region
+  skip_credentials_validation = true
+  skip_metadata_api_check     = true
+  skip_requesting_account_id  = true
+
+  # Custom endpoint is set via AWS_ENDPOINT_URL environment variable
+  # This configuration is compatible with LocalStack
+}
+"""
+            else:
+                return """
 provider "aws" {
   region = var.aws_region
 }
-
-provider "archive" {}
-""",
-            CloudProvider.AZURE: """
+"""
+        elif cloud_provider == CloudProvider.AZURE:
+            return """
 provider "azurerm" {
   features {}
 }
-""",
-            CloudProvider.GCP: """
+"""
+        elif cloud_provider == CloudProvider.GCP:
+            return """
 provider "google" {
   project = var.gcp_project
   region  = var.gcp_region
 }
 """
-        }
-
-        return providers.get(cloud_provider, "")
+        return ""
 
     def _generate_versions(self, cloud_provider: CloudProvider) -> str:
         """Generate terraform block with required providers and versions."""
@@ -982,35 +1555,6 @@ resource "google_storage_bucket" "{resource.resource_name}" {{
   description = "AWS region where resources will be deployed"
   type        = string
   default     = "us-east-1"
-}
-
-variable "aws_access_key" {
-  description = "AWS access key ID"
-  type        = string
-  sensitive   = true
-}
-
-variable "aws_secret_key" {
-  description = "AWS secret access key"
-  type        = string
-  sensitive   = true
-}
-
-variable "terraform_state_bucket" {
-  description = "S3 bucket name for Terraform state storage"
-  type        = string
-}
-
-variable "terraform_state_key" {
-  description = "S3 key path for Terraform state file"
-  type        = string
-  default     = "terraform.tfstate"
-}
-
-variable "terraform_lock_table" {
-  description = "DynamoDB table name for Terraform state locking"
-  type        = string
-  default     = "terraform-state-lock"
 }""")
 
         elif cloud_provider == CloudProvider.AZURE:
@@ -1112,6 +1656,65 @@ variable "gcp_subnetwork_self_link" {
 
         return "\n".join(variables) if variables else "# No variables defined"
 
+    def _generate_outputs_flat(self, resources: List[Resource]) -> Tuple[str, List[str]]:
+        """Generate outputs directly (flat structure, no modules)."""
+
+        outputs: List[str] = []
+        names: List[str] = []
+
+        for resource in resources:
+            sanitized_name = self._sanitize_identifier(resource.resource_name)
+
+            if resource.resource_type in ["aws_instance", "gcp_compute_instance", "azure_virtual_machine"]:
+                output_name = f"{sanitized_name}_id"
+                names.append(output_name)
+                outputs.append(f"""output "{output_name}" {{
+  description = "ID of {resource.resource_name}"
+  value       = {resource.resource_type}.{sanitized_name}.id
+}}""")
+
+            if resource.resource_type in ["aws_vpc", "gcp_compute_network", "azure_virtual_network"]:
+                output_name = f"{sanitized_name}_id"
+                names.append(output_name)
+                outputs.append(f"""output "{output_name}" {{
+  description = "VPC/Network ID for {resource.resource_name}"
+  value       = {resource.resource_type}.{sanitized_name}.id
+}}""")
+
+            if resource.resource_type in ["aws_subnet"]:
+                output_name = f"{sanitized_name}_id"
+                names.append(output_name)
+                outputs.append(f"""output "{output_name}" {{
+  description = "Subnet ID for {resource.resource_name}"
+  value       = {resource.resource_type}.{sanitized_name}.id
+}}""")
+
+            if resource.resource_type in ["aws_security_group"]:
+                output_name = f"{sanitized_name}_id"
+                names.append(output_name)
+                outputs.append(f"""output "{output_name}" {{
+  description = "Security Group ID for {resource.resource_name}"
+  value       = {resource.resource_type}.{sanitized_name}.id
+}}""")
+
+            if resource.resource_type in ["aws_s3_bucket", "gcp_storage_bucket", "azure_storage_account"]:
+                output_name = f"{sanitized_name}_bucket"
+                names.append(output_name)
+                outputs.append(f"""output "{output_name}" {{
+  description = "Bucket/Storage name for {resource.resource_name}"
+  value       = {resource.resource_type}.{sanitized_name}.id
+}}""")
+
+            if resource.resource_type in ["aws_internet_gateway"]:
+                output_name = f"{sanitized_name}_id"
+                names.append(output_name)
+                outputs.append(f"""output "{output_name}" {{
+  description = "Internet Gateway ID for {resource.resource_name}"
+  value       = {resource.resource_type}.{sanitized_name}.id
+}}""")
+
+        return "\n\n".join(outputs) if outputs else "# No outputs defined", names
+
     def _generate_outputs(self, resources: List[Resource]) -> Tuple[str, List[str]]:
         """Generate outputs for module and return names for root forwarding."""
 
@@ -1163,41 +1766,21 @@ output "{output_name}" {{
         return module_outputs, names
 
     def _generate_tfvars(self, cloud_provider: CloudProvider) -> str:
-        """Generate terraform.tfvars file with example values."""
+        """Generate terraform.tfvars file with default values."""
 
         tfvars: List[str] = []
 
-        tfvars.append("# Terraform Variables")
-        tfvars.append("# Fill in your actual values below")
-        tfvars.append("")
-
         if cloud_provider == CloudProvider.AWS:
-            tfvars.append("# AWS Configuration")
-            tfvars.append('aws_region     = "us-east-1"')
-            tfvars.append('# aws_access_key = "YOUR_AWS_ACCESS_KEY"  # Or use AWS CLI credentials')
-            tfvars.append('# aws_secret_key = "YOUR_AWS_SECRET_KEY"  # Or use AWS CLI credentials')
+            tfvars.append('aws_region = "us-east-1"')
 
         elif cloud_provider == CloudProvider.AZURE:
-            tfvars.append("# Azure Configuration")
-            tfvars.append('azure_subscription_id = "YOUR_SUBSCRIPTION_ID"')
-            tfvars.append('azure_tenant_id       = "YOUR_TENANT_ID"')
-            tfvars.append('azure_location        = "eastus"')
-            tfvars.append('# azure_network_interface_id = "YOUR_NIC_ID"')
-            tfvars.append('# azure_disk_encryption_set_id = "YOUR_DISK_ENC_SET_ID"')
+            tfvars.append('azure_location = "eastus"')
 
         elif cloud_provider == CloudProvider.GCP:
-            tfvars.append("# GCP Configuration")
-            tfvars.append('gcp_project           = "YOUR_PROJECT_ID"')
-            tfvars.append('gcp_region            = "us-central1"')
-            tfvars.append('gcp_credentials_file  = "path/to/credentials.json"')
-            tfvars.append('# gcp_network_self_link     = "projects/xxx/global/networks/my-vpc"')
-            tfvars.append('# gcp_subnetwork_self_link  = "projects/xxx/regions/us-central1/subnetworks/my-subnet"')
+            tfvars.append('gcp_project = "your-project-id"')
+            tfvars.append('gcp_region  = "us-central1"')
 
-        tfvars.append("")
-        tfvars.append("# Sensitive Variables (use environment variables or secret management)")
-        tfvars.append('# db_password = "your-secure-password"')
-
-        return "\n".join(tfvars)
+        return "\n".join(tfvars) if tfvars else "# No variables to configure"
 
     def _forward_module_outputs(self, output_names: List[str], module_name: str) -> str:
         """Expose module outputs at root level for ease of consumption."""

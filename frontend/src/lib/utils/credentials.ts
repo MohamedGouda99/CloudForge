@@ -6,11 +6,16 @@ export function buildCredentialsQuery(cloudProvider: CloudProvider, credentials:
   }
 
   if (cloudProvider === 'aws') {
-    return new URLSearchParams({
+    const params: Record<string, string> = {
       aws_region: credentials.aws_region ?? '',
       aws_access_key_id: credentials.aws_access_key_id ?? '',
       aws_secret_access_key: credentials.aws_secret_access_key ?? '',
-    }).toString();
+    };
+    // Add endpoint URL if provided (for LocalStack/custom endpoints)
+    if (credentials.aws_endpoint_url) {
+      params.aws_endpoint_url = credentials.aws_endpoint_url;
+    }
+    return new URLSearchParams(params).toString();
   }
 
   if (cloudProvider === 'azure') {
