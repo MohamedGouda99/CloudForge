@@ -261,7 +261,7 @@ export const awsResourcesExpanded: AWSResource[] = [
     type: 'aws_internet_gateway',
     label: 'Internet Gateway',
     description: 'VPC internet access',
-    icon: '/api/icons/aws/Arch_Networking-Content-Delivery/64/Arch_Amazon-Virtual-Private-Cloud_64.svg',
+    icon: '/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Networking-Content-Delivery/64/Arch_Amazon-VPC-Internet-Gateway_64.svg',
     category: 'networking',
   },
   {

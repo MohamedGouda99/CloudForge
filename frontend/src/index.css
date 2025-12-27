@@ -183,6 +183,16 @@
   margin: 0 !important;
   background: transparent !important;
   transition: none !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Remove borders from img elements inside nodes */
+.react-flow__node img {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 /* IMPORTANT: Disable ReactFlow's default selection outline - we handle it ourselves */

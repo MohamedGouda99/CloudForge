@@ -367,8 +367,8 @@ export default function BrainboardRightPanel({
       const resourceType = data?.resourceType || '';
       const nodeType = node.type || 'default';
 
-      // Skip container nodes
-      if (['vpc', 'subnet', 'region', 'container'].includes(nodeType)) return;
+      // Skip pure container nodes (region, container) - VPC and Subnet are networking resources
+      if (['region', 'container'].includes(nodeType)) return;
 
       // Determine group based on resource type
       let groupKey = 'other';
@@ -381,31 +381,90 @@ export default function BrainboardRightPanel({
         groupIcon = 'lucide:map-pin';
       } else if (resourceType.includes('vpc') || resourceType.includes('subnet') ||
                  resourceType.includes('security_group') || resourceType.includes('gateway') ||
-                 resourceType.includes('route') || resourceType.includes('network')) {
+                 resourceType.includes('route') || resourceType.includes('network') ||
+                 resourceType.includes('cloudfront') || resourceType.includes('route53') ||
+                 resourceType.includes('elb') || resourceType.includes('alb') || resourceType.includes('nlb') ||
+                 resourceType.includes('elastic_ip') || resourceType.includes('eip') ||
+                 resourceType.includes('vpn') || resourceType.includes('transit_gateway') ||
+                 resourceType.includes('endpoint') || resourceType.includes('nacl') ||
+                 resourceType.includes('virtual_network') || resourceType.includes('vnet')) {
         groupKey = 'network';
         groupLabel = 'Networking';
         groupIcon = 'lucide:network';
       } else if (resourceType.includes('instance') || resourceType.includes('lambda') ||
-                 resourceType.includes('ecs') || resourceType.includes('eks') ||
-                 resourceType.includes('compute')) {
+                 resourceType.includes('compute') || resourceType.includes('autoscaling') ||
+                 resourceType.includes('launch_template') || resourceType.includes('ami') ||
+                 resourceType.includes('batch') || resourceType.includes('lightsail') ||
+                 resourceType.includes('function') || resourceType.includes('app_runner')) {
         groupKey = 'compute';
         groupLabel = 'Compute';
         groupIcon = 'lucide:cpu';
+      } else if (resourceType.includes('ecs') || resourceType.includes('eks') ||
+                 resourceType.includes('ecr') || resourceType.includes('fargate') ||
+                 resourceType.includes('kubernetes') || resourceType.includes('aks') ||
+                 resourceType.includes('gke') || resourceType.includes('container')) {
+        groupKey = 'containers';
+        groupLabel = 'Containers';
+        groupIcon = 'lucide:box';
       } else if (resourceType.includes('s3') || resourceType.includes('ebs') ||
-                 resourceType.includes('efs') || resourceType.includes('storage')) {
+                 resourceType.includes('efs') || resourceType.includes('storage') ||
+                 resourceType.includes('glacier') || resourceType.includes('fsx') ||
+                 resourceType.includes('backup') || resourceType.includes('blob')) {
         groupKey = 'storage';
         groupLabel = 'Storage';
         groupIcon = 'lucide:hard-drive';
-      } else if (resourceType.includes('rds') || resourceType.includes('db') ||
-                 resourceType.includes('dynamodb') || resourceType.includes('database')) {
+      } else if (resourceType.includes('rds') || resourceType.includes('dynamodb') ||
+                 resourceType.includes('database') || resourceType.includes('aurora') ||
+                 resourceType.includes('documentdb') || resourceType.includes('neptune') ||
+                 resourceType.includes('elasticache') || resourceType.includes('redis') ||
+                 resourceType.includes('memcached') || resourceType.includes('timestream') ||
+                 resourceType.includes('keyspaces') || resourceType.includes('cosmos') ||
+                 resourceType.includes('sql') || resourceType.includes('mongo')) {
         groupKey = 'database';
         groupLabel = 'Database';
         groupIcon = 'lucide:database';
       } else if (resourceType.includes('iam') || resourceType.includes('cognito') ||
-                 resourceType.includes('kms') || resourceType.includes('secret')) {
+                 resourceType.includes('kms') || resourceType.includes('secret') ||
+                 resourceType.includes('acm') || resourceType.includes('certificate') ||
+                 resourceType.includes('waf') || resourceType.includes('shield') ||
+                 resourceType.includes('guardduty') || resourceType.includes('inspector') ||
+                 resourceType.includes('macie') || resourceType.includes('firewall') ||
+                 resourceType.includes('security_hub') || resourceType.includes('key_vault')) {
         groupKey = 'security';
         groupLabel = 'Security & Identity';
         groupIcon = 'lucide:shield';
+      } else if (resourceType.includes('sns') || resourceType.includes('sqs') ||
+                 resourceType.includes('eventbridge') || resourceType.includes('mq') ||
+                 resourceType.includes('kinesis') || resourceType.includes('kafka') ||
+                 resourceType.includes('msk') || resourceType.includes('event_hub') ||
+                 resourceType.includes('service_bus') || resourceType.includes('pub_sub')) {
+        groupKey = 'messaging';
+        groupLabel = 'Messaging';
+        groupIcon = 'lucide:mail';
+      } else if (resourceType.includes('cloudwatch') || resourceType.includes('cloudtrail') ||
+                 resourceType.includes('log') || resourceType.includes('metric') ||
+                 resourceType.includes('xray') || resourceType.includes('monitor') ||
+                 resourceType.includes('alarm') || resourceType.includes('dashboard') ||
+                 resourceType.includes('insight') || resourceType.includes('application_insights')) {
+        groupKey = 'monitoring';
+        groupLabel = 'Monitoring';
+        groupIcon = 'lucide:activity';
+      } else if (resourceType.includes('api_gateway') || resourceType.includes('appsync') ||
+                 resourceType.includes('step_function') || resourceType.includes('sfn') ||
+                 resourceType.includes('appflow') || resourceType.includes('glue') ||
+                 resourceType.includes('data_pipeline') || resourceType.includes('logic_app') ||
+                 resourceType.includes('api_management')) {
+        groupKey = 'integration';
+        groupLabel = 'Integration';
+        groupIcon = 'lucide:git-branch';
+      } else if (resourceType.includes('athena') || resourceType.includes('emr') ||
+                 resourceType.includes('redshift') || resourceType.includes('quicksight') ||
+                 resourceType.includes('data_lake') || resourceType.includes('lake_formation') ||
+                 resourceType.includes('synapse') || resourceType.includes('databricks') ||
+                 resourceType.includes('bigquery') || resourceType.includes('dataflow')) {
+        groupKey = 'analytics';
+        groupLabel = 'Analytics';
+        groupIcon = 'lucide:bar-chart-2';
       }
 
       if (!groups[groupKey]) {
@@ -421,7 +480,7 @@ export default function BrainboardRightPanel({
     });
 
     // Sort groups by priority
-    const order = ['compute', 'network', 'storage', 'database', 'security', 'region', 'other'];
+    const order = ['compute', 'containers', 'network', 'storage', 'database', 'messaging', 'integration', 'monitoring', 'analytics', 'security', 'region', 'other'];
     return Object.values(groups).sort((a, b) => {
       return order.indexOf(a.type) - order.indexOf(b.type);
     });
@@ -606,8 +665,9 @@ export default function BrainboardRightPanel({
                             terraformFiles['main.tf'] ||
                             '# No Terraform code generated yet\n# Add resources and save to generate code';
 
-  const containerNodes = nodes.filter(n => ['vpc', 'subnet', 'region', 'container'].includes(n.type || ''));
-  const resourceNodes = nodes.filter(n => !['vpc', 'subnet', 'region', 'container'].includes(n.type || ''));
+  // Only 'region' and 'container' are pure containers; VPC and Subnet are networking resources
+  const containerNodes = nodes.filter(n => ['region', 'container'].includes(n.type || ''));
+  const resourceNodes = nodes.filter(n => !['region', 'container'].includes(n.type || ''));
 
   // Calculate current width based on collapsed state
   const currentWidth = isCollapsed ? 0 : panelWidth;
@@ -713,11 +773,11 @@ export default function BrainboardRightPanel({
         {/* Resources Tab */}
         {activeTab === 'resources' && !configPanelOpen && (
           <div className="p-3 space-y-2">
-            {/* Containers Section */}
+            {/* Regions Section - Layout containers for organizing resources */}
             {containerNodes.length > 0 && (
               <div className="mb-3">
                 <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-1">
-                  Containers ({containerNodes.length})
+                  Regions ({containerNodes.length})
                 </h3>
                 {containerNodes.map(node => {
                   const data = node.data as any;
@@ -1341,7 +1401,7 @@ export default function BrainboardRightPanel({
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-2 h-2 rounded-full bg-blue-500" />
-              <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{containerNodes.length} containers</span>
+              <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{containerNodes.length} regions</span>
             </div>
           </div>
           {activeTab === 'code' && Object.keys(terraformFiles).length > 0 && (

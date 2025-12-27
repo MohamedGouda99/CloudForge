@@ -180,7 +180,7 @@ export const internetGateway: ServiceDefinition = {
   name: "Internet Gateway",
   description: "Gateway for internet access",
   terraform_resource: "aws_internet_gateway",
-  icon: "/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Networking-Content-Delivery/64/Arch_Amazon-Virtual-Private-Cloud_64.svg",
+  icon: "/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Networking-Content-Delivery/64/Arch_Amazon-VPC-Internet-Gateway_64.svg",
   inputs: {
     required: [],
     optional: [
