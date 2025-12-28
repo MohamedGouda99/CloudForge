@@ -14,7 +14,7 @@ from slowapi.util import get_remote_address
 from app.core.database import get_db
 from app.core.config import settings
 from app.api.endpoints.auth import get_current_user
-from app.models import User, Project, Resource, TerraformOutput as TerraformOutputModel, CloudProvider
+from app.models import User, Project, Resource, TerraformOutput as TerraformOutputModel, CloudProvider, CostEstimate
 from app.schemas import TerraformOutput
 from app.services.terraform.generator import TerraformGenerator
 
@@ -1544,12 +1544,42 @@ def run_infracost_estimate(
 
         total_monthly_cost = cost_output.get("totalMonthlyCost", "0")
         projects_data = cost_output.get("projects", [])
+        currency = cost_output.get("currency", "USD")
+
+        # Count resources with costs
+        resources_with_cost = 0
+        for proj in projects_data:
+            breakdown = proj.get("breakdown", {})
+            resources = breakdown.get("resources", [])
+            resources_with_cost += len(resources)
+
+        # Store or update cost estimate in database
+        existing_estimate = db.query(CostEstimate).filter(
+            CostEstimate.project_id == project_id
+        ).first()
+
+        if existing_estimate:
+            existing_estimate.monthly_cost = str(total_monthly_cost)
+            existing_estimate.currency = currency
+            existing_estimate.resources_count = resources_with_cost
+            existing_estimate.cost_breakdown = json.dumps(cost_output)
+        else:
+            new_estimate = CostEstimate(
+                project_id=project_id,
+                monthly_cost=str(total_monthly_cost),
+                currency=currency,
+                resources_count=resources_with_cost,
+                cost_breakdown=json.dumps(cost_output)
+            )
+            db.add(new_estimate)
+
+        db.commit()
 
         return {
             "success": True,
             "scan_tool": "infracost",
             "total_monthly_cost": total_monthly_cost,
-            "currency": cost_output.get("currency", "USD"),
+            "currency": currency,
             "projects_count": len(projects_data),
             "cost_output": cost_output,
             "message": f"Cost estimate completed - ${total_monthly_cost}/month"

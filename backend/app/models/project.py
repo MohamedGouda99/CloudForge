@@ -36,3 +36,4 @@ class Project(Base):
     resources = relationship("Resource", back_populates="project", cascade="all, delete-orphan")
     terraform_outputs = relationship("TerraformOutput", back_populates="project", cascade="all, delete-orphan")
     drift_scans = relationship("DriftScan", back_populates="project", cascade="all, delete-orphan")
+    cost_estimates = relationship("CostEstimate", back_populates="project", cascade="all, delete-orphan", uselist=False)

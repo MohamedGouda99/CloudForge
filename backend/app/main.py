@@ -10,7 +10,7 @@ from app.core.config import settings
 from app.core.database import engine, Base
 from app.core.bootstrap import ensure_default_admin
 from app.core.logging import setup_logging, get_logger, RequestLoggingMiddleware
-from app.api.endpoints import auth, projects, resources, terraform, drift, icons, security, ai, assistant
+from app.api.endpoints import auth, projects, resources, terraform, drift, icons, security, ai, assistant, dashboard
 import socketio
 import traceback
 
@@ -120,6 +120,7 @@ app.include_router(resources.router, prefix="/api/resources", tags=["resources"]
 app.include_router(terraform.router, prefix="/api/terraform", tags=["terraform"])
 app.include_router(security.router, prefix="/api/security", tags=["security"])
 app.include_router(drift.router, prefix="/api/drift", tags=["drift"])
+app.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"])
 app.include_router(icons.router, prefix="/api", tags=["icons"])
 app.include_router(ai.router, tags=["ai"])
 app.include_router(assistant.router, tags=["assistant"])

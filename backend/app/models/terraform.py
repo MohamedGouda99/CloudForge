@@ -49,3 +49,26 @@ class DriftScan(Base):
 
     # Relationships
     project = relationship("Project", back_populates="drift_scans")
+
+
+class CostEstimate(Base):
+    """Store Infracost estimates per project for dashboard aggregation"""
+    __tablename__ = "cost_estimates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), unique=True)
+
+    # Cost data
+    monthly_cost = Column(String, default="0")  # Store as string to preserve precision
+    currency = Column(String, default="USD")
+    resources_count = Column(Integer, default=0)  # Number of cost-bearing resources
+
+    # Full Infracost JSON output for detailed views
+    cost_breakdown = Column(Text)  # JSON string with full breakdown
+
+    # Metadata
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    project = relationship("Project", back_populates="cost_estimates")
