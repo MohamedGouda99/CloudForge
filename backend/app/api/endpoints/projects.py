@@ -1,16 +1,130 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List
-from app.core.database import get_db
+import subprocess
+import os
+import json
+import logging
+from app.core.database import get_db, SessionLocal
+from app.core.config import settings
 from app.api.endpoints.auth import get_current_user
-from app.models import User, Project, Resource
+from app.models import User, Project, Resource, CostEstimate
 from app.schemas import (
     Project as ProjectSchema,
     ProjectCreate,
     ProjectUpdate
 )
+from app.services.terraform.generator import TerraformGenerator
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+def run_infracost_background(project_id: int, owner_id: int):
+    """
+    Background task to run Infracost and update cost estimates.
+    This runs asynchronously after project save to keep dashboard costs updated.
+    """
+    db = SessionLocal()
+    try:
+        logger.info(f"Starting background Infracost for project {project_id}")
+
+        # Get project and resources
+        project = db.query(Project).filter(Project.id == project_id).first()
+        if not project:
+            logger.error(f"Project {project_id} not found for Infracost")
+            return
+
+        resources = db.query(Resource).filter(Resource.project_id == project_id).all()
+        if not resources:
+            logger.info(f"No resources in project {project_id}, skipping Infracost")
+            return
+
+        # Generate Terraform files
+        project_dir = os.path.join(settings.TERRAFORM_WORKSPACE_DIR, f"project_{project_id}")
+        os.makedirs(project_dir, exist_ok=True)
+
+        generator = TerraformGenerator()
+        terraform_files = generator.generate_terraform(project, resources)
+
+        # Write terraform files
+        for filename, content in terraform_files.items():
+            filepath = os.path.join(project_dir, filename)
+            parent_dir = os.path.dirname(filepath)
+            if parent_dir and not os.path.exists(parent_dir):
+                os.makedirs(parent_dir, exist_ok=True)
+            with open(filepath, 'w') as f:
+                f.write(content)
+
+        # Check if Infracost API key is configured
+        infracost_api_key = settings.INFRACOST_API_KEY
+        if not infracost_api_key:
+            logger.warning("Infracost API key not configured, skipping cost estimation")
+            return
+
+        # Run Infracost
+        env = os.environ.copy()
+        env['INFRACOST_API_KEY'] = infracost_api_key
+
+        result = subprocess.run(
+            ['infracost', 'breakdown', '--path', project_dir, '--format', 'json'],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=180
+        )
+
+        if result.returncode != 0:
+            logger.error(f"Infracost failed for project {project_id}: {result.stderr}")
+            return
+
+        # Parse results
+        try:
+            cost_output = json.loads(result.stdout) if result.stdout else {}
+        except json.JSONDecodeError:
+            logger.error(f"Failed to parse Infracost output for project {project_id}")
+            return
+
+        total_monthly_cost = cost_output.get("totalMonthlyCost", "0")
+        currency = cost_output.get("currency", "USD")
+        projects_data = cost_output.get("projects", [])
+
+        # Count resources with costs
+        resources_with_cost = 0
+        for proj in projects_data:
+            breakdown = proj.get("breakdown", {})
+            res_list = breakdown.get("resources", [])
+            resources_with_cost += len(res_list)
+
+        # Store or update cost estimate
+        existing_estimate = db.query(CostEstimate).filter(
+            CostEstimate.project_id == project_id
+        ).first()
+
+        if existing_estimate:
+            existing_estimate.monthly_cost = str(total_monthly_cost)
+            existing_estimate.currency = currency
+            existing_estimate.resources_count = resources_with_cost
+            existing_estimate.cost_breakdown = json.dumps(cost_output)
+        else:
+            new_estimate = CostEstimate(
+                project_id=project_id,
+                monthly_cost=str(total_monthly_cost),
+                currency=currency,
+                resources_count=resources_with_cost,
+                cost_breakdown=json.dumps(cost_output)
+            )
+            db.add(new_estimate)
+
+        db.commit()
+        logger.info(f"Updated cost estimate for project {project_id}: ${total_monthly_cost}/mo")
+
+    except subprocess.TimeoutExpired:
+        logger.error(f"Infracost timed out for project {project_id}")
+    except Exception as e:
+        logger.error(f"Background Infracost failed for project {project_id}: {str(e)}")
+    finally:
+        db.close()
 
 
 @router.post("/", response_model=ProjectSchema, status_code=status.HTTP_201_CREATED)
@@ -74,6 +188,7 @@ def get_project(
 def update_project(
     project_id: int,
     project_update: ProjectUpdate,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -601,6 +716,11 @@ def update_project(
 
     db.commit()
     db.refresh(project)
+
+    # Trigger background Infracost if diagram_data was updated (resources changed)
+    if 'diagram_data' in update_data:
+        background_tasks.add_task(run_infracost_background, project_id, current_user.id)
+        logger.info(f"Queued background Infracost for project {project_id}")
 
     return project
 

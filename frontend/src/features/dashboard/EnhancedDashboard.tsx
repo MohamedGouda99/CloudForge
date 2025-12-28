@@ -33,11 +33,11 @@ interface Project {
 }
 
 interface DashboardStats {
-  totalProjects: number;
-  activeInfrastructure: number;
-  monthlyCost: number;
-  teamMembers: number;
-  recentActivity: number;
+  total_projects: number;
+  total_resources: number;
+  total_cost: number;
+  currency: string;
+  team_members: number;
 }
 
 export default function EnhancedDashboard() {
@@ -54,19 +54,29 @@ export default function EnhancedDashboard() {
     projectId: null,
     projectName: '',
   });
-  
-  // Mock stats - in production, fetch from API
-  const [stats] = useState<DashboardStats>({
-    totalProjects: 0,
-    activeInfrastructure: 0,
-    monthlyCost: 0,
-    teamMembers: 1,
-    recentActivity: 0,
+
+  // Dashboard stats from API
+  const [stats, setStats] = useState<DashboardStats>({
+    total_projects: 0,
+    total_resources: 0,
+    total_cost: 0,
+    currency: 'USD',
+    team_members: 1,
   });
 
   useEffect(() => {
     loadProjects();
+    loadDashboardStats();
   }, []);
+
+  const loadDashboardStats = async () => {
+    try {
+      const response = await apiClient.get('/api/dashboard/stats');
+      setStats(response.data);
+    } catch (error) {
+      console.error('Failed to load dashboard stats:', error);
+    }
+  };
 
   const loadProjects = async () => {
     try {
@@ -231,6 +241,58 @@ export default function EnhancedDashboard() {
     }
   };
 
+  const handleExportData = async () => {
+    try {
+      // Fetch analytics data for comprehensive export
+      const analyticsResponse = await apiClient.get('/api/dashboard/analytics');
+      const analytics = analyticsResponse.data;
+
+      // Create CSV content
+      const headers = ['Project', 'Cloud Provider', 'Resources', 'Monthly Cost (USD)'];
+      const rows = analytics.projects.map((p: any) => [
+        p.name,
+        p.cloud_provider.toUpperCase(),
+        p.resource_count,
+        `$${p.monthly_cost}`,
+      ]);
+
+      const csvContent = [
+        '# CloudForge Dashboard Export',
+        `# Generated: ${new Date().toISOString()}`,
+        `# User: ${user?.username || 'Unknown'}`,
+        '',
+        '## Summary',
+        `Total Projects,${analytics.summary.total_projects}`,
+        `Total Resources,${analytics.summary.total_resources}`,
+        `Total Cost,$${analytics.summary.total_cost}`,
+        '',
+        '## Projects',
+        headers.join(','),
+        ...rows.map((r: any[]) => r.join(',')),
+        '',
+        '## Cost by Provider',
+        'Provider,Cost',
+        ...analytics.by_provider.map((p: any) => `${p.provider},$${p.cost}`),
+      ].join('\n');
+
+      // Download CSV
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `cloudforge-dashboard-export-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success('Export complete!', 'Dashboard data downloaded as CSV');
+    } catch (error) {
+      console.error('Failed to export data:', error);
+      toast.error('Failed to export data', 'Please try again');
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* Welcome Section */}
@@ -263,7 +325,7 @@ export default function EnhancedDashboard() {
         />
         <MetricsCard
           title="Active Resources"
-          value={stats.activeInfrastructure}
+          value={stats.total_resources}
           change={8}
           trend="up"
           icon={Cloud}
@@ -272,8 +334,8 @@ export default function EnhancedDashboard() {
           loading={loading}
         />
         <MetricsCard
-          title="Monthly Cost"
-          value={`$${stats.monthlyCost.toLocaleString()}`}
+          title="Total Cost"
+          value={`$${stats.total_cost.toLocaleString()}`}
           change={-5}
           trend="down"
           icon={DollarSign}
@@ -283,7 +345,7 @@ export default function EnhancedDashboard() {
         />
         <MetricsCard
           title="Team Members"
-          value={stats.teamMembers}
+          value={stats.team_members}
           change={2}
           trend="up"
           icon={Users}
@@ -312,7 +374,10 @@ export default function EnhancedDashboard() {
             </div>
           </button>
 
-          <button className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+          <button
+            onClick={() => navigate('/analytics')}
+            className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+          >
             <div className="bg-blue-600 p-2 rounded-lg">
               <BarChart3 className="w-5 h-5 text-white" />
             </div>
@@ -322,7 +387,10 @@ export default function EnhancedDashboard() {
             </div>
           </button>
 
-          <button className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+          <button
+            onClick={handleExportData}
+            className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+          >
             <div className="bg-purple-600 p-2 rounded-lg">
               <Download className="w-5 h-5 text-white" />
             </div>

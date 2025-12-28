@@ -23,6 +23,10 @@ import {
   Home,
   ChevronRight,
   Key,
+  Shield,
+  DollarSign,
+  ShieldCheck,
+  ShieldAlert,
 } from 'lucide-react';
 import { CloudProvider } from '../lib/resources';
 import CloudIcon from './CloudIcon';
@@ -310,6 +314,9 @@ export default function DesignerToolbar({
   onPlan,
   onApply,
   onDestroy,
+  onTfsec,
+  onTerrascan,
+  onInfracost,
   onOpenAssistant,
   onOpenSettings,
   sidebarOpen,
@@ -466,6 +473,27 @@ export default function DesignerToolbar({
                 onClick: onDestroy,
                 variant: 'danger',
                 loading: terraformLoading === 'destroy',
+              },
+            ]}
+          />
+          <ToolbarDropdown
+            icon={<Shield className="h-4 w-4" />}
+            label="Security & Cost"
+            items={[
+              {
+                icon: <ShieldCheck className="h-4 w-4" />,
+                label: 'Tfsec Scan',
+                onClick: onTfsec || (() => {}),
+              },
+              {
+                icon: <ShieldAlert className="h-4 w-4" />,
+                label: 'Terrascan',
+                onClick: onTerrascan || (() => {}),
+              },
+              {
+                icon: <DollarSign className="h-4 w-4" />,
+                label: 'Infracost',
+                onClick: onInfracost || (() => {}),
               },
             ]}
           />
