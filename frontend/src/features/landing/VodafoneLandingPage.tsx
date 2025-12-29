@@ -119,6 +119,134 @@ const TechGrid = () => (
   </div>
 );
 
+// Magic Cursor Effect - Mix Blend Mode Spotlight
+const TechCursor = () => {
+  const cursorRef = useRef<HTMLDivElement>(null);
+  const arrowRef = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
+  const [isHoveringText, setIsHoveringText] = useState(false);
+  const [isHoveringClickable, setIsHoveringClickable] = useState(false);
+  const mousePos = useRef({ x: 0, y: 0 });
+  const cursorPos = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+    let animationId: number;
+
+    const animate = () => {
+      // Smooth follow with easing
+      cursorPos.current.x += (mousePos.current.x - cursorPos.current.x) * 0.15;
+      cursorPos.current.y += (mousePos.current.y - cursorPos.current.y) * 0.15;
+
+      if (cursorRef.current) {
+        cursorRef.current.style.transform = `translate3d(${cursorPos.current.x}px, ${cursorPos.current.y}px, 0) translate(-50%, -50%)`;
+      }
+
+      // Arrow follows mouse directly (no lag)
+      if (arrowRef.current) {
+        arrowRef.current.style.transform = `translate3d(${mousePos.current.x}px, ${mousePos.current.y}px, 0)`;
+      }
+
+      animationId = requestAnimationFrame(animate);
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      mousePos.current = { x: e.clientX, y: e.clientY };
+      setIsVisible(true);
+
+      const target = e.target as HTMLElement;
+
+      // Check for clickable elements (buttons, links)
+      const clickable = target.closest('a, button, [role="button"], input[type="submit"]');
+      setIsHoveringClickable(!!clickable);
+
+      // Check for text elements (only if not clickable)
+      if (!clickable) {
+        const textElement = target.closest('h1, h2, h3, h4, p, span, [data-cursor]');
+        setIsHoveringText(!!textElement);
+      } else {
+        setIsHoveringText(false);
+      }
+    };
+
+    const handleMouseLeave = () => setIsVisible(false);
+    const handleMouseEnter = () => setIsVisible(true);
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseleave', handleMouseLeave);
+    document.addEventListener('mouseenter', handleMouseEnter);
+    animationId = requestAnimationFrame(animate);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseleave', handleMouseLeave);
+      document.removeEventListener('mouseenter', handleMouseEnter);
+      cancelAnimationFrame(animationId);
+    };
+  }, []);
+
+  // Custom teal hand pointer cursor as data URI
+  const simpleHandSvg = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#14b8a6" stroke="#0f766e" stroke-width="1" d="M12 1a2 2 0 0 0-2 2v6.5a.5.5 0 0 1-1 0V4a2 2 0 0 0-4 0v8a.5.5 0 0 1-.85.35l-1.29-1.29a2 2 0 0 0-2.83 2.83l4.24 4.24A8 8 0 0 0 20 14V7a2 2 0 0 0-4 0v2.5a.5.5 0 0 1-1 0V4a2 2 0 0 0-4 0v5.5a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2z"/></svg>`)}`;
+
+  // Show native pointer for clickable elements, hide default cursor otherwise
+  const cursorStyle = isHoveringClickable
+    ? `* { cursor: default !important; } a, button, [role="button"], input[type="submit"] { cursor: url('${simpleHandSvg}') 6 0, pointer !important; }`
+    : `* { cursor: none !important; }`;
+
+  return (
+    <>
+      <style>{cursorStyle}</style>
+
+      {/* Custom arrow pointer - hidden when hovering text or clickable */}
+      <div
+        ref={arrowRef}
+        className={`fixed top-0 left-0 pointer-events-none z-[10000] transition-opacity duration-200 ${
+          isVisible && !isHoveringText && !isHoveringClickable ? 'opacity-100' : 'opacity-0'
+        }`}
+        style={{ willChange: 'transform' }}
+      >
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87c.48 0 .72-.58.38-.92L5.86 2.86a.5.5 0 0 0-.36.35z"
+            fill="#14b8a6"
+            stroke="#0f766e"
+            strokeWidth="1"
+          />
+        </svg>
+      </div>
+
+      {/* Cursor circle with mix-blend-mode - hidden when hovering clickable */}
+      <div
+        ref={cursorRef}
+        className={`fixed top-0 left-0 pointer-events-none z-[9999] transition-opacity duration-200 ${
+          isVisible && !isHoveringClickable ? 'opacity-100' : 'opacity-0'
+        }`}
+        style={{
+          willChange: 'transform',
+          mixBlendMode: 'difference',
+        }}
+      >
+        {/* Main cursor circle */}
+        <div
+          className="rounded-full transition-all duration-300 ease-out"
+          style={{
+            width: isHoveringText ? '80px' : '12px',
+            height: isHoveringText ? '80px' : '12px',
+            backgroundColor: '#ffffff',
+            marginLeft: isHoveringText ? '-40px' : '-6px',
+            marginTop: isHoveringText ? '-40px' : '-6px',
+          }}
+        />
+      </div>
+    </>
+  );
+};
+
 // Fixed Typing animation component
 const TypingText = ({ text, delay = 0 }: { text: string; delay?: number }) => {
   const [displayText, setDisplayText] = useState('');
@@ -359,6 +487,63 @@ const IntegrationCard = ({ name, imgSrc, description, accentColor }: {
   );
 };
 
+// Christmas Snow Effect
+const SnowEffect = () => {
+  const [snowflakes] = useState(() =>
+    Array.from({ length: 60 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      size: Math.random() * 6 + 4,
+      duration: Math.random() * 10 + 8,
+      delay: Math.random() * 10,
+      opacity: Math.random() * 0.6 + 0.3,
+      sway: Math.random() * 30 + 10,
+    }))
+  );
+
+  return (
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-[100]">
+      {snowflakes.map((flake) => (
+        <div
+          key={flake.id}
+          className="absolute text-white"
+          style={{
+            left: `${flake.x}%`,
+            top: '-20px',
+            fontSize: `${flake.size}px`,
+            opacity: flake.opacity,
+            animation: `snowfall ${flake.duration}s linear infinite`,
+            animationDelay: `${flake.delay}s`,
+            filter: 'blur(0.5px)',
+            textShadow: '0 0 5px rgba(255,255,255,0.5)',
+            ['--sway' as any]: `${flake.sway}px`,
+          }}
+        >
+          ❄
+        </div>
+      ))}
+      <style>{`
+        @keyframes snowfall {
+          0% {
+            transform: translateY(-20px) translateX(0) rotate(0deg);
+            opacity: 0;
+          }
+          10% {
+            opacity: 1;
+          }
+          90% {
+            opacity: 1;
+          }
+          100% {
+            transform: translateY(100vh) translateX(var(--sway)) rotate(360deg);
+            opacity: 0;
+          }
+        }
+      `}</style>
+    </div>
+  );
+};
+
 // Floating tech icons
 const FloatingIcons = () => {
   const icons = [
@@ -439,6 +624,12 @@ export default function VodafoneLandingPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white overflow-x-hidden">
+      {/* Christmas Snow Effect */}
+      <SnowEffect />
+
+      {/* Technical Cursor */}
+      <TechCursor />
+
       {/* Navigation */}
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrollY > 50
