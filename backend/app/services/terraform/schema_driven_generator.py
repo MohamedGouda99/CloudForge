@@ -425,8 +425,16 @@ class SchemaDrivenGenerator:
         bool_fields = BOOL_TYPE_FIELDS.get(resource_type, set())
         block_fields = BLOCK_TYPE_FIELDS.get(resource_type, set())
 
+        # Fields to skip entirely (conflicts or deprecated)
+        # user_data_base64 conflicts with user_data - skip it, use user_data instead
+        SKIP_FIELDS = {'user_data_base64'}
+
         # Process all configured fields dynamically
         for field_name, field_value in config.items():
+            # Skip deprecated/conflicting fields
+            if field_name in SKIP_FIELDS:
+                continue
+
             # Skip internal fields
             if field_name in {'name', 'tags'}:
                 continue

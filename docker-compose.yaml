@@ -109,6 +109,7 @@ services:
     container_name: localstack
     environment:
       LOCALSTACK_AUTH_TOKEN: ls-lecoBUjA-2574-VejA-QAjE-JiPe3805f14a
+      PERSISTENCE: 1
     ports:
       - "4566:4566"
     volumes:

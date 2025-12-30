@@ -82,8 +82,13 @@ def build_terraform_env(
 
         # LocalStack/custom endpoint support
         if credentials.aws_endpoint_url:
-            env['AWS_ENDPOINT_URL'] = credentials.aws_endpoint_url
-            env['TF_VAR_aws_endpoint_url'] = credentials.aws_endpoint_url
+            # Translate localhost to Docker service name when running in container
+            endpoint_url = credentials.aws_endpoint_url
+            if 'localhost:4566' in endpoint_url or '127.0.0.1:4566' in endpoint_url:
+                endpoint_url = endpoint_url.replace('localhost:4566', 'localstack:4566')
+                endpoint_url = endpoint_url.replace('127.0.0.1:4566', 'localstack:4566')
+            env['AWS_ENDPOINT_URL'] = endpoint_url
+            env['TF_VAR_aws_endpoint_url'] = endpoint_url
             # Skip validations for LocalStack/custom endpoints
             env['AWS_SKIP_CREDENTIALS_VALIDATION'] = 'true'
             env['AWS_SKIP_METADATA_API_CHECK'] = 'true'
