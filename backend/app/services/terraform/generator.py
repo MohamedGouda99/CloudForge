@@ -434,7 +434,8 @@ class TerraformGenerator:
         lines = [f'resource "{resource_type}" "{resource_name}" {{']
 
         # Track which fields to skip (internal/handled separately)
-        skip_fields = {'name', 'tags', 'ingress', 'egress'}
+        # user_data_base64 conflicts with user_data in Terraform - skip it
+        skip_fields = {'name', 'tags', 'ingress', 'egress', 'user_data_base64'}
 
         # Process all config fields
         for field_name, field_value in raw_config.items():
