@@ -773,69 +773,13 @@ export default function DesignerPageFinal() {
 
   const addNode = useCallback(
     (resource: CloudResource) => {
-      const id = `${resource.type}_${Date.now()}`;
-
-      // Determine node type based on resource
-      // Resource nodes get high z-index (100) so they render on top of containers
-      let nodeType = 'default';
-      let nodeStyle: Record<string, unknown> | undefined = {
-        width: DEFAULT_RESOURCE_SIZE,
-        height: DEFAULT_RESOURCE_SIZE,
-        zIndex: 100,
+      // Generate random position for new node
+      const position = {
+        x: Math.random() * 400 + 100,
+        y: Math.random() * 400 + 100,
       };
-      let initialSize: number | { width: number; height: number } | undefined = DEFAULT_RESOURCE_SIZE;
 
-      // Check if resource is marked as a container
-      // Container nodes get lower z-index so resource nodes render on top
-      if (resource.isContainer) {
-        nodeType = 'container';
-        nodeStyle = { width: 480, height: 340, zIndex: 0 };
-        initialSize = { width: 480, height: 340 };
-      } else if (resource.type === 'aws_region' || resource.type === 'azure_resource_group' || resource.type === 'google_project') {
-        nodeType = 'region';
-        nodeStyle = { width: 560, height: 420, zIndex: 0 };
-        initialSize = { width: 560, height: 420 };
-      } else if (resource.type === 'aws_availability_zone') {
-        nodeType = 'availability_zone';
-        nodeStyle = { width: 420, height: 300, zIndex: 1 };
-        initialSize = { width: 420, height: 300 };
-      } else if (resource.type === 'aws_vpc' || resource.type === 'azurerm_virtual_network' || resource.type === 'google_compute_network') {
-        nodeType = 'vpc';
-        nodeStyle = { width: 480, height: 340, zIndex: 0 };
-        initialSize = { width: 480, height: 340 };
-      } else if (resource.type === 'aws_subnet' || resource.type === 'azurerm_subnet' || resource.type === 'google_compute_subnetwork') {
-        nodeType = 'subnet';
-        nodeStyle = { width: 360, height: 240, zIndex: 1 };
-        initialSize = { width: 360, height: 240 };
-      }
-
-      const newNode: Node = {
-        id,
-        type: nodeType,
-        position: {
-          x: Math.round((Math.random() * 400 + 100) / GRID_SIZE) * GRID_SIZE,
-          y: Math.round((Math.random() * 400 + 100) / GRID_SIZE) * GRID_SIZE,
-        },
-        data: {
-          label: resource.label,
-          resourceType: resource.type,
-          resourceLabel: resource.label,
-          config: {},
-          icon: resolveResourceIcon(resource.type, resource.icon),
-          category: resource.category,
-          resourceDescription: resource.description,
-          displayName: resource.label,
-          size: initialSize,
-          isContainer: resource.isContainer,
-          isDataSource: resource.isDataSource,
-        },
-        style: nodeStyle,
-        // For container nodes, allow them to be parents
-        ...(nodeType !== 'default' && {
-          extent: 'parent' as const,
-          expandParent: true,
-        }),
-      };
+      const newNode = createNode(resource, position, resolveResourceIcon);
 
       setNodes((nds) => [...nds, newNode]);
       setSelectedNode(newNode);
@@ -1711,7 +1655,7 @@ export default function DesignerPageFinal() {
 
       try {
         const resource = JSON.parse(resourceData) as CloudResource;
-        
+
         if (!reactFlowInstance.current) {
           addNode(resource);
           return;
@@ -1722,66 +1666,7 @@ export default function DesignerPageFinal() {
           y: event.clientY,
         });
 
-        const id = `${resource.type}_${Date.now()}`;
-
-        // Resource nodes get high z-index (100) so they render on top of containers
-        let nodeType = 'default';
-        let nodeStyle: Record<string, unknown> | undefined = {
-          width: DEFAULT_RESOURCE_SIZE,
-          height: DEFAULT_RESOURCE_SIZE,
-          zIndex: 100,
-        };
-        let initialSize: number | { width: number; height: number } | undefined = DEFAULT_RESOURCE_SIZE;
-
-        // Container nodes get lower z-index so resource nodes render on top
-        if (resource.isContainer) {
-          nodeType = 'container';
-          nodeStyle = { width: 480, height: 340, zIndex: 0 };
-          initialSize = { width: 480, height: 340 };
-        } else if (resource.type === 'aws_region' || resource.type === 'azure_resource_group' || resource.type === 'google_project') {
-          nodeType = 'region';
-          nodeStyle = { width: 560, height: 420, zIndex: 0 };
-          initialSize = { width: 560, height: 420 };
-        } else if (resource.type === 'aws_availability_zone') {
-          nodeType = 'availability_zone';
-          nodeStyle = { width: 420, height: 300, zIndex: 1 };
-          initialSize = { width: 420, height: 300 };
-        } else if (resource.type === 'aws_vpc' || resource.type === 'azurerm_virtual_network' || resource.type === 'google_compute_network') {
-          nodeType = 'vpc';
-          nodeStyle = { width: 480, height: 340, zIndex: 0 };
-          initialSize = { width: 480, height: 340 };
-        } else if (resource.type === 'aws_subnet' || resource.type === 'azurerm_subnet' || resource.type === 'google_compute_subnetwork') {
-          nodeType = 'subnet';
-          nodeStyle = { width: 360, height: 240, zIndex: 1 };
-          initialSize = { width: 360, height: 240 };
-        }
-
-        const newNode: Node = {
-          id,
-          type: nodeType,
-          position: {
-            x: Math.round(position.x / GRID_SIZE) * GRID_SIZE,
-            y: Math.round(position.y / GRID_SIZE) * GRID_SIZE,
-          },
-          data: {
-            label: resource.label,
-            resourceType: resource.type,
-            resourceLabel: resource.label,
-            config: {},
-            icon: resolveResourceIcon(resource.type, resource.icon),
-            category: resource.category,
-            resourceDescription: resource.description,
-            displayName: resource.label,
-            size: initialSize,
-            isContainer: resource.isContainer,
-            isDataSource: resource.isDataSource,
-          },
-          style: nodeStyle,
-          ...(nodeType !== 'default' && {
-            extent: 'parent' as const,
-            expandParent: true,
-          }),
-        };
+        const newNode = createNode(resource, position, resolveResourceIcon);
 
         setNodes((nds) => [...nds, newNode]);
         setSelectedNode(newNode);
@@ -1790,7 +1675,7 @@ export default function DesignerPageFinal() {
         console.error('Failed to parse dropped resource:', err);
       }
     },
-    [setNodes]
+    [setNodes, addNode]
   );
 
   const handleUpdateNode = useCallback(
