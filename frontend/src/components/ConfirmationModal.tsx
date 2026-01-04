@@ -63,6 +63,10 @@ export default function ConfirmationModal({
     if (isOpen) {
       setIsVisible(true);
       setIsAnimatingOut(false);
+    } else if (isVisible) {
+      // When isOpen becomes false, close the modal immediately
+      setIsVisible(false);
+      setIsAnimatingOut(false);
     }
   }, [isOpen]);
 

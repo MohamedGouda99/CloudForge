@@ -6,16 +6,21 @@ import {
   Trash2,
   Copy,
   Lock,
+  Unlock,
   Edit3,
   FileCode,
   GitBranch,
   EyeOff,
+  Eye,
   ChevronRight,
+  Check,
 } from 'lucide-react';
 
 interface ContextMenuProps {
   x: number;
   y: number;
+  isLocked?: boolean;
+  isOmitted?: boolean;
   onClose: () => void;
   onCloudConfig: () => void;
   onSwitchToData: () => void;
@@ -33,6 +38,8 @@ interface ContextMenuProps {
 export default function ResourceContextMenu({
   x,
   y,
+  isLocked = false,
+  isOmitted = false,
   onClose,
   onCloudConfig,
   onSwitchToData,
@@ -115,12 +122,13 @@ export default function ResourceContextMenu({
       },
     },
     {
-      icon: Lock,
-      label: 'Lock',
+      icon: isLocked ? Unlock : Lock,
+      label: isLocked ? 'Unlock' : 'Lock',
       onClick: () => {
         onLock();
         onClose();
       },
+      checked: isLocked,
     },
     { divider: true },
     {
@@ -158,12 +166,13 @@ export default function ResourceContextMenu({
       },
     },
     {
-      icon: EyeOff,
-      label: 'Omit from code',
+      icon: isOmitted ? Eye : EyeOff,
+      label: isOmitted ? 'Include in code' : 'Omit from code',
       onClick: () => {
         onOmitFromCode();
         onClose();
       },
+      checked: isOmitted,
     },
   ];
 
@@ -194,11 +203,14 @@ export default function ResourceContextMenu({
                 ? 'text-gray-400 cursor-not-allowed'
                 : item.danger
                 ? 'text-red-600 hover:bg-red-50'
+                : item.checked
+                ? 'text-blue-600 hover:bg-blue-50'
                 : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
             <Icon className="w-4 h-4 flex-shrink-0" />
             <span className="flex-1 text-left">{item.label}</span>
+            {item.checked && <Check className="w-4 h-4 text-blue-600" />}
             {item.hasSubmenu && <ChevronRight className="w-3 h-3 text-gray-400" />}
           </button>
         );

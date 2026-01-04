@@ -47,7 +47,7 @@ class Settings(BaseSettings):
 
     INFRACOST_API_KEY: str = ""
 
-    GEMINI_API_KEY: str = ""
+    # AI Assistant (Claude)
     ANTHROPIC_API_KEY: str = ""
 
     GIT_DEFAULT_BRANCH: str = "main"

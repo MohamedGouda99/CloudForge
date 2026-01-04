@@ -5,7 +5,6 @@ import { useThemeStore } from '../lib/store/themeStore';
 import {
   LayoutDashboard,
   Boxes,
-  Bot,
   Settings,
   LogOut,
   Menu,
@@ -21,7 +20,6 @@ import {
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Projects', href: '/projects', icon: Boxes },
-  { name: 'AI Assistant', href: '/assistant', icon: Bot },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 

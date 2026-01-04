@@ -34,13 +34,15 @@ import DeploymentLogsModal from '../../components/DeploymentLogsModal';
 import PlanPreviewModal from '../../components/PlanPreviewModal';
 import ExportModal from '../../components/ExportModal';
 import DesignerWithCodeView from '../../components/DesignerWithCodeView';
-import AssistantChatPanel from '../../components/AssistantChatPanel';
 import TerraformLogsPanel from '../../components/TerraformLogsPanel';
 import InfracostReportPanel from './InfracostReportPanel';
 import ResourcePalette from '../../components/ResourcePalette';
 import DesignerToolbar from '../../components/DesignerToolbar';
 import InspectorPanel from '../../components/InspectorPanel';
 import ResourceContextMenu from '../../components/ResourceContextMenu';
+import ConfirmationModal from '../../components/ConfirmationModal';
+import InputModal from '../../components/InputModal';
+import { createNode, getNodeTypeConfig, NODE_CONFIG } from '../../lib/nodeFactory';
 
 interface Project {
   id: number;
@@ -181,10 +183,10 @@ export default function DesignerPageFinal() {
   const planEventSourceRef = useRef<EventSource | null>(null);
   const deployEventSourceRef = useRef<EventSource | null>(null);
   const [exportModalOpen, setExportModalOpen] = useState(false);
-  const [deployMode, setDeployMode] = useState<'deploy' | 'destroy'>('deploy');
+  const [deployMode, setDeployMode] = useState<'plan' | 'validate' | 'apply' | 'destroy'>('apply');
   const [terraformAction, setTerraformAction] = useState<'download' | 'plan' | 'apply' | 'destroy' | 'validate' | 'tfsec' | 'terrascan' | 'infracost' | null>(null);
   const [showCodePanel, setShowCodePanel] = useState(false);
-  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [inspectorTab, setInspectorTab] = useState<'resources' | 'code' | 'issues' | 'deploy' | 'ai'>('resources');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Terraform logs panel state
@@ -211,18 +213,82 @@ export default function DesignerPageFinal() {
   } | null>(null);
   const [configPanelOpen, setConfigPanelOpen] = useState(false);
 
+  // Edit title modal state
+  const [editTitleModal, setEditTitleModal] = useState<{
+    isOpen: boolean;
+    nodeId: string;
+    currentTitle: string;
+  }>({ isOpen: false, nodeId: '', currentTitle: '' });
+
   // Right panel state (resizable and collapsible)
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
   const [rightPanelWidth, setRightPanelWidth] = useState(360);
 
   // Credentials state
   const [credentials, setCredentials] = useState<any>(null);
+
+  // Confirmation modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText: string;
+    actionType: 'apply' | 'destroy' | 'warning';
+    onConfirm: () => void;
+    isLoading?: boolean;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    actionType: 'warning',
+    onConfirm: () => {},
+    isLoading: false,
+  });
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasInitialLoadRef = useRef(false);
   const isSavingRef = useRef(false);
   const lastSavedDataRef = useRef<string | null>(null);
+  const deployHistoryLoadedRef = useRef(false);
 
   const provider = (project?.cloud_provider as CloudProvider) || 'aws';
+
+  // Load deployment history from localStorage on mount
+  useEffect(() => {
+    if (!projectId || deployHistoryLoadedRef.current) return;
+
+    try {
+      const stored = localStorage.getItem(`deploy_history_${projectId}`);
+      if (stored) {
+        const history = JSON.parse(stored);
+        if (history.status && history.status !== 'running') {
+          setDeployStatus(history.status);
+          setDeployMode(history.mode === 'deploy' ? 'apply' : (history.mode || 'apply'));
+          setDeployLogs(history.logs || []);
+        }
+      }
+      deployHistoryLoadedRef.current = true;
+    } catch (e) {
+      console.error('Failed to load deployment history:', e);
+    }
+  }, [projectId]);
+
+  // Save deployment history to localStorage when it changes
+  useEffect(() => {
+    if (!projectId || deployStatus === 'idle' || deployStatus === 'running') return;
+
+    try {
+      const history = {
+        status: deployStatus,
+        mode: deployMode,
+        logs: deployLogs.slice(-50), // Keep last 50 lines
+        timestamp: new Date().toISOString(),
+      };
+      localStorage.setItem(`deploy_history_${projectId}`, JSON.stringify(history));
+    } catch (e) {
+      console.error('Failed to save deployment history:', e);
+    }
+  }, [projectId, deployStatus, deployMode, deployLogs]);
 
   // Helper function to get region config from credentials for Terraform generation
   const getRegionConfig = useCallback(() => {
@@ -358,26 +424,20 @@ export default function DesignerPageFinal() {
 
   const startPlanStream = useCallback(() => {
     if (!projectId || !project) {
-      appendTerraformLogs('[ERROR] Missing project context for terraform plan.');
-      setPlanPreviewStatus('error');
-      setPlanPreviewError('Missing project context. Please refresh and try again.');
-      setLogsPanelStatus('error');
+      appendDeployLogs('[ERROR] Missing project context for terraform plan.');
+      setDeployStatus('error');
       return;
     }
 
     if (!credentials) {
-      appendTerraformLogs('[ERROR] Cloud credentials are required to run terraform plan.');
-      setPlanPreviewStatus('error');
-      setPlanPreviewError('Cloud credentials are required to run terraform plan.');
-      setLogsPanelStatus('error');
+      appendDeployLogs('[ERROR] Cloud credentials are required to run terraform plan.');
+      setDeployStatus('error');
       return;
     }
 
     if (!token) {
-      appendTerraformLogs('[ERROR] Authentication token missing for terraform plan.');
-      setPlanPreviewStatus('error');
-      setPlanPreviewError('Authentication token missing. Please sign in again.');
-      setLogsPanelStatus('error');
+      appendDeployLogs('[ERROR] Authentication token missing for terraform plan.');
+      setDeployStatus('error');
       return;
     }
 
@@ -388,10 +448,8 @@ export default function DesignerPageFinal() {
     const credsQuery = buildCredentialsQuery(project.cloud_provider as CloudProvider, credentials);
     console.log('[DEBUG] startPlanStream - credsQuery:', credsQuery);
     if (!credsQuery) {
-      appendTerraformLogs('[ERROR] Credentials are incomplete for the selected provider.');
-      setPlanPreviewStatus('error');
-      setPlanPreviewError('Incomplete credentials for the selected provider.');
-      setLogsPanelStatus('error');
+      appendDeployLogs('[ERROR] Credentials are incomplete for the selected provider.');
+      setDeployStatus('error');
       return;
     }
 
@@ -420,34 +478,30 @@ export default function DesignerPageFinal() {
         const isSuccess = statusPart.includes('success');
         const hasChangesFlag = changePart.split('=').pop() === 'true';
 
-        setPlanPreviewHasChanges(isSuccess ? hasChangesFlag : null);
-        setPlanPreviewStatus(isSuccess ? 'success' : 'error');
-        setPlanPreviewError(isSuccess ? '' : 'Terraform plan failed. Review the logs for details.');
-        setLogsPanelStatus(isSuccess ? 'success' : 'error');
+        // Update deploy status based on plan result
+        setDeployStatus(isSuccess ? 'success' : 'error');
 
-        appendTerraformLogs(
+        appendDeployLogs(
           isSuccess
             ? hasChangesFlag
-              ? '[OK] Terraform plan completed with changes.'
-              : '[OK] Terraform plan completed. No changes detected.'
-            : '[ERROR] Terraform plan failed.',
-          { includePreview: false }
+              ? '\n✓ Terraform plan completed with changes.'
+              : '\n✓ Terraform plan completed. No changes detected.'
+            : '\n✗ Terraform plan failed.'
         );
         return;
       }
 
-      appendTerraformLogs(data);
+      // Append plan output to deploy logs
+      appendDeployLogs(data);
     };
 
     eventSource.onerror = (error) => {
       console.error('Terraform plan stream error:', error);
-      appendTerraformLogs('[ERROR] Connection to terraform plan stream lost.');
-      setPlanPreviewStatus('error');
-      setPlanPreviewError('Connection lost while streaming terraform plan.');
-      setLogsPanelStatus('error');
+      appendDeployLogs('[ERROR] Connection to terraform plan stream lost.');
+      setDeployStatus('error');
       stopPlanStream();
     };
-  }, [appendTerraformLogs, credentials, project, projectId, setLogsPanelStatus, stopPlanStream, token]);
+  }, [appendDeployLogs, credentials, project, projectId, stopPlanStream, token]);
 
   const startDeployStream = useCallback(
     (mode: 'deploy' | 'destroy') => {
@@ -488,14 +542,8 @@ export default function DesignerPageFinal() {
 
       const eventSource = new EventSource(url);
       deployEventSourceRef.current = eventSource;
-      setLogsPanelOpen(true);
-      setLogsPanelOperation(mode === 'deploy' ? 'apply' : 'destroy');
-      setLogsPanelStatus('running');
-      setTerraformLogs([]);
-      appendTerraformLogs(
-        mode === 'deploy' ? '> Streaming terraform apply output...' : '> Streaming terraform destroy output...',
-        { includePreview: false }
-      );
+      // Deploy logs are now shown only in Deploy tab of Inspector panel
+      // No need to open TerraformLogsPanel for apply/destroy
 
       let encounteredError = false;
 
@@ -509,16 +557,15 @@ export default function DesignerPageFinal() {
           stopDeployStream();
           const finalStatus = encounteredError ? 'error' : 'success';
           setDeployStatus(finalStatus);
-          setLogsPanelStatus(finalStatus === 'error' ? 'error' : 'success');
-          appendTerraformLogs(
+          // Add completion message to deploy logs for Deploy tab
+          appendDeployLogs(
             finalStatus === 'error'
               ? mode === 'deploy'
                 ? '[ERROR] Terraform apply failed.'
                 : '[ERROR] Terraform destroy failed.'
               : mode === 'deploy'
                 ? '[OK] Terraform apply completed.'
-                : '[OK] Terraform destroy completed.',
-            { includePreview: false }
+                : '[OK] Terraform destroy completed.'
           );
           return;
         }
@@ -526,30 +573,25 @@ export default function DesignerPageFinal() {
         if (data.startsWith('ERROR:')) {
           encounteredError = true;
           setDeployStatus('error');
-          setLogsPanelStatus('error');
         }
 
+        // Stream logs to Deploy tab only
         appendDeployLogs(data);
-        appendTerraformLogs(data, { includePreview: false });
       };
 
       eventSource.onerror = (error) => {
         console.error('Terraform deploy stream error:', error);
         appendDeployLogs('[ERROR] Connection to terraform deploy stream lost.');
-        appendTerraformLogs('[ERROR] Connection to terraform deploy stream lost.', { includePreview: false });
         encounteredError = true;
         setDeployStatus('error');
-        setLogsPanelStatus('error');
         stopDeployStream();
       };
     },
     [
       appendDeployLogs,
-      appendTerraformLogs,
       credentials,
       project,
       projectId,
-      setLogsPanelOpen,
       stopDeployStream,
       token,
     ]
@@ -734,29 +776,36 @@ export default function DesignerPageFinal() {
       const id = `${resource.type}_${Date.now()}`;
 
       // Determine node type based on resource
+      // Resource nodes get high z-index (100) so they render on top of containers
       let nodeType = 'default';
       let nodeStyle: Record<string, unknown> | undefined = {
         width: DEFAULT_RESOURCE_SIZE,
         height: DEFAULT_RESOURCE_SIZE,
+        zIndex: 100,
       };
       let initialSize: number | { width: number; height: number } | undefined = DEFAULT_RESOURCE_SIZE;
 
       // Check if resource is marked as a container
+      // Container nodes get lower z-index so resource nodes render on top
       if (resource.isContainer) {
         nodeType = 'container';
-        nodeStyle = { width: 480, height: 340 };
+        nodeStyle = { width: 480, height: 340, zIndex: 0 };
         initialSize = { width: 480, height: 340 };
       } else if (resource.type === 'aws_region' || resource.type === 'azure_resource_group' || resource.type === 'google_project') {
         nodeType = 'region';
-        nodeStyle = { width: 560, height: 420 };
+        nodeStyle = { width: 560, height: 420, zIndex: 0 };
         initialSize = { width: 560, height: 420 };
+      } else if (resource.type === 'aws_availability_zone') {
+        nodeType = 'availability_zone';
+        nodeStyle = { width: 420, height: 300, zIndex: 1 };
+        initialSize = { width: 420, height: 300 };
       } else if (resource.type === 'aws_vpc' || resource.type === 'azurerm_virtual_network' || resource.type === 'google_compute_network') {
         nodeType = 'vpc';
-        nodeStyle = { width: 480, height: 340 };
+        nodeStyle = { width: 480, height: 340, zIndex: 0 };
         initialSize = { width: 480, height: 340 };
       } else if (resource.type === 'aws_subnet' || resource.type === 'azurerm_subnet' || resource.type === 'google_compute_subnetwork') {
         nodeType = 'subnet';
-        nodeStyle = { width: 360, height: 240 };
+        nodeStyle = { width: 360, height: 240, zIndex: 1 };
         initialSize = { width: 360, height: 240 };
       }
 
@@ -818,10 +867,14 @@ export default function DesignerPageFinal() {
 
   // Context menu action handlers
   const handleContextMenuCloudConfig = useCallback(() => {
-    if (selectedNode) {
-      setConfigPanelOpen(true);
+    if (contextMenu) {
+      const node = nodes.find((n) => n.id === contextMenu.nodeId);
+      if (node) {
+        setSelectedNode(node);
+        setConfigPanelOpen(true);
+      }
     }
-  }, [selectedNode]);
+  }, [contextMenu, nodes]);
 
   const handleContextMenuDelete = useCallback(() => {
     if (contextMenu) {
@@ -880,6 +933,84 @@ export default function DesignerPageFinal() {
       }, 3000);
     }
   }, [contextMenu, edges, setEdges]);
+
+  const handleContextMenuLock = useCallback(() => {
+    if (contextMenu) {
+      setNodes((nds) =>
+        nds.map((n) => {
+          if (n.id === contextMenu.nodeId) {
+            const isCurrentlyLocked = (n.data as any).isLocked || false;
+            return {
+              ...n,
+              draggable: isCurrentlyLocked, // Toggle draggable (opposite of locked)
+              data: {
+                ...n.data,
+                isLocked: !isCurrentlyLocked,
+              },
+            };
+          }
+          return n;
+        })
+      );
+    }
+  }, [contextMenu, setNodes]);
+
+  const handleContextMenuEditTitle = useCallback(() => {
+    if (contextMenu) {
+      const node = nodes.find((n) => n.id === contextMenu.nodeId);
+      if (node) {
+        const currentTitle = (node.data as any).displayName || (node.data as any).resourceLabel || '';
+        setEditTitleModal({
+          isOpen: true,
+          nodeId: contextMenu.nodeId,
+          currentTitle,
+        });
+      }
+    }
+  }, [contextMenu, nodes]);
+
+  const handleEditTitleConfirm = useCallback((newTitle: string) => {
+    if (editTitleModal.nodeId) {
+      setNodes((nds) =>
+        nds.map((n) => {
+          if (n.id === editTitleModal.nodeId) {
+            return {
+              ...n,
+              data: {
+                ...n.data,
+                displayName: newTitle,
+              },
+            };
+          }
+          return n;
+        })
+      );
+    }
+  }, [editTitleModal.nodeId, setNodes]);
+
+  const handleContextMenuOmitFromCode = useCallback(() => {
+    if (contextMenu) {
+      setNodes((nds) =>
+        nds.map((n) => {
+          if (n.id === contextMenu.nodeId) {
+            const isCurrentlyOmitted = (n.data as any).omitFromCode || false;
+            return {
+              ...n,
+              data: {
+                ...n.data,
+                omitFromCode: !isCurrentlyOmitted,
+              },
+              style: {
+                ...n.style,
+                opacity: isCurrentlyOmitted ? 1 : 0.5, // Dim if omitted
+              },
+            };
+          }
+          return n;
+        })
+      );
+    }
+  }, [contextMenu, setNodes]);
 
   // Handle node drag to support nesting + snap to grid on release
   const onNodeDragStop: NodeDragHandler = useCallback(
@@ -1224,22 +1355,16 @@ export default function DesignerPageFinal() {
 
     try {
       setTerraformAction('plan');
-      setPlanPreviewModalOpen(true);
-      setPlanPreviewStatus('running');
-      setPlanPreviewHasChanges(null);
-      setPlanPreviewError('');
-      setPlanPreviewContent('');
 
-      setLogsPanelOpen(true);
-      setLogsPanelOperation('plan');
-      setLogsPanelStatus('running');
-      setTerraformLogs([]);
+      // Switch to Deploy tab and show logs instead of modal
+      setDeployMode('plan');
+      setDeployLogs(['Starting terraform plan...', '']);
+      setDeployStatus('running');
+      setInspectorTab('deploy');
+      setRightPanelCollapsed(false);
 
-      appendTerraformLogs('> Saving project state...', { includePreview: false });
       await saveProject({ silent: true });
-      appendTerraformLogs('[OK] Project saved.', { includePreview: false });
-      appendTerraformLogs('> Generating Terraform files...', { includePreview: false });
-      setPlanPreviewContent('Starting terraform plan...\n');
+      setDeployLogs(prev => [...prev, '✓ Project saved', '']);
 
       // DEBUG: Log what region config is being sent for terraform generation
       const regionConfigForGenerate = getRegionConfig();
@@ -1252,18 +1377,14 @@ export default function DesignerPageFinal() {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      appendTerraformLogs('[OK] Terraform files generated.', { includePreview: false });
-      appendTerraformLogs('> Streaming terraform plan output...', { includePreview: false });
+      setDeployLogs(prev => [...prev, '✓ Terraform code generated', '', '=== Running terraform plan ===', '']);
 
       startPlanStream();
     } catch (error: any) {
       console.error('Failed to prepare plan preview:', error);
       const detail = error.response?.data?.detail || error.message || 'Unknown error';
-      setPlanPreviewStatus('error');
-      setPlanPreviewError(`Failed to prepare Terraform plan: ${detail}`);
-      setLogsPanelStatus('error');
-      appendTerraformLogs(`[ERROR] Failed to prepare Terraform plan: ${detail}`);
-      alert('Failed to prepare Terraform plan: ' + detail);
+      setDeployStatus('error');
+      setDeployLogs(prev => [...prev, '', '✗ Failed to prepare Terraform plan:', detail]);
     } finally {
       setTerraformAction(null);
     }
@@ -1274,20 +1395,7 @@ export default function DesignerPageFinal() {
     setPlanPreviewModalOpen(false);
   }, [stopPlanStream]);
 
-  const applyInfrastructure = async (options?: { skipConfirm?: boolean; skipSave?: boolean; skipGenerate?: boolean }) => {
-    if (!credentials) {
-      alert('Please configure cloud credentials first!');
-      setCredentialsModalOpen(true);
-      return;
-    }
-
-    if (!options?.skipConfirm) {
-      const confirmed = window.confirm(
-        'Apply Terraform changes? This will create or modify real resources in your cloud account.'
-      );
-      if (!confirmed) return;
-    }
-
+  const executeApply = async (options?: { skipSave?: boolean; skipGenerate?: boolean }) => {
     try {
       setTerraformAction('apply');
       if (!options?.skipSave) {
@@ -1303,10 +1411,10 @@ export default function DesignerPageFinal() {
         );
       }
 
-      setDeployMode('deploy');
+      setDeployMode('apply');
       setDeployLogs([]);
       setDeployStatus('running');
-      setDeployLogsModalOpen(true);
+      // Logs now shown only in Deploy tab of Inspector panel
       startDeployStream('deploy');
     } catch (error: any) {
       console.error('Failed to start Terraform apply:', error);
@@ -1316,19 +1424,33 @@ export default function DesignerPageFinal() {
     }
   };
 
-  const destroyInfrastructure = async () => {
+  const applyInfrastructure = async (options?: { skipConfirm?: boolean; skipSave?: boolean; skipGenerate?: boolean }) => {
     if (!credentials) {
       alert('Please configure cloud credentials first!');
       setCredentialsModalOpen(true);
       return;
     }
 
-    const confirmed = window.confirm(
-      'Destroy Terraform-managed infrastructure? This will delete the resources that were previously created.'
-    );
+    if (!options?.skipConfirm) {
+      setConfirmModal({
+        isOpen: true,
+        title: 'Apply Infrastructure',
+        message: 'This will create or modify real resources in your cloud account. Are you sure you want to proceed?',
+        confirmText: 'Apply',
+        actionType: 'apply',
+        onConfirm: () => {
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+          executeApply({ skipSave: options?.skipSave, skipGenerate: options?.skipGenerate });
+        },
+        isLoading: false,
+      });
+      return;
+    }
 
-    if (!confirmed) return;
+    await executeApply({ skipSave: options?.skipSave, skipGenerate: options?.skipGenerate });
+  };
 
+  const executeDestroy = async () => {
     try {
       setTerraformAction('destroy');
       await saveProject({ silent: true });
@@ -1342,7 +1464,7 @@ export default function DesignerPageFinal() {
       setDeployMode('destroy');
       setDeployLogs([]);
       setDeployStatus('running');
-      setDeployLogsModalOpen(true);
+      // Logs now shown only in Deploy tab of Inspector panel
       startDeployStream('destroy');
     } catch (error: any) {
       console.error('Failed to start Terraform destroy:', error);
@@ -1352,23 +1474,42 @@ export default function DesignerPageFinal() {
     }
   };
 
+  const destroyInfrastructure = async () => {
+    if (!credentials) {
+      alert('Please configure cloud credentials first!');
+      setCredentialsModalOpen(true);
+      return;
+    }
+
+    setConfirmModal({
+      isOpen: true,
+      title: 'Destroy Infrastructure',
+      message: 'This will permanently delete all Terraform-managed resources. This action cannot be undone. Are you sure?',
+      confirmText: 'Destroy',
+      actionType: 'destroy',
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        executeDestroy();
+      },
+      isLoading: false,
+    });
+  };
+
   const validateTerraform = async () => {
     try {
       setTerraformAction('validate');
 
-      // Open logs panel and set to running state
-      setLogsPanelOpen(true);
-      setLogsPanelOperation('validate');
-      setLogsPanelStatus('running');
-      setTerraformLogs([]);
+      // Switch to Deploy tab and show logs
+      setDeployMode('validate');
+      setDeployLogs(['Starting terraform validate...', '']);
+      setDeployStatus('running');
+      setInspectorTab('deploy');
+      setRightPanelCollapsed(false);
 
-      // Add initial log
-      setTerraformLogs(prev => [...prev, '> Starting Terraform validation...', '']);
-
+      // Save and generate first
       await saveProject({ silent: true });
-      setTerraformLogs(prev => [...prev, '✓ Project saved', '']);
+      setDeployLogs(prev => [...prev, '✓ Project saved', '']);
 
-      setTerraformLogs(prev => [...prev, '> Generating Terraform files...']);
       await apiClient.post(
         `/api/terraform/generate/${projectId}`,
         getRegionConfig(),
@@ -1376,11 +1517,9 @@ export default function DesignerPageFinal() {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      setTerraformLogs(prev => [...prev, '✓ Terraform files generated', '']);
+      setDeployLogs(prev => [...prev, '✓ Terraform code generated', '', 'Running terraform validate...', '']);
 
-      setTerraformLogs(prev => [...prev, '> Running terraform init...']);
-      setTerraformLogs(prev => [...prev, '> Running terraform validate...']);
-
+      // Run validation
       const response = await apiClient.post(
         `/api/terraform/validate/${projectId}`,
         {},
@@ -1389,24 +1528,21 @@ export default function DesignerPageFinal() {
         }
       );
 
-      // Add validation output to logs
+      // Show result in Deploy tab
       if (response.data.success && response.data.valid) {
-        setLogsPanelStatus('success');
-        setTerraformLogs(prev => [...prev, '', '✓ Validation completed successfully!']);
+        setDeployStatus('success');
+        setDeployLogs(prev => [...prev, '', '✓ Terraform validation successful!', 'Your configuration is valid.']);
       } else {
-        setLogsPanelStatus('error');
-        setTerraformLogs(prev => [...prev, '', '✗ Validation failed']);
+        setDeployStatus('error');
+        const errorOutput = response.data.error || response.data.output || 'Validation failed';
+        setDeployLogs(prev => [...prev, '', '✗ Terraform validation failed', '', errorOutput]);
       }
     } catch (error: any) {
       console.error('Terraform validation failed:', error);
-      setLogsPanelStatus('error');
-      setTerraformLogs(prev => [...prev, '', '✗ Error: ' + (error.response?.data?.detail || error.message)]);
-
-      if (error.response?.data?.error) {
-        setTerraformLogs(prev => [...prev, '', error.response.data.error]);
-      }
-
-      alert('Terraform validation failed: ' + (error.response?.data?.detail || error.message));
+      const errorMessage = error.response?.data?.detail || error.message;
+      const errorDetails = error.response?.data?.error || '';
+      setDeployStatus('error');
+      setDeployLogs(prev => [...prev, '', '✗ Terraform validation failed:', errorMessage, errorDetails].filter(Boolean));
     } finally {
       setTerraformAction(null);
     }
@@ -1587,29 +1723,36 @@ export default function DesignerPageFinal() {
         });
 
         const id = `${resource.type}_${Date.now()}`;
-        
+
+        // Resource nodes get high z-index (100) so they render on top of containers
         let nodeType = 'default';
         let nodeStyle: Record<string, unknown> | undefined = {
           width: DEFAULT_RESOURCE_SIZE,
           height: DEFAULT_RESOURCE_SIZE,
+          zIndex: 100,
         };
         let initialSize: number | { width: number; height: number } | undefined = DEFAULT_RESOURCE_SIZE;
 
+        // Container nodes get lower z-index so resource nodes render on top
         if (resource.isContainer) {
           nodeType = 'container';
-          nodeStyle = { width: 480, height: 340 };
+          nodeStyle = { width: 480, height: 340, zIndex: 0 };
           initialSize = { width: 480, height: 340 };
         } else if (resource.type === 'aws_region' || resource.type === 'azure_resource_group' || resource.type === 'google_project') {
           nodeType = 'region';
-          nodeStyle = { width: 560, height: 420 };
+          nodeStyle = { width: 560, height: 420, zIndex: 0 };
           initialSize = { width: 560, height: 420 };
+        } else if (resource.type === 'aws_availability_zone') {
+          nodeType = 'availability_zone';
+          nodeStyle = { width: 420, height: 300, zIndex: 1 };
+          initialSize = { width: 420, height: 300 };
         } else if (resource.type === 'aws_vpc' || resource.type === 'azurerm_virtual_network' || resource.type === 'google_compute_network') {
           nodeType = 'vpc';
-          nodeStyle = { width: 480, height: 340 };
+          nodeStyle = { width: 480, height: 340, zIndex: 0 };
           initialSize = { width: 480, height: 340 };
         } else if (resource.type === 'aws_subnet' || resource.type === 'azurerm_subnet' || resource.type === 'google_compute_subnetwork') {
           nodeType = 'subnet';
-          nodeStyle = { width: 360, height: 240 };
+          nodeStyle = { width: 360, height: 240, zIndex: 1 };
           initialSize = { width: 360, height: 240 };
         }
 
@@ -1869,14 +2012,17 @@ export default function DesignerPageFinal() {
         hasCredentials={!!credentials}
         showCode={showCodePanel}
         showMinimap={showMinimap}
-        showAssistant={assistantOpen}
+        showAssistant={inspectorTab === 'ai'}
         terraformAction={terraformAction}
         zoom={zoom}
         onSave={() => saveProject()}
         onCredentials={() => setCredentialsModalOpen(true)}
         onToggleCode={() => setShowCodePanel((prev) => !prev)}
         onToggleMinimap={() => setShowMinimap((prev) => !prev)}
-        onToggleAssistant={() => setAssistantOpen((prev) => !prev)}
+        onOpenAssistant={() => {
+          setInspectorTab('ai');
+          setRightPanelCollapsed(false);
+        }}
         onValidate={validateTerraform}
         onPlan={showPlanPreview}
         onApply={() => applyInfrastructure()}
@@ -2003,36 +2149,64 @@ export default function DesignerPageFinal() {
             onToggleCollapse={() => setRightPanelCollapsed(!rightPanelCollapsed)}
             panelWidth={rightPanelWidth}
             onWidthChange={setRightPanelWidth}
-          />
+            deployStatus={deployStatus}
+            deployMode={deployMode}
+            deployLogs={deployLogs}
+            provider={project.cloud_provider}
+            edges={edges}
+            onImportResources={(resources, connections) => {
+              // Convert AI resources to nodes
+              const newNodes = resources.map((res: any, idx: number) => ({
+                id: `ai_${res.name || res.type}_${Date.now()}_${idx}`,
+                type: 'resourceNode',
+                position: { x: 200 + idx * 200, y: 200 + Math.floor(idx / 3) * 150 },
+                data: {
+                  label: res.name || res.type,
+                  displayName: res.name || res.type,
+                  resourceType: res.type,
+                  resourceLabel: res.name || res.type,
+                  config: res.config || {},
+                },
+              }));
 
-          {/* AI Assistant Panel */}
-          {assistantOpen && (
-            <AssistantChatPanel
-              projectId={Number(projectId)}
-              provider={project.cloud_provider}
-              onImport={(diagram) => {
-                const dn = Array.isArray(diagram?.nodes) ? diagram.nodes : [];
-                const de = Array.isArray(diagram?.edges) ? diagram.edges : [];
-                const byId: Record<string, boolean> = {};
-                nodes.forEach((n) => (byId[n.id] = true));
-                const mergedNodes = [...nodes, ...dn.filter((n: any) => !byId[n.id])];
+              // Merge with existing nodes
+              const byId: Record<string, boolean> = {};
+              nodes.forEach((n) => (byId[n.id] = true));
+              const mergedNodes = [...nodes, ...newNodes.filter((n: any) => !byId[n.id])];
+              setNodes(mergedNodes);
+
+              // Handle connections if provided
+              if (connections && connections.length > 0) {
+                const newEdges = connections.map((conn: any, idx: number) => ({
+                  id: `ai_edge_${Date.now()}_${idx}`,
+                  source: conn.from,
+                  target: conn.to,
+                  type: 'smoothstep',
+                }));
                 const byEdge: Record<string, boolean> = {};
                 edges.forEach((e) => (byEdge[e.id] = true));
-                const mergedEdges = [...edges, ...de.filter((e: any) => !byEdge[e.id])];
-                setNodes(mergedNodes);
-                setEdges(decorateEdges(mergedEdges));
-                saveProject({ silent: true });
-              }}
-            />
-          )}
+                const mergedEdges = [...edges, ...decorateEdges(newEdges.filter((e: any) => !byEdge[e.id]))];
+                setEdges(mergedEdges);
+              }
+
+              saveProject({ silent: true });
+            }}
+            activeTab={inspectorTab}
+            onTabChange={setInspectorTab}
+          />
+
         </div>
       </div>
 
       {/* Context Menu */}
-      {contextMenu && (
+      {contextMenu && (() => {
+        const contextNode = nodes.find((n) => n.id === contextMenu.nodeId);
+        return (
         <ResourceContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
+          isLocked={(contextNode?.data as any)?.isLocked || false}
+          isOmitted={(contextNode?.data as any)?.omitFromCode || false}
           onClose={() => setContextMenu(null)}
           onCloudConfig={handleContextMenuCloudConfig}
           onSwitchToData={() => {
@@ -2043,24 +2217,21 @@ export default function DesignerPageFinal() {
           }}
           onDelete={handleContextMenuDelete}
           onDuplicate={handleContextMenuDuplicate}
-          onLock={() => {
-            console.log('Lock - not implemented yet');
-          }}
-          onEditTitle={() => {
-            console.log('Edit title - not implemented yet');
-          }}
+          onLock={handleContextMenuLock}
+          onEditTitle={handleContextMenuEditTitle}
           onState={() => {
-            console.log('State - not implemented yet');
+            // State management (import/export terraform state) - advanced feature
+            console.log('State management - coming soon');
           }}
           onEditTFFilename={() => {
-            console.log('Edit TF filename - not implemented yet');
+            // Edit terraform filename - advanced feature
+            console.log('Edit TF filename - coming soon');
           }}
           onHighlightConnections={handleContextMenuHighlightConnections}
-          onOmitFromCode={() => {
-            console.log('Omit from code - not implemented yet');
-          }}
+          onOmitFromCode={handleContextMenuOmitFromCode}
         />
-      )}
+        );
+      })()}
 
       {/* Modals */}
       <input
@@ -2099,8 +2270,7 @@ export default function DesignerPageFinal() {
         onClose={() => {
           stopDeployStream();
           setDeployLogsModalOpen(false);
-          setDeployStatus('idle');
-          setDeployLogs([]);
+          // Don't reset deployStatus and deployLogs - preserve for Deploy tab history
         }}
         mode={deployMode}
         logs={deployLogs}
@@ -2152,6 +2322,31 @@ export default function DesignerPageFinal() {
         }}
         data={infracostData}
         status={infracostStatus}
+      />
+
+      {/* Edit Title Modal */}
+      <InputModal
+        isOpen={editTitleModal.isOpen}
+        onClose={() => setEditTitleModal({ isOpen: false, nodeId: '', currentTitle: '' })}
+        onConfirm={handleEditTitleConfirm}
+        title="Edit Resource Title"
+        label="Resource Title"
+        placeholder="Enter resource title..."
+        defaultValue={editTitleModal.currentTitle}
+        confirmText="Save"
+        cancelText="Cancel"
+      />
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        actionType={confirmModal.actionType}
+        isLoading={confirmModal.isLoading}
       />
 
       {/* Drag Preview Overlay */}

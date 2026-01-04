@@ -6,7 +6,6 @@ import { VodafoneLandingPage } from './features/landing';
 import EnhancedDashboard from './features/dashboard/EnhancedDashboard';
 import EnhancedNewProjectPage from './features/projects/EnhancedNewProjectPage';
 import DesignerPageFinal from './features/designer/DesignerPageFinal';
-import AssistantPage from './features/assistant/AssistantPage';
 import AnalyticsPage from './features/analytics/AnalyticsPage';
 import DocumentationPage from './features/docs/DocumentationPage';
 import VodafoneLayout from './components/VodafoneLayout';
@@ -43,7 +42,6 @@ function App() {
                 <Route path="analytics" element={<AnalyticsPage />} />
                 <Route path="projects/new" element={<EnhancedNewProjectPage />} />
                 <Route path="projects/:projectId" element={<DesignerPageFinal />} />
-                <Route path="assistant" element={<AssistantPage />} />
               </Route>
               {/* Documentation page without layout */}
               <Route path="docs" element={<DocumentationPage />} />

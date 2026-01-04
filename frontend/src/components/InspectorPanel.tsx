@@ -14,12 +14,19 @@ import {
   Plus,
   Layers,
   Trash2,
+  Loader2,
+  AlertCircle,
+  XCircle,
+  Sparkles,
 } from 'lucide-react';
 import CloudIcon from './CloudIcon';
 import { getCloudIconPath } from '../lib/resources/cloudIconsComplete';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { getResourceSchema, hasRichSchema, SchemaBlock as ServiceBlockField } from '../lib/resources/resourceSchemas';
+import AIInspectorPanel from './AIInspectorPanel';
+
+type TabType = 'resources' | 'code' | 'issues' | 'deploy' | 'ai';
 
 interface InspectorPanelProps {
   nodes: Node[];
@@ -34,14 +41,22 @@ interface InspectorPanelProps {
   onToggleCollapse?: () => void;
   panelWidth?: number;
   onWidthChange?: (width: number) => void;
+  // Deployment status props
+  deployStatus?: 'idle' | 'running' | 'success' | 'error';
+  deployMode?: 'plan' | 'validate' | 'apply' | 'destroy';
+  deployLogs?: string[];
+  // AI Assistant props
+  provider?: string;
+  edges?: any[];
+  onImportResources?: (resources: any[], connections: any[]) => void;
+  activeTab?: TabType;
+  onTabChange?: (tab: TabType) => void;
 }
 
 // Constants for panel sizing
 const MIN_PANEL_WIDTH = 280;
 const MAX_PANEL_WIDTH = 600;
 const DEFAULT_PANEL_WIDTH = 360;
-
-type TabType = 'resources' | 'code' | 'issues' | 'deploy';
 
 interface ResourceGroup {
   type: string;
@@ -211,8 +226,26 @@ export default function InspectorPanel({
   onToggleCollapse,
   panelWidth = DEFAULT_PANEL_WIDTH,
   onWidthChange,
+  deployStatus = 'idle',
+  deployMode = 'deploy',
+  deployLogs = [],
+  provider = 'aws',
+  edges = [],
+  onImportResources,
+  activeTab: controlledActiveTab,
+  onTabChange,
 }: InspectorPanelProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('resources');
+  const [internalActiveTab, setInternalActiveTab] = useState<TabType>('resources');
+
+  // Support both controlled and uncontrolled mode
+  const activeTab = controlledActiveTab ?? internalActiveTab;
+  const setActiveTab = (tab: TabType) => {
+    if (onTabChange) {
+      onTabChange(tab);
+    } else {
+      setInternalActiveTab(tab);
+    }
+  };
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['compute', 'network', 'storage']));
   const [expandedResources, setExpandedResources] = useState<Set<string>>(new Set());
   const [configFormData, setConfigFormData] = useState<Record<string, any>>({});
@@ -224,6 +257,21 @@ export default function InspectorPanel({
   // Resizing state
   const [isResizing, setIsResizing] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const logsEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when new logs arrive
+  useEffect(() => {
+    if (deployStatus === 'running' && logsEndRef.current) {
+      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [deployLogs, deployStatus]);
+
+  // Auto-switch to Deploy tab when deployment starts
+  useEffect(() => {
+    if (deployStatus === 'running') {
+      setActiveTab('deploy');
+    }
+  }, [deployStatus]);
 
   // Handle resize drag
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -765,11 +813,22 @@ export default function InspectorPanel({
             <Rocket className="w-3.5 h-3.5" />
             Deploy
           </button>
+          <button
+            onClick={() => setActiveTab('ai')}
+            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-all ${
+              activeTab === 'ai'
+                ? 'text-white bg-gradient-to-r from-red-600 to-red-500 shadow-md shadow-red-500/25'
+                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            AI
+          </button>
         </div>
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-hidden">
         {/* Resources Tab */}
         {activeTab === 'resources' && !configPanelOpen && (
           <div className="p-3 space-y-2">
@@ -919,7 +978,7 @@ export default function InspectorPanel({
             </div>
 
             {/* Config Form */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-hidden p-4 space-y-4">
               {/* Display Name */}
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1 text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -1356,7 +1415,7 @@ export default function InspectorPanel({
                   </div>
                 </div>
                 {/* File content */}
-                <div className="flex-1 overflow-auto">
+                <div className="flex-1 overflow-hidden">
                   <SyntaxHighlighter
                     language="hcl"
                     style={vscDarkPlus}
@@ -1379,39 +1438,208 @@ export default function InspectorPanel({
 
         {/* Deploy Tab */}
         {activeTab === 'deploy' && (
-          <div className="p-4">
-            <div className="text-center py-8 text-gray-500">
-              <Rocket className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
-              <p className="text-sm font-medium">Deployment</p>
-              <p className="text-xs mt-2 text-gray-400">
-                Use the toolbar to plan, apply, or destroy infrastructure
-              </p>
-            </div>
+          <div className="p-4 h-full flex flex-col overflow-hidden">
+            {deployStatus === 'idle' ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-center">
+                <div className="relative inline-block mb-6">
+                  <div className="absolute inset-0 bg-gradient-to-r from-emerald-400/40 to-cyan-400/40 rounded-full blur-3xl animate-pulse" />
+                  <Rocket className="relative w-24 h-24 text-gray-300 dark:text-gray-500" />
+                </div>
+                <h2 className="text-2xl font-black text-gray-800 dark:text-gray-100 mb-3">Ready to Deploy</h2>
+                <p className="text-lg text-gray-500 dark:text-gray-400 max-w-[280px] leading-relaxed">
+                  Use the toolbar to plan, apply, or destroy your infrastructure
+                </p>
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col space-y-4 min-h-0 overflow-hidden">
+                {/* Status Card - Compact but prominent */}
+                <div className={`flex-shrink-0 relative overflow-hidden rounded-2xl border-2 transition-all duration-500 shadow-xl ${
+                  deployStatus === 'running'
+                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 border-blue-400'
+                    : deployStatus === 'success'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-600 border-emerald-400'
+                    : 'bg-gradient-to-r from-red-500 to-orange-600 border-red-400'
+                }`}>
+                  <div className="p-6">
+                    <div className="flex items-center gap-5">
+                      {/* Icon */}
+                      <div className="flex-shrink-0 w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                        {deployStatus === 'running' ? (
+                          <Loader2 className="w-9 h-9 text-white animate-spin" />
+                        ) : deployStatus === 'success' ? (
+                          <CheckCircle2 className="w-9 h-9 text-white" />
+                        ) : (
+                          <XCircle className="w-9 h-9 text-white" />
+                        )}
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1">
+                        <h3 className="text-2xl font-black text-white">
+                          {deployStatus === 'running'
+                            ? deployMode === 'plan' ? 'Planning...'
+                              : deployMode === 'validate' ? 'Validating...'
+                              : deployMode === 'apply' ? 'Deploying...'
+                              : 'Destroying...'
+                            : deployStatus === 'success'
+                            ? deployMode === 'plan' ? 'Plan Complete!'
+                              : deployMode === 'validate' ? 'Validated!'
+                              : deployMode === 'apply' ? 'Deployed!'
+                              : 'Destroyed!'
+                            : deployMode === 'plan' ? 'Plan Failed'
+                              : deployMode === 'validate' ? 'Validation Failed'
+                              : deployMode === 'apply' ? 'Deploy Failed'
+                              : 'Destroy Failed'
+                          }
+                        </h3>
+                        <p className="text-lg text-white/80 mt-1">
+                          {deployStatus === 'running'
+                            ? deployMode === 'plan' ? 'Terraform is analyzing changes...'
+                              : deployMode === 'validate' ? 'Terraform is checking configuration...'
+                              : deployMode === 'apply' ? 'Terraform is executing changes...'
+                              : 'Terraform is removing infrastructure...'
+                            : deployStatus === 'success'
+                            ? deployMode === 'plan' ? 'Plan executed successfully'
+                              : deployMode === 'validate' ? 'Configuration is valid'
+                              : deployMode === 'apply' ? 'All changes applied successfully'
+                              : 'Infrastructure destroyed successfully'
+                            : 'Check logs for details'
+                          }
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Progress bar for running */}
+                    {deployStatus === 'running' && (
+                      <div className="mt-5 h-3 bg-white/30 rounded-full overflow-hidden">
+                        <div className="h-full bg-white rounded-full"
+                             style={{ width: '60%', animation: 'progress 2s ease-in-out infinite' }} />
+                      </div>
+                    )}
+
+                    {/* Resource Summary - Inline in status card */}
+                    {deployStatus === 'success' && deployLogs.length > 0 && (() => {
+                      const logsText = deployLogs.join('\n');
+                      const addedMatch = logsText.match(/(\d+)\s+added/);
+                      const changedMatch = logsText.match(/(\d+)\s+changed/);
+                      const destroyedMatch = logsText.match(/(\d+)\s+destroyed/);
+                      const added = addedMatch ? parseInt(addedMatch[1]) : 0;
+                      const changed = changedMatch ? parseInt(changedMatch[1]) : 0;
+                      const destroyed = destroyedMatch ? parseInt(destroyedMatch[1]) : 0;
+
+                      return (
+                        <div className="flex gap-6 mt-5 pt-5 border-t border-white/20">
+                          <div className="text-center">
+                            <p className="text-4xl font-black text-white">{added}</p>
+                            <p className="text-base text-white/70 font-semibold">Added</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-4xl font-black text-white">{changed}</p>
+                            <p className="text-base text-white/70 font-semibold">Changed</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-4xl font-black text-white">{destroyed}</p>
+                            <p className="text-base text-white/70 font-semibold">Destroyed</p>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+
+                {/* Logs Preview - Fills remaining space */}
+                {deployLogs.length > 0 && (
+                  <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                    <div className="flex-shrink-0 flex items-center justify-between mb-2">
+                      <p className="text-sm font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wide">Output Log</p>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 font-semibold">{deployLogs.length} lines</span>
+                    </div>
+                    <div className="flex-1 bg-gray-900 dark:bg-black rounded-xl border border-gray-700 overflow-hidden shadow-lg flex flex-col min-h-0">
+                      <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-gray-800 dark:bg-gray-900 border-b border-gray-700">
+                        <div className="w-3 h-3 rounded-full bg-red-500" />
+                        <div className="w-3 h-3 rounded-full bg-amber-500" />
+                        <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                        <span className="ml-2 text-xs text-gray-400 font-semibold">terraform</span>
+                      </div>
+                      <div className="flex-1 p-3 overflow-y-auto">
+                        <div className="space-y-0.5 font-mono text-xs leading-relaxed">
+                          {/* Show all logs for live streaming - scrollable container handles overflow */}
+                          {deployLogs.map((log, idx) => {
+                            const cleanLog = log.replace(/\x1b\[[0-9;]*m/g, '').replace(/\[0m/g, '').replace(/\[1m/g, '');
+                            if (!cleanLog.trim()) return null;
+
+                            let textColor = 'text-gray-300';
+                            if (cleanLog.includes('Creation complete') || cleanLog.includes('created')) {
+                              textColor = 'text-emerald-400';
+                            } else if (cleanLog.includes('Destruction complete') || cleanLog.includes('destroyed')) {
+                              textColor = 'text-red-400';
+                            } else if (cleanLog.includes('Modifying') || cleanLog.includes('modified')) {
+                              textColor = 'text-amber-400';
+                            } else if (cleanLog.includes('Error') || cleanLog.includes('error')) {
+                              textColor = 'text-red-500 font-bold';
+                            } else if (cleanLog.includes('Apply complete') || cleanLog.includes('Destroy complete')) {
+                              textColor = 'text-cyan-400 font-bold';
+                            }
+
+                            return (
+                              <div key={idx} className={textColor}>
+                                {cleanLog}
+                              </div>
+                            );
+                          })}
+                          {/* Auto-scroll target for live logs */}
+                          <div ref={logsEndRef} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
+
+        {/* AI Tab */}
+        {activeTab === 'ai' && (
+          <AIInspectorPanel
+            provider={provider}
+            currentCanvas={{ nodes, edges }}
+            onImportResources={onImportResources}
+          />
+        )}
+
+        <style>{`
+          @keyframes progress {
+            0% { transform: translateX(-100%); }
+            50% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
+          }
+        `}</style>
       </div>
 
-      {/* Footer */}
-      <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850 px-4 py-2.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{resourceNodes.length} resources</span>
+      {/* Footer - hidden for AI tab which has its own layout */}
+      {activeTab !== 'ai' && (
+        <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-850 px-4 py-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{resourceNodes.length} resources</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-blue-500" />
+                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{containerNodes.length} regions</span>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-blue-500" />
-              <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{containerNodes.length} regions</span>
-            </div>
+            {activeTab === 'code' && Object.keys(terraformFiles).length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <FileCode className="w-3.5 h-3.5 text-gray-400" />
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{Object.keys(terraformFiles).length} files</span>
+              </div>
+            )}
           </div>
-          {activeTab === 'code' && Object.keys(terraformFiles).length > 0 && (
-            <div className="flex items-center gap-1.5">
-              <FileCode className="w-3.5 h-3.5 text-gray-400" />
-              <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{Object.keys(terraformFiles).length} files</span>
-            </div>
-          )}
         </div>
-      </div>
+      )}
       </div>{/* End Panel Content wrapper */}
       </div>{/* End Main Panel */}
     </div>

@@ -903,8 +903,8 @@ export default function VodafoneLandingPage() {
   return (
     <ThemeContext.Provider value={{ isDark, toggleTheme }}>
     <div className={`min-h-screen ${bg} ${textPrimary} overflow-x-hidden transition-colors duration-300`}>
-      {/* Christmas Snow Effect */}
-      <SnowEffect />
+      {/* Christmas Snow Effect - controlled by VITE_ENABLE_SNOW env variable */}
+      {import.meta.env.VITE_ENABLE_SNOW === 'true' && <SnowEffect />}
 
       {/* Technical Cursor */}
       <TechCursor />
@@ -1112,9 +1112,9 @@ export default function VodafoneLandingPage() {
 
                       {/* Card */}
                       <div
-                        className={`relative ${isDark ? 'bg-slate-900/80' : 'bg-white'} backdrop-blur-sm rounded-2xl p-5 border-2 transition-all duration-500 cursor-pointer group-hover:scale-110 group-hover:-translate-y-2`}
+                        className={`relative ${isDark ? 'bg-slate-800/90' : 'bg-white'} backdrop-blur-sm rounded-2xl p-5 border-2 transition-all duration-500 cursor-pointer group-hover:scale-110 group-hover:-translate-y-2`}
                         style={{
-                          borderColor: isDark ? `${cloud.color}40` : `${cloud.color}30`,
+                          borderColor: isDark ? `${cloud.color}60` : `${cloud.color}40`,
                           boxShadow: isDark
                             ? `0 0 20px ${cloud.glow}, inset 0 0 20px ${cloud.color}10`
                             : `0 4px 20px rgba(0,0,0,0.1), 0 0 0 1px ${cloud.color}20`,
@@ -1130,11 +1130,14 @@ export default function VodafoneLandingPage() {
                         />
 
                         <div className="relative z-10 flex flex-col items-center">
-                          <img
-                            src={cloud.src}
-                            alt={cloud.alt}
-                            className="h-10 w-auto mb-2 transition-transform duration-300 group-hover:scale-110"
-                          />
+                          {/* Logo container with white background for clear visibility */}
+                          <div className="bg-white rounded-xl p-4 mb-2">
+                            <img
+                              src={cloud.src}
+                              alt={cloud.alt}
+                              className="h-10 w-auto transition-transform duration-300 group-hover:scale-110"
+                            />
+                          </div>
                           <span className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-gray-500'} opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0`}>
                             {cloud.desc}
                           </span>
