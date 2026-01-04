@@ -5,6 +5,7 @@ export const nodeTypes = {
   vpc: ContainerNodeEnhanced,
   subnet: ContainerNodeEnhanced,
   region: ContainerNodeEnhanced,
+  availability_zone: ContainerNodeEnhanced,
   container: ContainerNodeEnhanced,
   resource: ResourceNodeEnhanced,
   default: ResourceNodeEnhanced,

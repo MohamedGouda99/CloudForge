@@ -217,25 +217,88 @@ function ContainerNodeEnhanced({ id, data, selected }: NodeProps<ContainerNodeDa
       />
 
       <div
-        className="relative flex h-full w-full flex-col"
         style={{
+          position: 'relative',
           width: displayWidth,
           height: displayHeight,
-          // Only show border when NOT selected (NodeResizer shows its own border when selected)
-          border: selected ? 'none' : `2px dashed ${borderColor}`,
-          borderRadius: '12px',
-          // All containers are transparent
-          background: 'transparent',
-          cursor: 'move',
-          padding: 0,
-          margin: 0,
-          // Performance optimizations - critical for smooth drag
-          contain: 'size layout style paint',
-          willChange: selected ? 'transform' : 'auto',
+          // Allow clicks to pass through to nested nodes
+          pointerEvents: 'none',
         }}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
       >
+        {/* Border frame - single div with border, pointer-events only on border area via pseudo approach */}
+        {/* Top border strip */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 14,
+            borderTop: selected ? `2px solid ${SELECTION_COLOR}` : `2px dashed ${borderColor}`,
+            borderLeft: selected ? `2px solid ${SELECTION_COLOR}` : `2px dashed ${borderColor}`,
+            borderRight: selected ? `2px solid ${SELECTION_COLOR}` : `2px dashed ${borderColor}`,
+            borderTopLeftRadius: 12,
+            borderTopRightRadius: 12,
+            pointerEvents: 'auto',
+            cursor: 'move',
+            zIndex: 1,
+          }}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+        />
+        {/* Bottom border strip */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 14,
+            borderBottom: selected ? `2px solid ${SELECTION_COLOR}` : `2px dashed ${borderColor}`,
+            borderLeft: selected ? `2px solid ${SELECTION_COLOR}` : `2px dashed ${borderColor}`,
+            borderRight: selected ? `2px solid ${SELECTION_COLOR}` : `2px dashed ${borderColor}`,
+            borderBottomLeftRadius: 12,
+            borderBottomRightRadius: 12,
+            pointerEvents: 'auto',
+            cursor: 'move',
+            zIndex: 1,
+          }}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+        />
+        {/* Left border strip */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 14,
+            bottom: 14,
+            left: 0,
+            width: 14,
+            borderLeft: selected ? `2px solid ${SELECTION_COLOR}` : `2px dashed ${borderColor}`,
+            pointerEvents: 'auto',
+            cursor: 'move',
+            zIndex: 1,
+          }}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+        />
+        {/* Right border strip */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 14,
+            bottom: 14,
+            right: 0,
+            width: 14,
+            borderRight: selected ? `2px solid ${SELECTION_COLOR}` : `2px dashed ${borderColor}`,
+            pointerEvents: 'auto',
+            cursor: 'move',
+            zIndex: 1,
+          }}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+        />
+
         {/* Connection handles on all 4 sides */}
         {[Position.Top, Position.Bottom, Position.Left, Position.Right].map((pos) => (
           <Handle
@@ -243,7 +306,7 @@ function ContainerNodeEnhanced({ id, data, selected }: NodeProps<ContainerNodeDa
             id={`container-target-${pos}`}
             type="target"
             position={pos}
-            style={connectionHandleStyle}
+            style={{ ...connectionHandleStyle, pointerEvents: handlesVisible ? 'auto' : 'none' }}
           />
         ))}
         {[Position.Top, Position.Bottom, Position.Left, Position.Right].map((pos) => (
@@ -252,7 +315,7 @@ function ContainerNodeEnhanced({ id, data, selected }: NodeProps<ContainerNodeDa
             id={`container-source-${pos}`}
             type="source"
             position={pos}
-            style={connectionHandleStyle}
+            style={{ ...connectionHandleStyle, pointerEvents: handlesVisible ? 'auto' : 'none' }}
           />
         ))}
 
@@ -260,7 +323,12 @@ function ContainerNodeEnhanced({ id, data, selected }: NodeProps<ContainerNodeDa
         {resolvedIconUrl && (
           <div
             className="absolute top-2 left-2 w-7 h-7 rounded-md flex items-center justify-center bg-white/80 border shadow-sm"
-            style={{ borderColor: `${borderColor}40` }}
+            style={{
+              borderColor: `${borderColor}40`,
+              pointerEvents: 'auto',
+              cursor: 'move',
+              zIndex: 10,
+            }}
           >
             <img
               src={resolvedIconUrl}

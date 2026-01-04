@@ -36,8 +36,10 @@ import { ServiceInput, ServiceBlock, ServiceOutput } from './computeServicesData
 
 // Networking service icon mappings - using actual AWS Architecture icons
 export const NETWORKING_ICONS: Record<string, string> = {
-  'aws_vpc': '/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Networking-Content-Delivery/64/Arch_Amazon-Virtual-Private-Cloud_64.svg',
-  'aws_subnet': '/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Networking-Content-Delivery/64/Arch_Amazon-Virtual-Private-Cloud_64.svg',
+  // Container icons - using Architecture Group Icons for visual distinction
+  'aws_availability_zone': '/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Compute/64/Arch_AWS-Local-Zones_64.svg',
+  'aws_vpc': '/cloud_icons/AWS/Architecture-Group-Icons_07312025/Virtual-private-cloud-VPC_32.svg',
+  'aws_subnet': '/cloud_icons/AWS/Architecture-Group-Icons_07312025/Private-subnet_32.svg',
   'aws_internet_gateway': '/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Networking-Content-Delivery/64/Arch_Amazon-VPC-Internet-Gateway_64.svg',
   'aws_nat_gateway': '/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Networking-Content-Delivery/64/Arch_Amazon-Virtual-Private-Cloud_64.svg',
   'aws_route_table': '/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Networking-Content-Delivery/64/Arch_Amazon-Virtual-Private-Cloud_64.svg',
@@ -82,6 +84,20 @@ export interface NetworkingServiceDefinition {
 
 // Complete networking services data from networking.json
 export const NETWORKING_SERVICES: NetworkingServiceDefinition[] = [
+  {
+    id: "availability_zone",
+    name: "Availability Zone",
+    description: "Visual container for organizing resources by AZ (not a Terraform resource)",
+    terraform_resource: "aws_availability_zone",
+    icon: NETWORKING_ICONS['aws_availability_zone'],
+    inputs: {
+      required: [],
+      optional: [
+        { name: "name", type: "string", description: "Availability Zone name", example: "us-east-1a" }
+      ]
+    },
+    outputs: []
+  },
   {
     id: "vpc",
     name: "VPC",
