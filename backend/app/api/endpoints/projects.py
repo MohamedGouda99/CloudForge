@@ -14,7 +14,7 @@ from app.schemas import (
     ProjectCreate,
     ProjectUpdate
 )
-from app.services.terraform.generator import TerraformGenerator
+from app.services.terraform.generator_v2 import TerraformGeneratorV2 as TerraformGenerator
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

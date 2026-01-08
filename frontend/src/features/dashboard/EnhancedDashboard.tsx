@@ -5,6 +5,7 @@ import { useThemeStore } from '../../lib/store/themeStore';
 import apiClient from '../../lib/api/client';
 import DeleteConfirmationModal from '../../components/DeleteConfirmationModal';
 import { toast } from '../../components/Toast';
+import { resolveResourceIcon } from '../../lib/resources/iconResolver';
 import {
   Plus,
   Folder,
@@ -45,6 +46,17 @@ import {
   Moon,
 } from 'lucide-react';
 
+interface DiagramNode {
+  id: string;
+  type?: string;
+  position: { x: number; y: number };
+  data?: {
+    resourceType?: string;
+    icon?: string;
+    label?: string;
+  };
+}
+
 interface Project {
   id: number;
   name: string;
@@ -54,6 +66,11 @@ interface Project {
   updated_at: string;
   resource_count?: number;
   status?: 'active' | 'archived' | 'draft';
+  diagram_data?: {
+    nodes?: DiagramNode[];
+    edges?: any[];
+    thumbnail?: string; // Base64 PNG image of the canvas
+  };
 }
 
 interface DashboardStats {
@@ -267,6 +284,98 @@ const QuickActionButton = ({
   );
 };
 
+// Mini Architecture Thumbnail Component
+const ArchitectureThumbnail = ({ nodes, provider }: { nodes?: DiagramNode[]; provider: string }) => {
+  if (!nodes || nodes.length === 0) {
+    // Empty state - show placeholder
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-800 dark:to-slate-900">
+        <div className="text-center">
+          <Layers className="w-8 h-8 text-gray-300 dark:text-slate-600 mx-auto mb-1" />
+          <span className="text-[10px] text-gray-400 dark:text-slate-500">No resources yet</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Filter out container types for resource count
+  const containerTypes = ['vpc', 'subnet', 'region', 'availability_zone', 'container'];
+  const resourceNodes = nodes.filter(n => !containerTypes.includes(n.type || ''));
+
+  // Calculate bounds to scale nodes into thumbnail
+  const minX = Math.min(...nodes.map(n => n.position.x));
+  const maxX = Math.max(...nodes.map(n => n.position.x));
+  const minY = Math.min(...nodes.map(n => n.position.y));
+  const maxY = Math.max(...nodes.map(n => n.position.y));
+  const width = maxX - minX + 150;
+  const height = maxY - minY + 150;
+  const scale = Math.min(200 / width, 100 / height, 0.3);
+
+  return (
+    <div className="w-full h-full relative bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-800/50 dark:to-slate-900/50 overflow-hidden">
+      {/* Grid pattern */}
+      <div
+        className="absolute inset-0 opacity-20"
+        style={{
+          backgroundImage: 'radial-gradient(circle, #94a3b8 1px, transparent 1px)',
+          backgroundSize: '10px 10px',
+        }}
+      />
+      {/* Render mini nodes */}
+      <div
+        className="absolute inset-0 flex items-center justify-center"
+        style={{ padding: '12px' }}
+      >
+        <div className="relative" style={{ width: width * scale, height: height * scale }}>
+          {nodes.slice(0, 15).map((node, idx) => {
+            const x = (node.position.x - minX) * scale;
+            const y = (node.position.y - minY) * scale;
+            const resourceType = node.data?.resourceType || node.type || '';
+            const iconHint = node.data?.icon;
+            const isContainer = containerTypes.includes(node.type || '');
+
+            // Resolve the icon using the resourceType
+            const resolvedIcon = !isContainer ? resolveResourceIcon(resourceType, iconHint) : '';
+
+            return (
+              <div
+                key={node.id || idx}
+                className={`absolute ${isContainer ? 'rounded border border-dashed' : 'rounded-md shadow-sm bg-white dark:bg-slate-700'}`}
+                style={{
+                  left: x,
+                  top: y,
+                  width: isContainer ? 50 * scale : 28,
+                  height: isContainer ? 40 * scale : 28,
+                  backgroundColor: isContainer ? 'rgba(59, 130, 246, 0.08)' : undefined,
+                  borderColor: isContainer ? 'rgba(59, 130, 246, 0.3)' : 'rgba(0,0,0,0.1)',
+                  borderWidth: isContainer ? 1 : 1,
+                }}
+              >
+                {!isContainer && resolvedIcon && (
+                  <img
+                    src={resolvedIcon}
+                    alt=""
+                    className="w-full h-full object-contain p-1"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      {/* Node count badge */}
+      {resourceNodes.length > 0 && (
+        <div className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-white/90 dark:bg-slate-800/90 rounded text-[10px] font-medium text-gray-600 dark:text-slate-300 shadow-sm border border-gray-200 dark:border-slate-700">
+          {resourceNodes.length} resource{resourceNodes.length !== 1 ? 's' : ''}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Project Card Component
 const ProjectCard = ({
   project,
@@ -283,7 +392,6 @@ const ProjectCard = ({
   onExport: (id: number) => void;
   onShare: (id: number) => void;
 }) => {
-  const [isHovered, setIsHovered] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
 
   const providerConfig = {
@@ -312,163 +420,134 @@ const ProjectCard = ({
 
   const config = providerConfig[project.cloud_provider] || providerConfig.aws;
   const timeAgo = getTimeAgo(project.updated_at);
+  const nodes = project.diagram_data?.nodes || [];
+  const thumbnail = project.diagram_data?.thumbnail;
 
   return (
     <div
-      className="relative bg-white dark:bg-slate-900/50 backdrop-blur-sm rounded-xl border border-gray-200 dark:border-slate-800 hover:border-gray-300 dark:hover:border-slate-700 transition-all duration-300 group overflow-hidden shadow-sm dark:shadow-none"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => {
-        setIsHovered(false);
-        setShowMenu(false);
-      }}
-      style={{
-        transform: isHovered ? 'translateY(-4px)' : 'translateY(0)',
-        boxShadow: isHovered ? `0 20px 40px -20px ${config.color}20` : '',
-      }}
+      className="relative bg-white dark:bg-slate-900/50 backdrop-blur-sm rounded-xl border border-gray-200 dark:border-slate-800 hover:border-gray-300 dark:hover:border-slate-700 transition-all duration-300 group overflow-hidden shadow-sm dark:shadow-none hover:shadow-lg cursor-pointer"
+      onClick={() => onOpen(project.id)}
+      onMouseLeave={() => setShowMenu(false)}
     >
-      {/* Top accent line */}
-      <div
-        className="absolute top-0 left-0 right-0 h-[2px] transition-all duration-300"
-        style={{
-          background: isHovered
-            ? `linear-gradient(90deg, transparent, ${config.color}, transparent)`
-            : 'transparent',
-        }}
-      />
+      {/* Thumbnail Preview Area */}
+      <div className="relative h-32 border-b border-gray-200 dark:border-slate-800">
+        {thumbnail ? (
+          <img
+            src={thumbnail}
+            alt={`${project.name} architecture preview`}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <ArchitectureThumbnail nodes={nodes} provider={project.cloud_provider} />
+        )}
 
-      {/* Card content */}
-      <div className="p-5">
-        {/* Header */}
-        <div className="flex items-start justify-between mb-4">
-          <div
-            className={`${config.bg} ${config.border} border rounded-lg p-2`}
+        {/* Menu button - absolute positioned in thumbnail area */}
+        <div className="absolute top-2 right-2 z-10">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowMenu(!showMenu);
+            }}
+            className="p-1.5 rounded-lg bg-white/90 dark:bg-slate-800/90 hover:bg-white dark:hover:bg-slate-700 transition-colors text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-white shadow-sm"
           >
+            <MoreVertical className="w-4 h-4" />
+          </button>
+
+          {/* Dropdown menu */}
+          {showMenu && (
+            <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-xl z-50 py-1 overflow-hidden">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpen(project.id);
+                }}
+                className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 flex items-center gap-2 transition-colors"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                Open Designer
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDuplicate(project.id);
+                  setShowMenu(false);
+                }}
+                className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 flex items-center gap-2 transition-colors"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                Duplicate
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onExport(project.id);
+                  setShowMenu(false);
+                }}
+                className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 flex items-center gap-2 transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onShare(project.id);
+                  setShowMenu(false);
+                }}
+                className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 flex items-center gap-2 transition-colors"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                Share
+              </button>
+              <div className="border-t border-gray-200 dark:border-slate-700 my-1" />
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(project.id);
+                  setShowMenu(false);
+                }}
+                className="w-full px-3 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Provider badge - absolute positioned in thumbnail area */}
+        <div className="absolute bottom-2 left-2">
+          <div className={`${config.bg} ${config.border} border rounded px-1.5 py-0.5 flex items-center gap-1 shadow-sm`}>
             <img
               src={config.logo}
               alt={config.name}
-              className="h-6 w-auto"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-              }}
+              className="h-3.5 w-auto"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
             />
-          </div>
-
-          {/* Menu button */}
-          <div className="relative">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowMenu(!showMenu);
-              }}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors text-gray-400 dark:text-slate-400 hover:text-gray-600 dark:hover:text-white"
-            >
-              <MoreVertical className="w-4 h-4" />
-            </button>
-
-            {/* Dropdown menu */}
-            {showMenu && (
-              <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl shadow-xl z-50 py-1 overflow-hidden">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onOpen(project.id);
-                  }}
-                  className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-white flex items-center gap-3 transition-colors"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  Open Designer
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDuplicate(project.id);
-                    setShowMenu(false);
-                  }}
-                  className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-white flex items-center gap-3 transition-colors"
-                >
-                  <Copy className="w-4 h-4" />
-                  Duplicate
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onExport(project.id);
-                    setShowMenu(false);
-                  }}
-                  className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-white flex items-center gap-3 transition-colors"
-                >
-                  <Download className="w-4 h-4" />
-                  Export
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onShare(project.id);
-                    setShowMenu(false);
-                  }}
-                  className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-white flex items-center gap-3 transition-colors"
-                >
-                  <Share2 className="w-4 h-4" />
-                  Share
-                </button>
-                <div className="border-t border-gray-200 dark:border-slate-700 my-1" />
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete(project.id);
-                    setShowMenu(false);
-                  }}
-                  className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-3 transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Delete
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Project info */}
-        <h3
-          className="text-lg font-semibold text-gray-900 dark:text-white mb-1 cursor-pointer hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
-          onClick={() => onOpen(project.id)}
-        >
-          {project.name}
-        </h3>
-        <p className="text-sm text-gray-500 dark:text-slate-400 line-clamp-2 mb-4 min-h-[40px]">
-          {project.description || 'No description'}
-        </p>
-
-        {/* Meta info */}
-        <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-slate-800">
-          <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-slate-500">
-            <Clock className="w-3.5 h-3.5" />
-            <span>{timeAgo}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span
-              className={`px-2 py-1 rounded-md text-xs font-medium ${config.bg} ${config.border} border`}
-              style={{ color: config.color }}
-            >
+            <span className="text-[10px] font-medium" style={{ color: config.color }}>
               {config.name}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Hover overlay with open button */}
-      <div
-        className={`absolute inset-0 bg-white/90 dark:bg-slate-900/80 backdrop-blur-sm flex items-center justify-center transition-opacity duration-300 ${
-          isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        }`}
-      >
-        <button
-          onClick={() => onOpen(project.id)}
-          className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-xl font-medium flex items-center gap-2 hover:from-cyan-400 hover:to-blue-400 transition-all transform hover:scale-105 shadow-lg"
-        >
-          Open Designer
-          <ArrowRight className="w-4 h-4" />
-        </button>
+      {/* Card content */}
+      <div className="p-4">
+        {/* Project info */}
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1 line-clamp-1 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
+          {project.name}
+        </h3>
+        <p className="text-xs text-gray-500 dark:text-slate-400 line-clamp-1 mb-3">
+          {project.description || 'No description'}
+        </p>
+
+        {/* Meta info */}
+        <div className="flex items-center justify-between text-xs text-gray-400 dark:text-slate-500">
+          <div className="flex items-center gap-1.5">
+            <Clock className="w-3 h-3" />
+            <span>{timeAgo}</span>
+          </div>
+        </div>
       </div>
     </div>
   );

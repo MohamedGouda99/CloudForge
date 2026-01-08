@@ -2,392 +2,367 @@
 
 ## Backend Database ERD (SQLAlchemy Models)
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                                    BACKEND DATABASE ERD                                  │
-└─────────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+erDiagram
+    USER {
+        int id PK
+        string email UK "UNIQUE, INDEX"
+        string username UK "UNIQUE, INDEX"
+        string hashed_password
+        string full_name
+        boolean is_active
+        boolean is_superuser
+        datetime created_at
+        datetime updated_at
+    }
 
-┌──────────────────────────┐
-│          USER            │
-├──────────────────────────┤
-│ PK  id: Integer          │
-│     email: String        │◄─── UNIQUE, INDEX
-│     username: String     │◄─── UNIQUE, INDEX
-│     hashed_password: Str │
-│     full_name: String    │
-│     is_active: Boolean   │
-│     is_superuser: Boolean│
-│     created_at: DateTime │
-│     updated_at: DateTime │
-└──────────┬───────────────┘
-           │
-           │ 1:N (One user owns many projects)
-           │
-           ▼
-┌──────────────────────────┐
-│         PROJECT          │
-├──────────────────────────┤
-│ PK  id: Integer          │
-│ FK  owner_id: Integer    │───────► USER.id
-│     name: String         │
-│     description: Text    │
-│     cloud_provider: Enum │◄─── AWS | AZURE | GCP
-│     diagram_data: JSON   │◄─── Visual designer state
-│     git_repo_url: String │
-│     git_branch: String   │
-│     created_at: DateTime │
-│     updated_at: DateTime │
-└──────────┬───────────────┘
-           │
-           ├─────────────────────────────────────────────────────────────────┐
-           │                          │                    │                 │
-           │ 1:N                      │ 1:N               │ 1:N            │ 1:1
-           ▼                          ▼                    ▼                 ▼
-┌──────────────────────┐  ┌────────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-│      RESOURCE        │  │  TERRAFORM_OUTPUT  │  │   DRIFT_SCAN    │  │  COST_ESTIMATE  │
-├──────────────────────┤  ├────────────────────┤  ├─────────────────┤  ├─────────────────┤
-│ PK id: Integer       │  │ PK id: Integer     │  │ PK id: Integer  │  │ PK id: Integer  │
-│ FK project_id: Int   │  │ FK project_id: Int │  │ FK project_id   │  │ FK project_id   │◄── UNIQUE
-│    resource_type: Str│  │    main_tf: Text   │  │    status: Enum │  │    monthly_cost │
-│    resource_name: Str│  │    variables_tf    │  │    result: Text │  │    currency: Str│
-│    node_id: String   │◄─┤    outputs_tf      │  │    error_message│  │    resources_cnt│
-│    position_x: Int   │  │    providers_tf    │  │    started_at   │  │    cost_breakdown│
-│    position_y: Int   │  │    version: Int    │  │    completed_at │  │    created_at   │
-│    config: JSON      │  │    created_at      │  └─────────────────┘  │    updated_at   │
-│    created_at        │  └────────────────────┘                       └─────────────────┘
-│    updated_at        │
-└──────────┬───────────┘
-           │
-           │ 1:N (One resource has many outgoing connections)
-           │
-           ▼
-┌────────────────────────────┐
-│   RESOURCE_CONNECTION      │
-├────────────────────────────┤
-│ PK id: Integer             │
-│ FK source_id: Integer      │───────► RESOURCE.id
-│ FK target_id: Integer      │───────► RESOURCE.id
-│    connection_type: String │◄─── "network" | "depends_on" | "security_group"
-│    created_at: DateTime    │
-└────────────────────────────┘
+    PROJECT {
+        int id PK
+        int owner_id FK
+        string name
+        text description
+        string cloud_provider "ENUM: aws|azure|gcp"
+        json diagram_data "Visual designer state"
+        string git_repo_url
+        string git_branch
+        datetime created_at
+        datetime updated_at
+    }
 
+    RESOURCE {
+        int id PK
+        int project_id FK
+        string resource_type
+        string resource_name
+        string node_id "Frontend node reference"
+        int position_x
+        int position_y
+        json config "Terraform configuration"
+        datetime created_at
+        datetime updated_at
+    }
 
-═══════════════════════════════════════════════════════════════════════════════════════════
-                                     ENUM DEFINITIONS
-═══════════════════════════════════════════════════════════════════════════════════════════
+    RESOURCE_CONNECTION {
+        int id PK
+        int source_id FK
+        int target_id FK
+        string connection_type "network|depends_on|security_group"
+        datetime created_at
+    }
 
-┌─────────────────────┐     ┌─────────────────────────┐
-│   CloudProvider     │     │    DriftScanStatus      │
-├─────────────────────┤     ├─────────────────────────┤
-│ • AWS   = "aws"     │     │ • PENDING   = "pending" │
-│ • AZURE = "azure"   │     │ • RUNNING   = "running" │
-│ • GCP   = "gcp"     │     │ • COMPLETED = "completed"│
-└─────────────────────┘     │ • FAILED    = "failed"  │
-                            └─────────────────────────┘
+    TERRAFORM_OUTPUT {
+        int id PK
+        int project_id FK
+        text main_tf
+        text variables_tf
+        text outputs_tf
+        text providers_tf
+        int version
+        datetime created_at
+    }
+
+    DRIFT_SCAN {
+        int id PK
+        int project_id FK
+        string status "ENUM: pending|running|completed|failed"
+        text result
+        string error_message
+        datetime started_at
+        datetime completed_at
+    }
+
+    COST_ESTIMATE {
+        int id PK
+        int project_id FK "UNIQUE"
+        float monthly_cost
+        string currency
+        int resources_count
+        json cost_breakdown
+        datetime created_at
+        datetime updated_at
+    }
+
+    USER ||--o{ PROJECT : "owns"
+    PROJECT ||--o{ RESOURCE : "contains"
+    PROJECT ||--o{ TERRAFORM_OUTPUT : "generates"
+    PROJECT ||--o{ DRIFT_SCAN : "has"
+    PROJECT ||--o| COST_ESTIMATE : "has"
+    RESOURCE ||--o{ RESOURCE_CONNECTION : "source"
+    RESOURCE ||--o{ RESOURCE_CONNECTION : "target"
 ```
 
 ---
 
 ## Frontend Data Model ERD (TypeScript Interfaces)
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                              FRONTEND DATA MODEL ERD                                     │
-└─────────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+erDiagram
+    AUTH_STATE {
+        string token "nullable"
+        User user "nullable"
+        boolean isAuthenticated
+        function setAuth
+        function logout
+    }
 
-                              ┌─────────────────────────────┐
-                              │         AuthState           │◄─── Zustand Store
-                              ├─────────────────────────────┤
-                              │   token: string | null      │
-                              │   user: User | null         │
-                              │   isAuthenticated: boolean  │
-                              │   setAuth(): void           │
-                              │   logout(): void            │
-                              └──────────────┬──────────────┘
-                                             │
-                                             │ contains
-                                             ▼
-┌──────────────────────────────────────────────────────────────────────────────────────────┐
-│                                         User                                              │
-├──────────────────────────────────────────────────────────────────────────────────────────┤
-│   id: string                                                                              │
-│   email: string                                                                           │
-│   username: string                                                                        │
-│   full_name?: string                                                                      │
-│   is_active: boolean                                                                      │
-│   is_superuser: boolean                                                                   │
-└──────────────────────────────────────────────────────────────────────────────────────────┘
+    USER {
+        string id
+        string email
+        string username
+        string full_name "optional"
+        boolean is_active
+        boolean is_superuser
+    }
 
+    CLOUD_RESOURCE {
+        string type "e.g. aws_instance"
+        string label "Display name"
+        string provider "aws|azure|gcp"
+        string category "compute|storage|etc"
+        string originalCategory
+        string description
+        string icon "Path to SVG"
+        boolean isContainer "optional"
+        boolean isDataSource "optional"
+    }
 
-═══════════════════════════════════════════════════════════════════════════════════════════
-                                  RESOURCE PALETTE TYPES
-═══════════════════════════════════════════════════════════════════════════════════════════
+    NODE {
+        string id "Unique identifier"
+        string type "NodeType enum"
+        object position "x, y coordinates"
+        NodeData data
+        object style "CSS including zIndex"
+        string extent "parent - for nesting"
+        boolean expandParent "optional"
+    }
 
-┌────────────────────────────┐
-│      CloudProvider         │◄─── Type alias
-├────────────────────────────┤
-│ "aws" | "azure" | "gcp"    │
-└────────────────────────────┘
-              │
-              │ used by
-              ▼
-┌────────────────────────────────────────────────────────────────────┐
-│                        CloudResource                                │
-├────────────────────────────────────────────────────────────────────┤
-│   type: string              │◄─── e.g., "aws_instance", "aws_vpc"  │
-│   label: string             │◄─── Display name                      │
-│   provider: CloudProvider   │                                       │
-│   category: string          │◄─── "compute" | "storage" | etc.     │
-│   originalCategory: string  │                                       │
-│   description: string       │                                       │
-│   icon: string              │◄─── Path to icon SVG                  │
-│   isContainer?: boolean     │◄─── VPC, Subnet, AZ are containers   │
-│   isDataSource?: boolean    │                                       │
-└────────────────────────────────────────────────────────────────────┘
+    NODE_DATA {
+        string label "optional"
+        string displayName "optional"
+        string resourceType "e.g. aws_instance"
+        string resourceLabel "optional"
+        string resourceCategory "optional"
+        string resourceDescription "optional"
+        object config "Terraform config"
+        string icon "optional"
+        string category "optional"
+        object size "width, height"
+        boolean isContainer "optional"
+        boolean isDataSource "optional"
+        boolean isLocked "optional"
+        boolean isOmitted "optional"
+    }
 
+    EDGE {
+        string id "edge-sourceId-targetId"
+        string source "Source node ID"
+        string target "Target node ID"
+        string sourceHandle "source-Top|Bottom|etc"
+        string targetHandle "target-Top|Bottom|etc"
+        string type "Edge styling type"
+        boolean animated "optional"
+        object style "CSS properties"
+    }
 
-═══════════════════════════════════════════════════════════════════════════════════════════
-                                   REACTFLOW NODE TYPES
-═══════════════════════════════════════════════════════════════════════════════════════════
-
-┌──────────────────────────────────────────────────────────────────────────────────────────┐
-│                                    Node (ReactFlow)                                       │
-├──────────────────────────────────────────────────────────────────────────────────────────┤
-│   id: string                │◄─── Unique node identifier                                 │
-│   type: NodeType            │◄─── "vpc" | "subnet" | "region" | "availability_zone" |   │
-│                             │     "container" | "resource" | "default"                   │
-│   position: { x, y }        │                                                            │
-│   data: NodeData            │───────────────────────────────────────────┐               │
-│   style?: CSSProperties     │◄─── Contains zIndex for layering          │               │
-│   extent?: "parent"         │◄─── For nested containers                 │               │
-│   expandParent?: boolean    │                                            │               │
-└──────────────────────────────────────────────────────────────────────────┼───────────────┘
-                                                                           │
-                                                                           ▼
-┌──────────────────────────────────────────────────────────────────────────────────────────┐
-│                                       NodeData                                            │
-├──────────────────────────────────────────────────────────────────────────────────────────┤
-│   label?: string                                                                          │
-│   displayName?: string                                                                    │
-│   resourceType: string          │◄─── e.g., "aws_instance"                               │
-│   resourceLabel?: string                                                                  │
-│   resourceCategory?: string                                                               │
-│   resourceDescription?: string                                                            │
-│   config?: Record<string, any>  │◄─── Terraform configuration                            │
-│   icon?: string                                                                           │
-│   category?: string                                                                       │
-│   size?: number | { width, height }                                                       │
-│   isContainer?: boolean                                                                   │
-│   isDataSource?: boolean                                                                  │
-│   isLocked?: boolean            │◄─── Prevents dragging                                  │
-│   isOmitted?: boolean           │◄─── Excluded from Terraform                            │
-└──────────────────────────────────────────────────────────────────────────────────────────┘
-
-
-┌──────────────────────────────────────────────────────────────────────────────────────────┐
-│                                    Edge (ReactFlow)                                       │
-├──────────────────────────────────────────────────────────────────────────────────────────┤
-│   id: string                │◄─── Format: "edge-{sourceId}-{targetId}"                   │
-│   source: string            │◄─── Source node ID                                         │
-│   target: string            │◄─── Target node ID                                         │
-│   sourceHandle?: string     │◄─── "source-Top" | "source-Bottom" | etc.                 │
-│   targetHandle?: string     │◄─── "target-Top" | "target-Bottom" | etc.                 │
-│   type?: string             │◄─── Edge type for styling                                  │
-│   animated?: boolean        │                                                            │
-│   style?: CSSProperties     │                                                            │
-└──────────────────────────────────────────────────────────────────────────────────────────┘
-
-
-═══════════════════════════════════════════════════════════════════════════════════════════
-                                NODE TYPE HIERARCHY (Z-INDEX)
-═══════════════════════════════════════════════════════════════════════════════════════════
-
-                    ┌─────────────────────────────────────────┐
-                    │           Z-INDEX LAYERS                 │
-                    └─────────────────────────────────────────┘
-
-    Layer 100 ──►  ┌─────────────────────────────────────────┐
-    (Top)          │      RESOURCE NODES (default)           │
-                   │   aws_instance, aws_lambda, etc.        │
-                   └─────────────────────────────────────────┘
-                                       │
-    Layer 1 ────►  ┌─────────────────────────────────────────┐
-                   │    INNER CONTAINERS                      │
-                   │   subnet, availability_zone              │
-                   └─────────────────────────────────────────┘
-                                       │
-    Layer 0 ────►  ┌─────────────────────────────────────────┐
-    (Bottom)       │    OUTER CONTAINERS                      │
-                   │   vpc, region, container                 │
-                   └─────────────────────────────────────────┘
-
-
-═══════════════════════════════════════════════════════════════════════════════════════════
-                                 RESOURCE SCHEMA TYPES
-═══════════════════════════════════════════════════════════════════════════════════════════
-
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                                  SchemaField                                            │
-├────────────────────────────────────────────────────────────────────────────────────────┤
-│   name: string                                                                          │
-│   type: "string" | "number" | "boolean" | "select" | "multiselect" | "textarea" |      │
-│         "tags" | "cidr" | "reference" | "json" | "array"                               │
-│   label: string                                                                         │
-│   description?: string                                                                  │
-│   required?: boolean                                                                    │
-│   default?: any                                                                         │
-│   options?: { value: string, label: string }[]  │◄─── For select types                │
-│   validation?: {                                                                        │
-│       pattern?: string                                                                  │
-│       min?: number                                                                      │
-│       max?: number                                                                      │
-│       minLength?: number                                                                │
-│       maxLength?: number                                                                │
-│   }                                                                                     │
-│   group?: string                    │◄─── "basic" | "advanced" | "network" | etc.      │
-│   referenceType?: string            │◄─── For reference fields (e.g., "aws_vpc")       │
-│   dependsOn?: string                │◄─── Field dependency                             │
-│   showWhen?: { field: string, value: any }                                             │
-└────────────────────────────────────────────────────────────────────────────────────────┘
-                    │
-                    │ contained in
-                    ▼
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                                 ResourceSchema                                          │
-├────────────────────────────────────────────────────────────────────────────────────────┤
-│   resourceType: string                                                                  │
-│   provider: CloudProvider                                                               │
-│   category: string                                                                      │
-│   displayName: string                                                                   │
-│   description: string                                                                   │
-│   icon?: string                                                                         │
-│   fields: SchemaField[]                                                                 │
-│   blocks?: SchemaBlock[]                                                                │
-│   outputs?: SchemaOutput[]                                                              │
-└────────────────────────────────────────────────────────────────────────────────────────┘
+    AUTH_STATE ||--o| USER : "contains"
+    NODE ||--|| NODE_DATA : "has"
+    CLOUD_RESOURCE ||--o{ NODE : "creates"
 ```
 
 ---
 
-## API Data Flow ERD
+## Resource Schema Types
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                                  API DATA FLOW                                           │
-└─────────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+erDiagram
+    RESOURCE_SCHEMA {
+        string resourceType
+        string provider "aws|azure|gcp"
+        string category
+        string displayName
+        string description
+        string icon "optional"
+        SchemaField[] fields
+        SchemaBlock[] blocks "optional"
+        SchemaOutput[] outputs "optional"
+    }
 
-┌─────────────────┐           ┌──────────────────┐           ┌─────────────────────┐
-│    FRONTEND     │           │      API         │           │      DATABASE       │
-│   (React/TS)    │           │   (FastAPI)      │           │    (SQLAlchemy)     │
-└────────┬────────┘           └────────┬─────────┘           └──────────┬──────────┘
-         │                             │                                │
-         │  POST /api/auth/login       │                                │
-         │ ─────────────────────────►  │                                │
-         │                             │  Query User                    │
-         │                             │ ─────────────────────────────► │
-         │                             │ ◄───────────────────────────── │
-         │  { token, user }            │                                │
-         │ ◄─────────────────────────  │                                │
-         │                             │                                │
-         │  GET /api/projects          │                                │
-         │ ─────────────────────────►  │                                │
-         │                             │  Query Projects + Resources    │
-         │                             │ ─────────────────────────────► │
-         │                             │ ◄───────────────────────────── │
-         │  { projects[] }             │                                │
-         │ ◄─────────────────────────  │                                │
-         │                             │                                │
-         │  PUT /api/projects/{id}     │                                │
-         │  { nodes[], edges[] }       │                                │
-         │ ─────────────────────────►  │                                │
-         │                             │  Update Resources              │
-         │                             │  Update Connections            │
-         │                             │ ─────────────────────────────► │
-         │                             │ ◄───────────────────────────── │
-         │  { project }                │                                │
-         │ ◄─────────────────────────  │                                │
-         │                             │                                │
-         │  POST /api/terraform/generate/{id}                           │
-         │ ─────────────────────────►  │                                │
-         │                             │  Generate Terraform            │
-         │                             │  Store TerraformOutput         │
-         │                             │ ─────────────────────────────► │
-         │                             │ ◄───────────────────────────── │
-         │  { files: {...} }           │                                │
-         │ ◄─────────────────────────  │                                │
-         │                             │                                │
+    SCHEMA_FIELD {
+        string name
+        string type "string|number|boolean|select|etc"
+        string label
+        string description "optional"
+        boolean required "optional"
+        any default "optional"
+        object[] options "For select types"
+        object validation "pattern|min|max|etc"
+        string group "basic|advanced|network"
+        string referenceType "For reference fields"
+        string dependsOn "Field dependency"
+        object showWhen "Conditional display"
+    }
 
+    SCHEMA_BLOCK {
+        string name
+        string label
+        boolean repeatable
+        SchemaField[] fields
+    }
 
-═══════════════════════════════════════════════════════════════════════════════════════════
-                              DATA TRANSFORMATION FLOW
-═══════════════════════════════════════════════════════════════════════════════════════════
+    SCHEMA_OUTPUT {
+        string name
+        string attribute
+        string description
+    }
 
-┌──────────────────────┐        ┌──────────────────────┐        ┌──────────────────────┐
-│   Frontend Node      │        │    API Resource      │        │   Database Model     │
-│   (ReactFlow)        │        │    (Pydantic)        │        │   (SQLAlchemy)       │
-├──────────────────────┤        ├──────────────────────┤        ├──────────────────────┤
-│ id: "aws_vpc_123"    │   ──►  │ node_id: "aws_vpc.." │   ──►  │ node_id: "aws_vpc.." │
-│ type: "vpc"          │        │ resource_type:"aws.."│        │ resource_type:"aws.."│
-│ position: {x, y}     │        │ position_x: number   │        │ position_x: INT      │
-│ data: {              │        │ position_y: number   │        │ position_y: INT      │
-│   resourceType:"..."│        │ resource_name: "..."│        │ resource_name: STR   │
-│   config: {...}      │        │ config: {...}        │        │ config: JSON         │
-│ }                    │        │                      │        │                      │
-└──────────────────────┘        └──────────────────────┘        └──────────────────────┘
-
-┌──────────────────────┐        ┌──────────────────────┐        ┌──────────────────────┐
-│   Frontend Edge      │        │   API Connection     │        │   Database Model     │
-│   (ReactFlow)        │        │   (Pydantic)         │        │   (SQLAlchemy)       │
-├──────────────────────┤        ├──────────────────────┤        ├──────────────────────┤
-│ id: "edge-src-tgt"   │   ──►  │ source_id: number    │   ──►  │ source_id: FK(INT)   │
-│ source: "node_123"   │        │ target_id: number    │        │ target_id: FK(INT)   │
-│ target: "node_456"   │        │ connection_type:"..."│        │ connection_type: STR │
-└──────────────────────┘        └──────────────────────┘        └──────────────────────┘
+    RESOURCE_SCHEMA ||--o{ SCHEMA_FIELD : "contains"
+    RESOURCE_SCHEMA ||--o{ SCHEMA_BLOCK : "contains"
+    RESOURCE_SCHEMA ||--o{ SCHEMA_OUTPUT : "defines"
+    SCHEMA_BLOCK ||--o{ SCHEMA_FIELD : "contains"
 ```
 
 ---
 
-## Category Catalogs Structure
+## API Data Flow
 
+```mermaid
+erDiagram
+    FRONTEND_NODE {
+        string id "aws_vpc_123"
+        string type "vpc"
+        object position "x, y"
+        object data "NodeData"
+    }
+
+    API_RESOURCE {
+        string node_id "aws_vpc_123"
+        string resource_type "aws_vpc"
+        int position_x
+        int position_y
+        string resource_name
+        json config
+    }
+
+    DATABASE_MODEL {
+        string node_id "VARCHAR"
+        string resource_type "VARCHAR"
+        int position_x "INTEGER"
+        int position_y "INTEGER"
+        string resource_name "VARCHAR"
+        json config "JSON"
+    }
+
+    FRONTEND_EDGE {
+        string id "edge-src-tgt"
+        string source "node_123"
+        string target "node_456"
+    }
+
+    API_CONNECTION {
+        int source_id "FK"
+        int target_id "FK"
+        string connection_type
+    }
+
+    DB_CONNECTION {
+        int source_id "FK INTEGER"
+        int target_id "FK INTEGER"
+        string connection_type "VARCHAR"
+    }
+
+    FRONTEND_NODE ||--|| API_RESOURCE : "transforms to"
+    API_RESOURCE ||--|| DATABASE_MODEL : "persists as"
+    FRONTEND_EDGE ||--|| API_CONNECTION : "transforms to"
+    API_CONNECTION ||--|| DB_CONNECTION : "persists as"
 ```
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                           AWS RESOURCE CATALOG STRUCTURE                                 │
-└─────────────────────────────────────────────────────────────────────────────────────────┘
 
-                              ┌─────────────────────────┐
-                              │    CloudResource[]      │
-                              │    (All AWS Services)   │
-                              └───────────┬─────────────┘
-                                          │
-          ┌───────────┬───────────┬───────┴───────┬───────────┬───────────┐
-          ▼           ▼           ▼               ▼           ▼           ▼
-┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-│  COMPUTE    │ │  STORAGE    │ │  DATABASE   │ │ NETWORKING  │ │  SECURITY   │
-│  CATALOG    │ │  CATALOG    │ │  CATALOG    │ │  CATALOG    │ │  CATALOG    │
-├─────────────┤ ├─────────────┤ ├─────────────┤ ├─────────────┤ ├─────────────┤
-│ aws_instance│ │ aws_s3_     │ │ aws_db_     │ │ aws_vpc     │ │ aws_security│
-│ aws_launch_ │ │   bucket    │ │   instance  │ │ aws_subnet  │ │   _group    │
-│   template  │ │ aws_efs_    │ │ aws_rds_    │ │ aws_internet│ │ aws_iam_    │
-│ aws_auto    │ │   file_sys  │ │   cluster   │ │   _gateway  │ │   role      │
-│   scaling_  │ │ aws_ebs_    │ │ aws_dynamo  │ │ aws_nat_    │ │ aws_kms_key │
-│   group     │ │   volume    │ │   db_table  │ │   gateway   │ │ aws_waf     │
-│ ...         │ │ ...         │ │ ...         │ │ ...         │ │ ...         │
-└─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘
-          │           │           │               │           │
-          └───────────┴───────────┴───────┬───────┴───────────┘
-                                          │
-                                          ▼
-                    ┌─────────────────────────────────────────┐
-                    │         Additional Catalogs             │
-                    ├─────────────────────────────────────────┤
-                    │ • CONTAINERS_CATALOG    (ECS, EKS, ECR) │
-                    │ • SERVERLESS_CATALOG    (Lambda, API GW)│
-                    │ • ANALYTICS_CATALOG     (Kinesis, EMR)  │
-                    │ • MESSAGING_CATALOG     (SNS, SQS)      │
-                    │ • MACHINE_LEARNING_CAT  (SageMaker)     │
-                    │ • MANAGEMENT_CATALOG    (CloudWatch)    │
-                    │ • DEVELOPER_TOOLS_CAT   (CodePipeline)  │
-                    └─────────────────────────────────────────┘
+---
+
+## Z-Index Layer System
+
+```mermaid
+erDiagram
+    LAYER_100_RESOURCES {
+        string description "Top layer - clickable"
+        string examples "aws_instance, aws_lambda, aws_s3_bucket"
+        int zIndex "100"
+    }
+
+    LAYER_1_INNER_CONTAINERS {
+        string description "Inner containers"
+        string examples "subnet, availability_zone"
+        int zIndex "1"
+    }
+
+    LAYER_0_OUTER_CONTAINERS {
+        string description "Bottom layer - base containers"
+        string examples "vpc, region, container"
+        int zIndex "0"
+    }
+
+    LAYER_100_RESOURCES ||--o{ LAYER_1_INNER_CONTAINERS : "renders above"
+    LAYER_1_INNER_CONTAINERS ||--o{ LAYER_0_OUTER_CONTAINERS : "renders above"
+```
+
+---
+
+## AWS Resource Catalog Structure
+
+```mermaid
+erDiagram
+    AWS_CATALOG {
+        string provider "aws"
+        CloudResource[] resources
+    }
+
+    COMPUTE_CATALOG {
+        string category "compute"
+        string[] types "aws_instance, aws_launch_template, aws_autoscaling_group"
+    }
+
+    STORAGE_CATALOG {
+        string category "storage"
+        string[] types "aws_s3_bucket, aws_efs_file_system, aws_ebs_volume"
+    }
+
+    DATABASE_CATALOG {
+        string category "database"
+        string[] types "aws_db_instance, aws_rds_cluster, aws_dynamodb_table"
+    }
+
+    NETWORKING_CATALOG {
+        string category "networking"
+        string[] types "aws_vpc, aws_subnet, aws_internet_gateway, aws_nat_gateway"
+    }
+
+    SECURITY_CATALOG {
+        string category "security"
+        string[] types "aws_security_group, aws_iam_role, aws_kms_key"
+    }
+
+    SERVERLESS_CATALOG {
+        string category "serverless"
+        string[] types "aws_lambda_function, aws_api_gateway_rest_api"
+    }
+
+    CONTAINERS_CATALOG {
+        string category "containers"
+        string[] types "aws_ecs_cluster, aws_eks_cluster, aws_ecr_repository"
+    }
+
+    MESSAGING_CATALOG {
+        string category "messaging"
+        string[] types "aws_sns_topic, aws_sqs_queue"
+    }
+
+    AWS_CATALOG ||--|| COMPUTE_CATALOG : "includes"
+    AWS_CATALOG ||--|| STORAGE_CATALOG : "includes"
+    AWS_CATALOG ||--|| DATABASE_CATALOG : "includes"
+    AWS_CATALOG ||--|| NETWORKING_CATALOG : "includes"
+    AWS_CATALOG ||--|| SECURITY_CATALOG : "includes"
+    AWS_CATALOG ||--|| SERVERLESS_CATALOG : "includes"
+    AWS_CATALOG ||--|| CONTAINERS_CATALOG : "includes"
+    AWS_CATALOG ||--|| MESSAGING_CATALOG : "includes"
 ```
 
 ---
