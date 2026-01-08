@@ -16,7 +16,7 @@ from app.core.config import settings
 from app.api.endpoints.auth import get_current_user
 from app.models import User, Project, Resource, TerraformOutput as TerraformOutputModel, CloudProvider, CostEstimate
 from app.schemas import TerraformOutput
-from app.services.terraform.generator import TerraformGenerator
+from app.services.terraform.generator_v2 import TerraformGeneratorV2 as TerraformGenerator
 
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)

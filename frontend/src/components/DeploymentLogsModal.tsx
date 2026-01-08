@@ -7,14 +7,28 @@ type DeployStatus = 'running' | 'success' | 'error' | 'idle';
 interface DeploymentLogsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  mode: 'deploy' | 'destroy';
+  mode: 'plan' | 'validate' | 'apply' | 'destroy';
   logs: string[];
   status: DeployStatus;
   onTerminate?: () => Promise<void>;
 }
 
 const operationMeta = {
-  deploy: {
+  plan: {
+    title: 'Plan Logs',
+    runningLabel: 'Planning...',
+    successLabel: 'Plan completed successfully!',
+    idleLabel: 'Ready to plan',
+    icon: PlayCircle,
+  },
+  validate: {
+    title: 'Validation Logs',
+    runningLabel: 'Validating...',
+    successLabel: 'Validation completed successfully!',
+    idleLabel: 'Ready to validate',
+    icon: PlayCircle,
+  },
+  apply: {
     title: 'Deployment Logs',
     runningLabel: 'Deploying...',
     successLabel: 'Deployment completed successfully!',

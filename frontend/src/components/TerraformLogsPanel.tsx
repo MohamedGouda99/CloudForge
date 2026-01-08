@@ -6,7 +6,7 @@ interface TerraformLogsPanelProps {
   isOpen: boolean;
   onClose: () => void;
   logs: string[];
-  operation: 'validate' | 'plan' | 'apply' | 'destroy' | 'pipeline' | null;
+  operation: 'validate' | 'plan' | 'apply' | 'destroy' | 'pipeline' | 'tfsec' | 'terrascan' | null;
   status: 'running' | 'success' | 'error' | 'idle';
 }
 
@@ -36,6 +36,8 @@ export default function TerraformLogsPanel({
     apply: 'Terraform Apply',
     destroy: 'Terraform Destroy',
     pipeline: 'Pipeline Logs',
+    tfsec: 'Tfsec Security Scan',
+    terrascan: 'Terrascan Security Scan',
   };
 
   const operationHeaderClasses: Record<OperationType, string> = {
@@ -44,6 +46,8 @@ export default function TerraformLogsPanel({
     apply: 'bg-green-600',
     destroy: 'bg-red-600',
     pipeline: 'bg-blue-600',
+    tfsec: 'bg-orange-600',
+    terrascan: 'bg-amber-600',
   };
 
   const headerBgClass = operation ? operationHeaderClasses[operation] : 'bg-gray-800';

@@ -12,16 +12,14 @@ import ReactFlow, {
   MarkerType,
   MiniMap,
   NodeDragHandler,
-  useReactFlow,
-  ReactFlowProvider,
 } from 'reactflow';
 import type { Edge, ReactFlowInstance } from 'reactflow';
 import 'reactflow/dist/style.css';
+import { toPng } from 'html-to-image';
 import apiClient from '../../lib/api/client';
 import { useAuthStore } from '../../lib/store/authStore';
 import {
   getResourcesForProvider,
-  getCategoriesForProvider,
   CloudProvider,
   CloudResource,
   resolveResourceIcon,
@@ -42,7 +40,7 @@ import InspectorPanel from '../../components/InspectorPanel';
 import ResourceContextMenu from '../../components/ResourceContextMenu';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import InputModal from '../../components/InputModal';
-import { createNode, getNodeTypeConfig, NODE_CONFIG } from '../../lib/nodeFactory';
+import { createNode, NODE_CONFIG } from '../../lib/nodeFactory';
 
 interface Project {
   id: number;
@@ -52,10 +50,10 @@ interface Project {
   diagram_data: any;
 }
 
-const GRID_SIZE = 10; // Grid size for snapping - larger values = more stable movement
 type PlanStatus = 'idle' | 'running' | 'success' | 'error';
 type DeployStatus = 'idle' | 'running' | 'success' | 'error';
-const DEFAULT_RESOURCE_SIZE = 160;
+// Use centralized constants from nodeFactory
+const { GRID_SIZE, DEFAULT_RESOURCE_SIZE } = NODE_CONFIG;
 const DEFAULT_EDGE_COLOR = '#2A8BFF';
 const DEFAULT_EDGE_STYLE = { stroke: DEFAULT_EDGE_COLOR, strokeWidth: 1.5 } as const;
 const DEFAULT_EDGE_MARKER = {
@@ -161,8 +159,6 @@ export default function DesignerPageFinal() {
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
   // UI state
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(288); // Default 288px (w-72)
@@ -177,9 +173,9 @@ export default function DesignerPageFinal() {
   const [deployLogsModalOpen, setDeployLogsModalOpen] = useState(false);
   const [planPreviewModalOpen, setPlanPreviewModalOpen] = useState(false);
   const [planPreviewContent, setPlanPreviewContent] = useState('');
-  const [planPreviewStatus, setPlanPreviewStatus] = useState<PlanStatus>('idle');
-  const [planPreviewHasChanges, setPlanPreviewHasChanges] = useState<boolean | null>(null);
-  const [planPreviewError, setPlanPreviewError] = useState('');
+  const [planPreviewStatus] = useState<PlanStatus>('idle');
+  const [planPreviewHasChanges] = useState<boolean | null>(null);
+  const [planPreviewError] = useState('');
   const planEventSourceRef = useRef<EventSource | null>(null);
   const deployEventSourceRef = useRef<EventSource | null>(null);
   const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -192,7 +188,7 @@ export default function DesignerPageFinal() {
   // Terraform logs panel state
   const [logsPanelOpen, setLogsPanelOpen] = useState(false);
   const [terraformLogs, setTerraformLogs] = useState<string[]>([]);
-  const [logsPanelOperation, setLogsPanelOperation] = useState<'validate' | 'plan' | 'apply' | 'destroy' | null>(null);
+  const [logsPanelOperation, setLogsPanelOperation] = useState<'validate' | 'plan' | 'apply' | 'destroy' | 'tfsec' | 'terrascan' | null>(null);
   const [logsPanelStatus, setLogsPanelStatus] = useState<'running' | 'success' | 'error' | 'idle'>('idle');
   const [deployLogs, setDeployLogs] = useState<string[]>([]);
   const [deployStatus, setDeployStatus] = useState<DeployStatus>('idle');
@@ -599,7 +595,6 @@ export default function DesignerPageFinal() {
 
   // Resources
   const resources = useMemo(() => getResourcesForProvider(provider), [provider]);
-  const categories = useMemo(() => getCategoriesForProvider(provider), [provider]);
 
   // Load project
   useEffect(() => {
@@ -1115,14 +1110,49 @@ export default function DesignerPageFinal() {
     }
   };
 
+  // Capture canvas thumbnail for project preview
+  const captureThumbnail = useCallback(async (): Promise<string | null> => {
+    try {
+      // Find the React Flow container (includes background + nodes)
+      const reactFlowEl = document.querySelector('.react-flow') as HTMLElement;
+      if (!reactFlowEl || nodes.length === 0) return null;
+
+      const imageWidth = 400; // Fixed thumbnail width
+      const imageHeight = 300; // Fixed thumbnail height
+
+      // Capture the entire React Flow area (includes dotted background)
+      const dataUrl = await toPng(reactFlowEl, {
+        width: imageWidth,
+        height: imageHeight,
+        filter: (node) => {
+          // Exclude controls, minimap, and attribution - keep background
+          if (node.classList) {
+            const exclude = ['react-flow__controls', 'react-flow__minimap', 'react-flow__attribution'];
+            return !exclude.some(cls => node.classList.contains(cls));
+          }
+          return true;
+        },
+      });
+
+      return dataUrl;
+    } catch (error) {
+      console.warn('Failed to capture thumbnail:', error);
+      return null;
+    }
+  }, [nodes]);
+
   const saveProject = useCallback(
     async (options?: { silent?: boolean; regionConfig?: Record<string, string>; skipTerraformGeneration?: boolean }) => {
       if (isSavingRef.current) return;
+
+      // Capture thumbnail for project preview (only if there are nodes)
+      const thumbnail = nodes.length > 0 ? await captureThumbnail() : null;
 
       const diagramData = JSON.parse(
         JSON.stringify({
           nodes: nodes.map(sanitizeNodeForSave),
           edges: edges.map(sanitizeEdgeForSave),
+          thumbnail: thumbnail, // Store canvas thumbnail for dashboard preview
         })
       );
 
@@ -1206,7 +1236,7 @@ export default function DesignerPageFinal() {
         setSaving(false);
       }
     },
-    [edges, nodes, project, projectId, provider, token]
+    [captureThumbnail, edges, nodes, project, projectId, provider, token]
   );
 
   const saveProjectRef = useRef(saveProject);
@@ -1595,25 +1625,6 @@ export default function DesignerPageFinal() {
     }
   };
 
-  const filteredResources = resources.filter((resource) => {
-    const matchesCategory = !selectedCategory || resource.category === selectedCategory;
-    const search = searchTerm.trim().toLowerCase();
-    if (!search) {
-      return matchesCategory;
-    }
-
-    const label = resource.label?.toLowerCase() ?? '';
-    const type = resource.type?.toLowerCase() ?? '';
-    const description = resource.description?.toLowerCase() ?? '';
-
-    const matchesSearch =
-      label.includes(search) ||
-      type.includes(search) ||
-      description.includes(search);
-
-    return matchesCategory && matchesSearch;
-  });
-
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [dragPreview, setDragPreview] = useState<{ resource: CloudResource; x: number; y: number } | null>(null);
 
@@ -1701,16 +1712,6 @@ export default function DesignerPageFinal() {
     },
     [setNodes]
   );
-
-  const selectedNodeConnections = useMemo(() => {
-    if (!selectedNode) {
-      return { incoming: [], outgoing: [] };
-    }
-    return {
-      incoming: edges.filter((e) => e.target === selectedNode.id),
-      outgoing: edges.filter((e) => e.source === selectedNode.id),
-    };
-  }, [selectedNode, edges]);
 
   const handleZoomIn = useCallback(() => {
     if (reactFlowInstance.current) {
@@ -2000,7 +2001,7 @@ export default function DesignerPageFinal() {
                 // Disable attribution for cleaner UI
                 proOptions={{ hideAttribution: true }}
               >
-                <Background gap={20} size={1} color="#e0e0e0" variant={BackgroundVariant.Dots} style={{ backgroundColor: '#ffffff' }} />
+                <Background gap={16} size={2} color="#d1d5db" variant={BackgroundVariant.Dots} style={{ backgroundColor: '#ffffff' }} />
                 <Controls showZoom={false} showFitView={false} />
                 {showMinimap && <MiniMap />}
                 
