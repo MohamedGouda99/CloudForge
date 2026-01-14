@@ -640,9 +640,15 @@ def update_project(
                                 if source_type == 'aws_subnet':
                                     config['subnet_id'] = f"aws_subnet.{source_tf_name}.id"
                                 elif source_type == 'aws_security_group':
+                                    # Ensure vpc_security_group_ids is a list
                                     if 'vpc_security_group_ids' not in config:
                                         config['vpc_security_group_ids'] = []
-                                    config['vpc_security_group_ids'].append(f"aws_security_group.{source_tf_name}.id")
+                                    elif isinstance(config['vpc_security_group_ids'], str):
+                                        config['vpc_security_group_ids'] = [config['vpc_security_group_ids']] if config['vpc_security_group_ids'] else []
+                                    # Only add if not already in the list (prevent duplicates)
+                                    sg_ref = f"aws_security_group.{source_tf_name}.id"
+                                    if sg_ref not in config['vpc_security_group_ids']:
+                                        config['vpc_security_group_ids'].append(sg_ref)
                                 elif source_type == 'aws_key_pair':
                                     config['key_name'] = f"aws_key_pair.{source_tf_name}.key_name"
 
@@ -659,9 +665,15 @@ def update_project(
                                     if 'db_subnet_group_name' not in config:
                                         config['db_subnet_group_name'] = f"aws_db_subnet_group.default.name"
                                 elif source_type == 'aws_security_group':
+                                    # Ensure vpc_security_group_ids is a list
                                     if 'vpc_security_group_ids' not in config:
                                         config['vpc_security_group_ids'] = []
-                                    config['vpc_security_group_ids'].append(f"aws_security_group.{source_tf_name}.id")
+                                    elif isinstance(config['vpc_security_group_ids'], str):
+                                        config['vpc_security_group_ids'] = [config['vpc_security_group_ids']] if config['vpc_security_group_ids'] else []
+                                    # Only add if not already in the list (prevent duplicates)
+                                    sg_ref = f"aws_security_group.{source_tf_name}.id"
+                                    if sg_ref not in config['vpc_security_group_ids']:
+                                        config['vpc_security_group_ids'].append(sg_ref)
 
                             elif resource_type == 'aws_lambda_function':
                                 if source_type == 'aws_subnet':
@@ -669,13 +681,19 @@ def update_project(
                                         config['vpc_config'] = {}
                                     if 'subnet_ids' not in config['vpc_config']:
                                         config['vpc_config']['subnet_ids'] = []
-                                    config['vpc_config']['subnet_ids'].append(f"aws_subnet.{source_tf_name}.id")
+                                    # Only add if not already in the list (prevent duplicates)
+                                    subnet_ref = f"aws_subnet.{source_tf_name}.id"
+                                    if subnet_ref not in config['vpc_config']['subnet_ids']:
+                                        config['vpc_config']['subnet_ids'].append(subnet_ref)
                                 elif source_type == 'aws_security_group':
                                     if 'vpc_config' not in config:
                                         config['vpc_config'] = {}
                                     if 'security_group_ids' not in config['vpc_config']:
                                         config['vpc_config']['security_group_ids'] = []
-                                    config['vpc_config']['security_group_ids'].append(f"aws_security_group.{source_tf_name}.id")
+                                    # Only add if not already in the list (prevent duplicates)
+                                    sg_ref = f"aws_security_group.{source_tf_name}.id"
+                                    if sg_ref not in config['vpc_config']['security_group_ids']:
+                                        config['vpc_config']['security_group_ids'].append(sg_ref)
 
                             elif resource_type == 'aws_nat_gateway':
                                 if source_type == 'aws_subnet':

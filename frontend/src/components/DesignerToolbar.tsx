@@ -568,6 +568,16 @@ export default function DesignerToolbar({
           </button>
         </Tooltip>
 
+        {/* Import Architecture */}
+        <Tooltip content="Import Architecture">
+          <button
+            onClick={onImport}
+            className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-all duration-150"
+          >
+            <Upload className="h-4 w-4" />
+          </button>
+        </Tooltip>
+
         {/* Export/Screenshot */}
         <Tooltip content="Export Image">
           <button

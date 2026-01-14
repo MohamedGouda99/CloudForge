@@ -1,0 +1,124 @@
+{
+  "version": "1.0",
+  "metadata": {
+    "name": "Basic Web Application",
+    "description": "Simple web application with VPC, EC2 web server, and RDS database",
+    "cloud_provider": "aws",
+    "author": "CloudForge",
+    "tags": ["web-app", "ec2", "rds", "basic"]
+  },
+  "resources": [
+    {
+      "id": "vpc-main",
+      "type": "aws_vpc",
+      "name": "Main VPC",
+      "properties": {
+        "cidr_block": "10.0.0.0/16",
+        "enable_dns_hostnames": true,
+        "enable_dns_support": true
+      }
+    },
+    {
+      "id": "subnet-public-1",
+      "type": "aws_subnet",
+      "name": "Public Subnet 1",
+      "parent": "vpc-main",
+      "properties": {
+        "cidr_block": "10.0.1.0/24",
+        "availability_zone": "us-east-1a",
+        "map_public_ip_on_launch": true
+      }
+    },
+    {
+      "id": "subnet-private-1",
+      "type": "aws_subnet",
+      "name": "Private Subnet 1",
+      "parent": "vpc-main",
+      "properties": {
+        "cidr_block": "10.0.10.0/24",
+        "availability_zone": "us-east-1a",
+        "map_public_ip_on_launch": false
+      }
+    },
+    {
+      "id": "igw-main",
+      "type": "aws_internet_gateway",
+      "name": "Internet Gateway",
+      "parent": "vpc-main",
+      "properties": {}
+    },
+    {
+      "id": "sg-web",
+      "type": "aws_security_group",
+      "name": "Web Security Group",
+      "parent": "vpc-main",
+      "properties": {
+        "description": "Security group for web servers",
+        "ingress": {
+          "from_port": 80,
+          "to_port": 80,
+          "protocol": "tcp",
+          "cidr_blocks": "0.0.0.0/0"
+        }
+      }
+    },
+    {
+      "id": "sg-db",
+      "type": "aws_security_group",
+      "name": "Database Security Group",
+      "parent": "vpc-main",
+      "properties": {
+        "description": "Security group for database",
+        "ingress": {
+          "from_port": 3306,
+          "to_port": 3306,
+          "protocol": "tcp"
+        }
+      }
+    },
+    {
+      "id": "ec2-web",
+      "type": "aws_instance",
+      "name": "Web Server",
+      "parent": "subnet-public-1",
+      "properties": {
+        "ami": "ami-0c55b159cbfafe1f0",
+        "instance_type": "t3.medium",
+        "associate_public_ip_address": true
+      }
+    },
+    {
+      "id": "rds-mysql",
+      "type": "aws_db_instance",
+      "name": "MySQL Database",
+      "parent": "subnet-private-1",
+      "properties": {
+        "engine": "mysql",
+        "engine_version": "8.0",
+        "instance_class": "db.t3.medium",
+        "allocated_storage": 20,
+        "storage_type": "gp2",
+        "db_name": "webapp",
+        "username": "admin",
+        "skip_final_snapshot": true
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": "ec2-web",
+      "to": "sg-web",
+      "label": "uses"
+    },
+    {
+      "from": "rds-mysql",
+      "to": "sg-db",
+      "label": "uses"
+    },
+    {
+      "from": "ec2-web",
+      "to": "rds-mysql",
+      "label": "connects to"
+    }
+  ]
+}

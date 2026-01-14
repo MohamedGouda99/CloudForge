@@ -9,7 +9,7 @@ CloudForge is a multi-cloud Infrastructure as Code (IaC) platform that enables v
 **Tech Stack:**
 - **Backend:** FastAPI (Python 3.11+), SQLAlchemy 2.0, PostgreSQL 15, Celery, Redis
 - **Frontend:** React 18, TypeScript 5.6, Zustand, React Flow, TailwindCSS, Vite
-- **Infrastructure:** Docker Compose, LocalStack, Nginx
+- **Infrastructure:** Docker Compose, LocalStack Pro
 - **Security:** TFSec, Terrascan, Infracost
 
 ## Development Commands
@@ -36,18 +36,11 @@ wsl.exe -d Ubuntu bash -c "cd '/mnt/c/Users/goda/Desktop/CloudForge' && docker c
 ```bash
 cd backend
 
-# Install dependencies
-pip install -r requirements.txt
-
 # Run development server (with auto-reload)
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # Run tests
 pytest tests/ -v --cov=app
-
-# Database migrations
-alembic revision --autogenerate -m "description"
-alembic upgrade head
 
 # Code formatting and linting
 black app/
@@ -60,20 +53,25 @@ mypy app/
 ```bash
 cd frontend
 
-# Install dependencies
 npm install
+npm run dev           # Development server with HMR
+npm run build         # Production build (runs tsc first)
+npm run lint          # ESLint
+npx tsc --noEmit      # Type check only
+```
 
-# Run development server (with HMR)
-npm run dev
+### TypeScript Terraform Generator
 
-# Build for production
-npm run build
+The backend contains a separate TypeScript module at `backend/src/terraform/`:
 
-# Lint code
-npm run lint
+```bash
+cd backend/src/terraform
 
-# Type check
-npx tsc --noEmit
+npm install
+npm run test          # Run vitest tests
+npm run test:watch    # Watch mode
+npm run build         # Compile TypeScript
+npm run lint          # ESLint
 ```
 
 ### Testing API Endpoints
@@ -98,127 +96,80 @@ curl -X POST http://localhost:8000/api/terraform/generate/{id} \
 
 ## Architecture
 
-### Backend Architecture (Layered)
+### Backend Structure
 
 ```
 backend/app/
 ├── api/endpoints/          # FastAPI route handlers
 │   ├── auth.py            # JWT authentication (/api/auth/*)
 │   ├── projects.py        # Project CRUD (/api/projects/*)
-│   ├── resources.py       # Resource management (/api/resources/*)
 │   ├── terraform.py       # Terraform generation (/api/terraform/*)
 │   ├── security.py        # TFSec/Terrascan scans
-│   ├── drift.py           # Drift detection
 │   ├── dashboard.py       # Analytics/stats
 │   └── assistant.py       # AI assistant (Claude)
 ├── core/
 │   ├── config.py          # Settings (loaded from .env)
 │   ├── database.py        # SQLAlchemy setup
 │   ├── security.py        # JWT utilities, password hashing
-│   ├── celery.py          # Async task configuration
-│   └── logging.py         # Structured logging
+│   └── celery.py          # Async task configuration
 ├── models/                # SQLAlchemy ORM models
-│   ├── user.py           # User model with authentication
-│   ├── project.py        # Project model (stores diagram_data, tf_config)
-│   └── terraform.py      # Resource and CostEstimate models
-├── schemas/              # Pydantic models for request/response validation
-├── services/             # Business logic layer
+├── schemas/               # Pydantic request/response validation
+├── services/
 │   ├── terraform/
-│   │   ├── factory.py    # TerraformGeneratorFactory (multi-cloud)
-│   │   ├── generators/   # Cloud-specific generators
-│   │   │   ├── aws.py
-│   │   │   ├── azure.py
-│   │   │   └── gcp.py
-│   │   ├── formatters.py # HCL code formatting
-│   │   └── config.py     # Resource mapping configs
-│   ├── claude_assistant.py  # Anthropic Claude integration
-│   └── drift/            # Infrastructure drift detection
-├── middleware/           # Request/response middleware
-└── main.py              # Application entry point, router registration
+│   │   ├── factory.py     # TerraformGeneratorFactory (multi-cloud)
+│   │   ├── generators/    # Cloud-specific generators (aws.py, azure.py, gcp.py)
+│   │   └── generator_v2.py
+│   └── claude_assistant.py
+└── main.py               # Application entry point
 ```
 
-### Frontend Architecture (Feature-Based)
+### Frontend Structure
 
 ```
 frontend/src/
 ├── features/             # Feature modules (pages)
 │   ├── dashboard/       # Main dashboard view
 │   ├── designer/        # Visual infrastructure designer (React Flow)
-│   ├── analytics/       # Cost analytics and charts
-│   └── auth/           # Login/register pages
+│   └── analytics/       # Cost analytics
 ├── components/          # Reusable UI components
 │   ├── DesignerToolbar.tsx   # Drag-drop resource palette
-│   ├── InspectorPanel.tsx    # Resource property editor
-│   └── MetricsCard.tsx       # Dashboard stat cards
+│   └── InspectorPanel.tsx    # Resource property editor
 ├── lib/
 │   ├── api/            # Axios API client with interceptors
-│   ├── store/          # Zustand state management
-│   │   ├── authStore.ts      # Authentication state
-│   │   ├── projectStore.ts   # Project data
-│   │   └── designerStore.ts  # Canvas nodes/edges
-│   ├── resources/      # Cloud resource definitions and icons
-│   ├── terraform/      # HCL parsing utilities
-│   └── utils/          # Helper functions
-└── App.tsx             # Router and main layout
+│   ├── store/          # Zustand state management (authStore, themeStore)
+│   └── resources/      # Cloud resource definitions
+└── App.tsx
 ```
 
-### Multi-Cloud Terraform Generation Flow
+### TypeScript Terraform Generator
 
-The Terraform generation is cloud-agnostic at the API level but provider-specific in implementation:
+Located at `backend/src/terraform/`, this is a separate TypeScript module called via subprocess from Python:
+
+- `generate.ts` - Entry point for generation
+- `catalog/` - Resource templates
+- `registry.ts` - Resource type registry
+- `cli.ts` - CLI interface
+
+### Multi-Cloud Terraform Generation Flow
 
 1. **User Action:** Designer canvas nodes/edges saved to `project.diagram_data` (JSON)
 2. **API Call:** `POST /api/terraform/generate/{project_id}`
 3. **Factory Pattern:** `TerraformGeneratorFactory` selects generator based on `project.cloud_provider`
-4. **Generator Execution:**
-   - Parses `diagram_data` to extract nodes and edges
-   - Builds dependency graph (e.g., VPC → Subnet → EC2 → Security Group)
-   - Maps visual nodes to Terraform resource types (e.g., "vpc" → "aws_vpc")
-   - Generates HCL using Jinja2 templates in `backend/src/terraform/catalog/`
-5. **Post-Processing:**
-   - Formats HCL code
-   - Stores result in `project.tf_config`
-   - Returns generated code to frontend
-6. **Security/Cost Analysis (background):**
-   - TFSec scan: `POST /api/terraform/tfsec/{project_id}`
-   - Terrascan policy check: `POST /api/terraform/terrascan/{project_id}`
-   - Infracost estimation: `POST /api/terraform/infracost/{project_id}`
+4. **Generator:** Parses diagram_data, builds dependency graph, generates HCL
+5. **Post-Processing:** Security scan (TFSec), policy check (Terrascan), cost estimate (Infracost)
 
 ### Database Schema
 
 **Key relationships:**
 - `users` 1:N `projects` (via `owner_id`)
 - `projects` 1:N `resources` (via `project_id`)
-- `projects` 1:N `cost_estimates` (via `project_id`)
 
 **Important columns:**
 - `projects.diagram_data`: JSON blob storing React Flow nodes/edges
 - `projects.tf_config`: Generated Terraform HCL code (TEXT)
 - `projects.cloud_provider`: Enum ("aws", "azure", "gcp")
 
-### Real-time Collaboration
-
-Socket.IO is integrated for collaborative editing:
-- Room-based architecture: `project_{project_id}`
-- Events: `diagram_update`, `cursor_position`, `user_joined`, `user_left`
-- WebSocket endpoint: Uses same FastAPI server with `socketio.ASGIApp` wrapper
-
 ## Critical Implementation Details
-
-### TypeScript Terraform Generator (backend/src/terraform/)
-
-The backend contains a **TypeScript-based Terraform generator** separate from the Python codebase. This is called via subprocess from Python:
-
-- **Location:** `backend/src/terraform/`
-- **Entry point:** `generate.ts`
-- **Package manager:** npm (has its own `package.json`)
-- **Usage from Python:** Executed via `subprocess` with JSON input/output
-- **Installation:** Run `npm install` in `backend/src/terraform/` directory
-
-When modifying Terraform generation:
-1. Changes to resource types go in `catalog/` directory
-2. Type definitions in `types.ts`
-3. Graph inference logic in `infer.ts`
-4. HCL rendering in `render.ts`
 
 ### Authentication Flow
 
@@ -231,68 +182,41 @@ When modifying Terraform generation:
 
 ### Environment Variables
 
-**Backend (.env):**
-- `DATABASE_URL`: PostgreSQL connection string (must point to container name in Docker)
-- `SECRET_KEY`: JWT signing key (MUST change in production)
+**Backend (docker-compose.yaml):**
+- `DATABASE_URL`: PostgreSQL connection string
+- `SECRET_KEY`: JWT signing key
 - `INFRACOST_API_KEY`: Required for cost estimation
-- `ANTHROPIC_API_KEY`: Optional, for AI assistant features
+- `ANTHROPIC_API_KEY`: Optional, for AI assistant
 
-**Frontend (.env):**
-- `VITE_API_URL`: Backend URL (use `http://localhost:8000` for local dev)
+**Frontend:**
+- `VITE_API_URL`: Backend URL (default: `http://localhost:8000`)
+
+### Service Ports
+
+- Frontend: `3000`
+- Backend: `8000`
+- PostgreSQL: `5432` (internal only)
+- Redis: `6379` (internal only)
+- LocalStack: `4566`
 
 ### Cloud Service Icons
 
-Icons are stored in `Cloud_Services/` directory:
-- **AWS:** `Cloud_Services/AWS/Architecture-Service-Icons_07312025/`
-- **Structure:** Organized by service category, multiple sizes (16, 32, 48, 64 pixels)
-- **API:** `GET /api/icons/{provider}` returns available icons
-- **Volume Mount:** Read-only mount in Docker (`/app/Cloud_Services:ro`)
-
-### LocalStack Integration
-
-LocalStack Pro is used for AWS testing without real credentials:
-- **Endpoint:** `http://localstack:4566`
-- **Services:** S3, DynamoDB, Lambda, EC2, etc.
-- **Configuration:** Set `AWS_ENDPOINT_URL` environment variable
-- **Persistence:** Enabled via `PERSISTENCE=1` and volume mount
+Icons stored in `Cloud_Services/` directory, mounted read-only at `/app/Cloud_Services` in containers.
 
 ## Common Development Patterns
 
 ### Adding a New Cloud Resource
 
 1. **Backend:** Add resource config to `backend/app/services/terraform/config.py`
-2. **TypeScript Generator:** Add template in `backend/src/terraform/catalog/{provider}/{resource}.ts`
-3. **Frontend:** Add resource definition to `frontend/src/lib/resources/{provider}.ts`
-4. **Icon:** Add icon path to resource config
+2. **TypeScript Generator:** Add template in `backend/src/terraform/catalog/`
+3. **Frontend:** Add resource definition to `frontend/src/lib/resources/`
 
 ### Adding a New API Endpoint
 
 1. Create endpoint in `backend/app/api/endpoints/{feature}.py`
-2. Add Pydantic schemas in `backend/app/schemas/{feature}.py` (if needed)
+2. Add Pydantic schemas in `backend/app/schemas/{feature}.py`
 3. Register router in `backend/app/main.py`
-4. Add API client method in `frontend/src/lib/api/client.ts`
-5. Update Zustand store if state management needed
-
-### Database Changes
-
-1. Modify SQLAlchemy model in `backend/app/models/`
-2. Generate migration: `alembic revision --autogenerate -m "description"`
-3. Review generated migration in `backend/alembic/versions/`
-4. Apply migration: `alembic upgrade head`
-5. Update Pydantic schemas to match new model structure
-
-## Testing
-
-### Backend Tests
-
-Located in `backend/tests/`:
-- Use `pytest` with `pytest-asyncio` for async tests
-- Database tests use in-memory SQLite or test PostgreSQL instance
-- Mock external services (Infracost, Anthropic) in unit tests
-
-### Frontend Tests
-
-Not currently configured but package.json has placeholders.
+4. Add API client method in `frontend/src/lib/api/`
 
 ## WSL Development Notes
 
@@ -300,46 +224,3 @@ This project is developed on Windows with WSL2:
 - **Project Path:** `/mnt/c/Users/goda/Desktop/CloudForge`
 - **Docker:** Docker Desktop for Windows with WSL2 backend
 - **Commands:** Use `wsl.exe -d Ubuntu` prefix to run commands from Windows
-- **File Watching:** May need to configure file watchers for hot reload across WSL boundary
-
-## Security Scanning
-
-### TFSec
-
-Static security analysis for Terraform code:
-- **Binary:** Installed in backend container
-- **Execution:** Called via subprocess in `backend/app/api/endpoints/security.py`
-- **Output:** JSON with severity levels (CRITICAL, HIGH, MEDIUM, LOW)
-
-### Terrascan
-
-Policy-as-code validation:
-- **Binary:** Installed in backend container
-- **Policies:** Supports CIS, SOC2, HIPAA, PCI-DSS benchmarks
-- **Format:** OPA Rego policies
-
-### Infracost
-
-Cloud cost estimation:
-- **API Key:** Required in environment variables
-- **Execution:** Background Celery task
-- **Storage:** Results saved to `cost_estimates` table
-
-## AI Assistant Integration
-
-Claude (Anthropic) integration for infrastructure questions:
-- **Endpoint:** `/api/assistant/chat`
-- **Model:** Configured in `services/claude_assistant.py`
-- **Context:** Can include project diagram data for context-aware suggestions
-- **API Key:** Set `ANTHROPIC_API_KEY` environment variable
-
-## Deployment Considerations
-
-- Change `SECRET_KEY` to cryptographically secure random value
-- Set `ENVIRONMENT=production` to disable debug features and OpenAPI docs
-- Configure proper CORS origins in production
-- Use proper PostgreSQL instance (not Docker container for production)
-- Set up SSL/TLS termination at load balancer or reverse proxy
-- Configure Celery workers for background tasks
-- Set up monitoring and log aggregation
-- Regular database backups of PostgreSQL

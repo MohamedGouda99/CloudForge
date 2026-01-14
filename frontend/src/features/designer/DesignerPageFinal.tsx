@@ -31,6 +31,7 @@ import CloudCredentialsModal from '../../components/CloudCredentialsModal';
 import DeploymentLogsModal from '../../components/DeploymentLogsModal';
 import PlanPreviewModal from '../../components/PlanPreviewModal';
 import ExportModal from '../../components/ExportModal';
+import ImportArchitectureModal, { CloudForgeArchitecture, CloudForgeResource } from '../../components/ImportArchitectureModal';
 import DesignerWithCodeView from '../../components/DesignerWithCodeView';
 import TerraformLogsPanel from '../../components/TerraformLogsPanel';
 import InfracostReportPanel from './InfracostReportPanel';
@@ -179,6 +180,7 @@ export default function DesignerPageFinal() {
   const planEventSourceRef = useRef<EventSource | null>(null);
   const deployEventSourceRef = useRef<EventSource | null>(null);
   const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
   const [deployMode, setDeployMode] = useState<'plan' | 'validate' | 'apply' | 'destroy'>('apply');
   const [terraformAction, setTerraformAction] = useState<'download' | 'plan' | 'apply' | 'destroy' | 'validate' | 'tfsec' | 'terrascan' | 'infracost' | null>(null);
   const [showCodePanel, setShowCodePanel] = useState(false);
@@ -1117,8 +1119,8 @@ export default function DesignerPageFinal() {
       const reactFlowEl = document.querySelector('.react-flow') as HTMLElement;
       if (!reactFlowEl || nodes.length === 0) return null;
 
-      const imageWidth = 400; // Fixed thumbnail width
-      const imageHeight = 300; // Fixed thumbnail height
+      const imageWidth = 800; // Higher resolution thumbnail
+      const imageHeight = 600; // Higher resolution thumbnail
 
       // Capture the entire React Flow area (includes dotted background)
       const dataUrl = await toPng(reactFlowEl, {
@@ -1860,6 +1862,447 @@ export default function DesignerPageFinal() {
     }
   };
 
+  // Handle CloudForge Architecture JSON import with AWS-style tiered layout
+  const handleCloudForgeImport = useCallback(async (architecture: CloudForgeArchitecture) => {
+    try {
+      // ========================================
+      // AWS-STYLE 3-TIER ARCHITECTURE LAYOUT
+      // ========================================
+      // Layout: VPC contains horizontal tier rows
+      // Each tier has AZ columns with subnets
+      // Shared resources (ALB, etc.) in center column
+      // Standalone resources (S3, CloudWatch) outside VPC
+      // ========================================
+
+      const LAYOUT = {
+        // Canvas positioning
+        canvasStartX: 100,
+        canvasStartY: 100,
+
+        // VPC dimensions
+        vpcPadding: { top: 80, right: 50, bottom: 50, left: 50 },
+
+        // Subnet dimensions
+        subnetWidth: 320,
+        subnetHeight: 180,
+        subnetPadding: { top: 45, right: 20, bottom: 20, left: 20 },
+
+        // Spacing
+        azGap: 80, // Gap between AZ columns (center column for shared resources)
+        tierGap: 40, // Gap between tier rows
+        resourceGap: 25, // Gap between resources in subnet
+
+        // Resource sizes
+        resourceWidth: 70,
+        resourceHeight: 70,
+
+        // Standalone section
+        standaloneGap: 120,
+        standaloneColWidth: 100,
+      };
+
+      // ========================================
+      // HELPER FUNCTIONS
+      // ========================================
+
+      const isVpcType = (type: string) =>
+        type.includes('vpc') || type === 'google_compute_network' || type === 'azurerm_virtual_network';
+
+      const isSubnetType = (type: string) =>
+        type.includes('subnet') || type === 'google_compute_subnetwork';
+
+      const isGatewayType = (type: string) =>
+        type.includes('gateway') || type.includes('igw') || type.includes('nat');
+
+      const isLoadBalancerType = (type: string) =>
+        type.includes('lb') || type.includes('load_balancer') || type.includes('alb') || type.includes('elb');
+
+      const isSecurityGroupType = (type: string) =>
+        type.includes('security_group');
+
+      // Detect tier from resource name/id
+      const detectTier = (name: string, id: string): 'web' | 'app' | 'db' | 'other' => {
+        const combined = `${name} ${id}`.toLowerCase();
+        if (combined.includes('public') || combined.includes('web')) return 'web';
+        if (combined.includes('app') || combined.includes('application')) return 'app';
+        if (combined.includes('db') || combined.includes('database') || combined.includes('data')) return 'db';
+        if (combined.includes('private')) return 'app'; // Default private to app tier
+        return 'other';
+      };
+
+      // Detect AZ from resource name/id/properties
+      const detectAZ = (resource: CloudForgeResource): number => {
+        const combined = `${resource.name} ${resource.id}`.toLowerCase();
+        const az = resource.properties?.availability_zone || '';
+
+        // Check for AZ indicators (1, 2, a, b, etc.)
+        if (combined.includes('-1') || combined.includes('az1') || combined.includes('-a') || az.includes('1a')) return 0;
+        if (combined.includes('-2') || combined.includes('az2') || combined.includes('-b') || az.includes('1b')) return 1;
+
+        // Fallback: use hash of id to distribute
+        return resource.id.charCodeAt(resource.id.length - 1) % 2;
+      };
+
+      // ========================================
+      // STEP 1: BUILD RESOURCE MAPS
+      // ========================================
+
+      const childrenMap = new Map<string, CloudForgeResource[]>();
+      const resourceById = new Map<string, CloudForgeResource>();
+      const rootResources: CloudForgeResource[] = [];
+
+      architecture.resources.forEach(resource => {
+        resourceById.set(resource.id, resource);
+        if (resource.parent) {
+          const children = childrenMap.get(resource.parent) || [];
+          children.push(resource);
+          childrenMap.set(resource.parent, children);
+        } else {
+          rootResources.push(resource);
+        }
+      });
+
+      // ========================================
+      // STEP 2: CATEGORIZE RESOURCES
+      // ========================================
+
+      const vpcResources = rootResources.filter(r => isVpcType(r.type));
+      const standaloneResources = rootResources.filter(r => !isVpcType(r.type));
+
+      // ========================================
+      // STEP 3: ANALYZE VPC STRUCTURE
+      // ========================================
+
+      interface TierData {
+        name: string;
+        subnetsAZ0: CloudForgeResource[];
+        subnetsAZ1: CloudForgeResource[];
+        sharedResources: CloudForgeResource[];
+      }
+
+      const analyzeVpcStructure = (vpc: CloudForgeResource) => {
+        const children = childrenMap.get(vpc.id) || [];
+
+        // Separate by type
+        const subnets = children.filter(c => isSubnetType(c.type));
+        const gateways = children.filter(c => isGatewayType(c.type));
+        const loadBalancers = children.filter(c => isLoadBalancerType(c.type));
+        const securityGroups = children.filter(c => isSecurityGroupType(c.type));
+        const otherVpcResources = children.filter(c =>
+          !isSubnetType(c.type) && !isGatewayType(c.type) &&
+          !isLoadBalancerType(c.type) && !isSecurityGroupType(c.type)
+        );
+
+        // Organize subnets by tier and AZ
+        const tiers: Map<string, TierData> = new Map();
+        const tierOrder = ['web', 'app', 'db', 'other'];
+
+        tierOrder.forEach(tierName => {
+          tiers.set(tierName, {
+            name: tierName,
+            subnetsAZ0: [],
+            subnetsAZ1: [],
+            sharedResources: [],
+          });
+        });
+
+        // Categorize subnets
+        subnets.forEach(subnet => {
+          const tier = detectTier(subnet.name, subnet.id);
+          const az = detectAZ(subnet);
+          const tierData = tiers.get(tier)!;
+
+          if (az === 0) {
+            tierData.subnetsAZ0.push(subnet);
+          } else {
+            tierData.subnetsAZ1.push(subnet);
+          }
+        });
+
+        // Assign load balancers to appropriate tiers
+        loadBalancers.forEach(lb => {
+          const tier = detectTier(lb.name, lb.id);
+          const tierData = tiers.get(tier) || tiers.get('web')!;
+          tierData.sharedResources.push(lb);
+        });
+
+        // Filter out empty tiers
+        const activeTiers: TierData[] = [];
+        tierOrder.forEach(tierName => {
+          const tierData = tiers.get(tierName)!;
+          if (tierData.subnetsAZ0.length > 0 || tierData.subnetsAZ1.length > 0 || tierData.sharedResources.length > 0) {
+            activeTiers.push(tierData);
+          }
+        });
+
+        return {
+          activeTiers,
+          gateways,
+          securityGroups,
+          otherVpcResources,
+        };
+      };
+
+      // ========================================
+      // STEP 4: CALCULATE LAYOUT DIMENSIONS
+      // ========================================
+
+      const positionMap = new Map<string, { x: number; y: number }>();
+      const sizeMap = new Map<string, { width: number; height: number }>();
+
+      let currentVpcX = LAYOUT.canvasStartX;
+
+      vpcResources.forEach(vpc => {
+        const structure = analyzeVpcStructure(vpc);
+        const { activeTiers, gateways, securityGroups, otherVpcResources } = structure;
+
+        // Calculate VPC dimensions based on content
+        const numTiers = Math.max(activeTiers.length, 1);
+
+        // Width: 2 subnet columns + center gap + padding
+        const contentWidth = LAYOUT.subnetWidth * 2 + LAYOUT.azGap;
+        const vpcWidth = LAYOUT.vpcPadding.left + contentWidth + LAYOUT.vpcPadding.right;
+
+        // Height: all tiers + gateway row at top + padding
+        const gatewayRowHeight = gateways.length > 0 ? LAYOUT.resourceHeight + 40 : 0;
+        const tiersHeight = numTiers * LAYOUT.subnetHeight + (numTiers - 1) * LAYOUT.tierGap;
+        const vpcHeight = LAYOUT.vpcPadding.top + gatewayRowHeight + tiersHeight + LAYOUT.vpcPadding.bottom;
+
+        // Store VPC size and position
+        sizeMap.set(vpc.id, { width: vpcWidth, height: vpcHeight });
+        positionMap.set(vpc.id, { x: currentVpcX, y: LAYOUT.canvasStartY });
+
+        // ========================================
+        // POSITION GATEWAYS AT TOP
+        // ========================================
+
+        let gatewayX = LAYOUT.vpcPadding.left + contentWidth / 2 - (gateways.length * (LAYOUT.resourceWidth + 20)) / 2;
+        const gatewayY = LAYOUT.vpcPadding.top;
+
+        gateways.forEach((gw, idx) => {
+          positionMap.set(gw.id, {
+            x: gatewayX + idx * (LAYOUT.resourceWidth + 20),
+            y: gatewayY,
+          });
+          sizeMap.set(gw.id, { width: LAYOUT.resourceWidth, height: LAYOUT.resourceHeight });
+        });
+
+        // ========================================
+        // POSITION TIERS (SUBNETS + SHARED)
+        // ========================================
+
+        let tierY = LAYOUT.vpcPadding.top + gatewayRowHeight + 20;
+
+        activeTiers.forEach((tierData) => {
+          // AZ0 subnets (left column)
+          let subnetIdx = 0;
+          tierData.subnetsAZ0.forEach(subnet => {
+            const subnetX = LAYOUT.vpcPadding.left;
+            const subnetYOffset = subnetIdx * (LAYOUT.subnetHeight + 20);
+
+            positionMap.set(subnet.id, { x: subnetX, y: tierY + subnetYOffset });
+            sizeMap.set(subnet.id, { width: LAYOUT.subnetWidth, height: LAYOUT.subnetHeight });
+
+            // Position children inside subnet
+            const subnetChildren = childrenMap.get(subnet.id) || [];
+            let childX = LAYOUT.subnetPadding.left;
+            let childY = LAYOUT.subnetPadding.top;
+            let colCount = 0;
+            const maxCols = 3;
+
+            subnetChildren.forEach(child => {
+              positionMap.set(child.id, { x: childX, y: childY });
+              sizeMap.set(child.id, { width: LAYOUT.resourceWidth, height: LAYOUT.resourceHeight });
+
+              colCount++;
+              if (colCount >= maxCols) {
+                colCount = 0;
+                childX = LAYOUT.subnetPadding.left;
+                childY += LAYOUT.resourceHeight + LAYOUT.resourceGap;
+              } else {
+                childX += LAYOUT.resourceWidth + LAYOUT.resourceGap;
+              }
+            });
+
+            subnetIdx++;
+          });
+
+          // Shared resources (center column)
+          const centerX = LAYOUT.vpcPadding.left + LAYOUT.subnetWidth + LAYOUT.azGap / 2 - LAYOUT.resourceWidth / 2;
+          tierData.sharedResources.forEach((shared, idx) => {
+            positionMap.set(shared.id, {
+              x: centerX,
+              y: tierY + idx * (LAYOUT.resourceHeight + 20) + LAYOUT.subnetHeight / 2 - LAYOUT.resourceHeight / 2,
+            });
+            sizeMap.set(shared.id, { width: LAYOUT.resourceWidth, height: LAYOUT.resourceHeight });
+          });
+
+          // AZ1 subnets (right column)
+          subnetIdx = 0;
+          tierData.subnetsAZ1.forEach(subnet => {
+            const subnetX = LAYOUT.vpcPadding.left + LAYOUT.subnetWidth + LAYOUT.azGap;
+            const subnetYOffset = subnetIdx * (LAYOUT.subnetHeight + 20);
+
+            positionMap.set(subnet.id, { x: subnetX, y: tierY + subnetYOffset });
+            sizeMap.set(subnet.id, { width: LAYOUT.subnetWidth, height: LAYOUT.subnetHeight });
+
+            // Position children inside subnet
+            const subnetChildren = childrenMap.get(subnet.id) || [];
+            let childX = LAYOUT.subnetPadding.left;
+            let childY = LAYOUT.subnetPadding.top;
+            let colCount = 0;
+            const maxCols = 3;
+
+            subnetChildren.forEach(child => {
+              positionMap.set(child.id, { x: childX, y: childY });
+              sizeMap.set(child.id, { width: LAYOUT.resourceWidth, height: LAYOUT.resourceHeight });
+
+              colCount++;
+              if (colCount >= maxCols) {
+                colCount = 0;
+                childX = LAYOUT.subnetPadding.left;
+                childY += LAYOUT.resourceHeight + LAYOUT.resourceGap;
+              } else {
+                childX += LAYOUT.resourceWidth + LAYOUT.resourceGap;
+              }
+            });
+
+            subnetIdx++;
+          });
+
+          // Move to next tier row
+          const maxSubnetsInTier = Math.max(tierData.subnetsAZ0.length, tierData.subnetsAZ1.length, 1);
+          tierY += maxSubnetsInTier * LAYOUT.subnetHeight + LAYOUT.tierGap;
+        });
+
+        // ========================================
+        // POSITION SECURITY GROUPS & OTHER VPC RESOURCES
+        // ========================================
+
+        // Position security groups along the right edge of VPC
+        let sgY = LAYOUT.vpcPadding.top;
+        securityGroups.forEach((sg, idx) => {
+          positionMap.set(sg.id, {
+            x: vpcWidth - LAYOUT.vpcPadding.right - LAYOUT.resourceWidth,
+            y: sgY + idx * (LAYOUT.resourceHeight + 15),
+          });
+          sizeMap.set(sg.id, { width: LAYOUT.resourceWidth, height: LAYOUT.resourceHeight });
+        });
+
+        // Other VPC resources below security groups
+        otherVpcResources.forEach((res, idx) => {
+          const row = Math.floor(idx / 2);
+          const col = idx % 2;
+          positionMap.set(res.id, {
+            x: LAYOUT.vpcPadding.left + col * (LAYOUT.resourceWidth + 20),
+            y: vpcHeight - LAYOUT.vpcPadding.bottom - LAYOUT.resourceHeight - row * (LAYOUT.resourceHeight + 15),
+          });
+          sizeMap.set(res.id, { width: LAYOUT.resourceWidth, height: LAYOUT.resourceHeight });
+        });
+
+        currentVpcX += vpcWidth + LAYOUT.standaloneGap;
+      });
+
+      // ========================================
+      // STEP 5: POSITION STANDALONE RESOURCES
+      // ========================================
+
+      let standaloneX = currentVpcX;
+      let standaloneY = LAYOUT.canvasStartY;
+
+      standaloneResources.forEach((resource, idx) => {
+        const col = Math.floor(idx / 6);
+        const row = idx % 6;
+
+        positionMap.set(resource.id, {
+          x: standaloneX + col * LAYOUT.standaloneColWidth,
+          y: standaloneY + row * (LAYOUT.resourceHeight + 30),
+        });
+        sizeMap.set(resource.id, { width: LAYOUT.resourceWidth, height: LAYOUT.resourceHeight });
+      });
+
+      // ========================================
+      // STEP 6: CREATE REACT FLOW NODES
+      // ========================================
+
+      const newNodes: Node[] = [];
+
+      // Sort by hierarchy depth (parents first)
+      const getDepth = (resource: CloudForgeResource): number => {
+        if (!resource.parent) return 0;
+        const parent = resourceById.get(resource.parent);
+        return parent ? getDepth(parent) + 1 : 0;
+      };
+
+      const sortedResources = [...architecture.resources].sort((a, b) => getDepth(a) - getDepth(b));
+
+      sortedResources.forEach(resource => {
+        const isVpc = isVpcType(resource.type);
+        const isSubnet = isSubnetType(resource.type);
+
+        let nodeType = 'default';
+        if (isVpc) nodeType = 'vpc';
+        else if (isSubnet) nodeType = 'subnet';
+
+        const position = positionMap.get(resource.id) || { x: 100, y: 100 };
+        const size = sizeMap.get(resource.id) || { width: LAYOUT.resourceWidth, height: LAYOUT.resourceHeight };
+
+        const isContainer = isVpc || isSubnet;
+
+        const node: Node = {
+          id: resource.id,
+          type: nodeType,
+          position,
+          parentId: resource.parent || undefined,
+          extent: resource.parent ? 'parent' : undefined,
+          data: {
+            resourceType: resource.type,
+            displayName: resource.name,
+            resourceLabel: resource.name,
+            config: resource.properties || {},
+            size,
+          },
+          style: isContainer ? { width: size.width, height: size.height } : undefined,
+        };
+
+        newNodes.push(node);
+      });
+
+      // ========================================
+      // STEP 7: CREATE EDGES
+      // ========================================
+
+      const newEdges: Edge[] = (architecture.connections || []).map((conn, index) => ({
+        id: conn.id || `edge-${index}-${Date.now()}`,
+        source: conn.from,
+        target: conn.to,
+        type: 'smoothstep',
+        label: conn.label,
+        ...DEFAULT_EDGE_STYLE,
+        markerEnd: DEFAULT_EDGE_MARKER,
+      }));
+
+      // Set nodes and edges
+      setNodes(newNodes);
+      setEdges(decorateEdges(newEdges));
+
+      // Save the project
+      await saveProject({ silent: true });
+
+      // Fit view after import
+      setTimeout(() => {
+        if (reactFlowInstance.current) {
+          reactFlowInstance.current.fitView({ padding: 0.2 });
+        }
+      }, 100);
+
+      alert(`Successfully imported architecture "${architecture.metadata.name}" with ${newNodes.length} resources and ${newEdges.length} connections.`);
+    } catch (err) {
+      console.error('Failed to import CloudForge architecture', err);
+      alert('Failed to import architecture. Please check the JSON format.');
+    }
+  }, [setNodes, setEdges, saveProject]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -1918,7 +2361,7 @@ export default function DesignerPageFinal() {
         onInfracost={runInfracostEstimate}
         onExport={() => setExportModalOpen(true)}
         onDownload={generateAndDownloadTerraform}
-        onImport={() => fileInputRef.current?.click()}
+        onImport={() => setImportModalOpen(true)}
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
         onFitView={handleFitView}
@@ -2185,6 +2628,13 @@ export default function DesignerPageFinal() {
         cloudProvider={project.cloud_provider}
         isOpen={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
+      />
+
+      <ImportArchitectureModal
+        isOpen={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onImport={handleCloudForgeImport}
+        currentProvider={project.cloud_provider}
       />
 
       {/* Validation results now shown only in logs panel */}

@@ -44,6 +44,7 @@ import {
   Layers,
   Sun,
   Moon,
+  Pencil,
 } from 'lucide-react';
 
 interface DiagramNode {
@@ -384,6 +385,7 @@ const ProjectCard = ({
   onDuplicate,
   onExport,
   onShare,
+  onRename,
 }: {
   project: Project;
   onOpen: (id: number) => void;
@@ -391,6 +393,7 @@ const ProjectCard = ({
   onDuplicate: (id: number) => void;
   onExport: (id: number) => void;
   onShare: (id: number) => void;
+  onRename: (id: number, currentName: string) => void;
 }) => {
   const [showMenu, setShowMenu] = useState(false);
 
@@ -430,12 +433,12 @@ const ProjectCard = ({
       onMouseLeave={() => setShowMenu(false)}
     >
       {/* Thumbnail Preview Area */}
-      <div className="relative h-32 border-b border-gray-200 dark:border-slate-800">
+      <div className="relative h-48 border-b border-gray-200 dark:border-slate-800">
         {thumbnail ? (
           <img
             src={thumbnail}
             alt={`${project.name} architecture preview`}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain bg-gray-50 dark:bg-slate-800"
           />
         ) : (
           <ArchitectureThumbnail nodes={nodes} provider={project.cloud_provider} />
@@ -465,6 +468,17 @@ const ProjectCard = ({
               >
                 <ExternalLink className="w-3.5 h-3.5" />
                 Open Designer
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRename(project.id, project.name);
+                  setShowMenu(false);
+                }}
+                className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 flex items-center gap-2 transition-colors"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                Rename
               </button>
               <button
                 onClick={(e) => {
@@ -1142,6 +1156,121 @@ const SupportModal = ({
   );
 };
 
+// Rename Modal Component
+const RenameModal = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  currentName,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (newName: string) => void;
+  currentName: string;
+}) => {
+  const [newName, setNewName] = useState(currentName);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Reset name when modal opens with new project
+  useEffect(() => {
+    if (isOpen) {
+      setNewName(currentName);
+    }
+  }, [isOpen, currentName]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newName.trim() || newName === currentName) return;
+
+    setIsSubmitting(true);
+    try {
+      await onConfirm(newName.trim());
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      {/* Modal */}
+      <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden border border-gray-200 dark:border-slate-800">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-cyan-100 dark:bg-cyan-500/20 rounded-xl flex items-center justify-center">
+              <Pencil className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Rename Project</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-gray-500 dark:text-slate-400"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Content */}
+        <form onSubmit={handleSubmit} className="p-6">
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
+              Project Name
+            </label>
+            <input
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Enter project name"
+              autoFocus
+              className="w-full px-4 py-3 bg-gray-50 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 transition-all"
+            />
+            <p className="mt-2 text-xs text-gray-500 dark:text-slate-400">
+              This name will be displayed across all pages including analytics and cost reports.
+            </p>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-3 bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!newName.trim() || newName === currentName || isSubmitting}
+              className="flex-1 py-3 bg-gradient-to-r from-cyan-600 to-cyan-500 text-white rounded-xl font-medium hover:from-cyan-500 hover:to-cyan-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Renaming...
+                </>
+              ) : (
+                <>
+                  <Pencil className="w-4 h-4" />
+                  Rename
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 // Helper function
 function getTimeAgo(dateString: string): string {
   const date = new Date(dateString);
@@ -1166,6 +1295,15 @@ export default function EnhancedDashboard() {
   const [filterProvider, setFilterProvider] = useState<string>('all');
   const [isLoaded, setIsLoaded] = useState(false);
   const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    projectId: number | null;
+    projectName: string;
+  }>({
+    isOpen: false,
+    projectId: null,
+    projectName: '',
+  });
+  const [renameModal, setRenameModal] = useState<{
     isOpen: boolean;
     projectId: number | null;
     projectName: string;
@@ -1243,6 +1381,30 @@ export default function EnhancedDashboard() {
       loadProjects();
     } catch (error) {
       toast.error('Failed to delete project', 'Please try again');
+    }
+  };
+
+  const handleRenameProject = (id: number, currentName: string) => {
+    setRenameModal({ isOpen: true, projectId: id, projectName: currentName });
+  };
+
+  const confirmRenameProject = async (newName: string) => {
+    if (!renameModal.projectId) return;
+
+    try {
+      await apiClient.put(`/api/projects/${renameModal.projectId}`, {
+        name: newName,
+      });
+      toast.success('Project renamed', `Project is now "${newName}"`);
+      setRenameModal({ isOpen: false, projectId: null, projectName: '' });
+      loadProjects();
+      loadDashboardStats(); // Refresh stats to reflect name change everywhere
+    } catch (error: any) {
+      const errorMsg =
+        error.response?.data?.detail?.[0]?.msg ||
+        error.response?.data?.detail ||
+        'Please try again';
+      toast.error('Failed to rename project', errorMsg);
     }
   };
 
@@ -1618,6 +1780,7 @@ export default function EnhancedDashboard() {
                       onDuplicate={handleDuplicateProject}
                       onExport={handleExportProject}
                       onShare={handleShareProject}
+                      onRename={handleRenameProject}
                     />
                   ))}
                 </div>
@@ -1817,6 +1980,14 @@ export default function EnhancedDashboard() {
       <SupportModal
         isOpen={showSupport}
         onClose={() => setShowSupport(false)}
+      />
+
+      {/* Rename Modal */}
+      <RenameModal
+        isOpen={renameModal.isOpen}
+        onClose={() => setRenameModal({ isOpen: false, projectId: null, projectName: '' })}
+        onConfirm={confirmRenameProject}
+        currentName={renameModal.projectName}
       />
     </div>
   );

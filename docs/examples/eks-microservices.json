@@ -1,0 +1,213 @@
+{
+  "version": "1.0",
+  "metadata": {
+    "name": "EKS Microservices Platform",
+    "description": "Kubernetes-based microservices architecture with EKS, ALB, RDS, and ElastiCache",
+    "cloud_provider": "aws",
+    "author": "CloudForge",
+    "tags": ["kubernetes", "eks", "microservices", "production"]
+  },
+  "resources": [
+    {
+      "id": "vpc-eks",
+      "type": "aws_vpc",
+      "name": "EKS VPC",
+      "properties": {
+        "cidr_block": "10.0.0.0/16",
+        "enable_dns_hostnames": true,
+        "enable_dns_support": true
+      }
+    },
+    {
+      "id": "subnet-public-1",
+      "type": "aws_subnet",
+      "name": "Public Subnet AZ1",
+      "parent": "vpc-eks",
+      "properties": {
+        "cidr_block": "10.0.1.0/24",
+        "availability_zone": "us-east-1a",
+        "map_public_ip_on_launch": true
+      }
+    },
+    {
+      "id": "subnet-public-2",
+      "type": "aws_subnet",
+      "name": "Public Subnet AZ2",
+      "parent": "vpc-eks",
+      "properties": {
+        "cidr_block": "10.0.2.0/24",
+        "availability_zone": "us-east-1b",
+        "map_public_ip_on_launch": true
+      }
+    },
+    {
+      "id": "subnet-private-1",
+      "type": "aws_subnet",
+      "name": "Private Subnet AZ1",
+      "parent": "vpc-eks",
+      "properties": {
+        "cidr_block": "10.0.10.0/24",
+        "availability_zone": "us-east-1a",
+        "map_public_ip_on_launch": false
+      }
+    },
+    {
+      "id": "subnet-private-2",
+      "type": "aws_subnet",
+      "name": "Private Subnet AZ2",
+      "parent": "vpc-eks",
+      "properties": {
+        "cidr_block": "10.0.11.0/24",
+        "availability_zone": "us-east-1b",
+        "map_public_ip_on_launch": false
+      }
+    },
+    {
+      "id": "igw-eks",
+      "type": "aws_internet_gateway",
+      "name": "Internet Gateway",
+      "parent": "vpc-eks",
+      "properties": {}
+    },
+    {
+      "id": "nat-gateway",
+      "type": "aws_nat_gateway",
+      "name": "NAT Gateway",
+      "parent": "subnet-public-1",
+      "properties": {}
+    },
+    {
+      "id": "eks-cluster",
+      "type": "aws_eks_cluster",
+      "name": "Production Cluster",
+      "parent": "vpc-eks",
+      "properties": {
+        "version": "1.28",
+        "enabled_cluster_log_types": ["api", "audit", "authenticator"]
+      }
+    },
+    {
+      "id": "eks-nodegroup",
+      "type": "aws_eks_node_group",
+      "name": "Worker Nodes",
+      "properties": {
+        "instance_types": ["t3.large"],
+        "desired_size": 3,
+        "min_size": 2,
+        "max_size": 5
+      }
+    },
+    {
+      "id": "alb",
+      "type": "aws_lb",
+      "name": "Application LB",
+      "parent": "vpc-eks",
+      "properties": {
+        "load_balancer_type": "application",
+        "internal": false
+      }
+    },
+    {
+      "id": "target-group",
+      "type": "aws_lb_target_group",
+      "name": "EKS Target Group",
+      "parent": "vpc-eks",
+      "properties": {
+        "port": 80,
+        "protocol": "HTTP",
+        "target_type": "ip"
+      }
+    },
+    {
+      "id": "rds-postgres",
+      "type": "aws_db_instance",
+      "name": "PostgreSQL",
+      "parent": "subnet-private-1",
+      "properties": {
+        "engine": "postgres",
+        "engine_version": "15.4",
+        "instance_class": "db.t3.medium",
+        "allocated_storage": 50,
+        "storage_type": "gp3",
+        "multi_az": true,
+        "db_name": "microservices",
+        "username": "admin"
+      }
+    },
+    {
+      "id": "elasticache",
+      "type": "aws_elasticache_cluster",
+      "name": "Redis Cache",
+      "parent": "subnet-private-1",
+      "properties": {
+        "engine": "redis",
+        "engine_version": "7.0",
+        "node_type": "cache.t3.medium",
+        "num_cache_nodes": 2
+      }
+    },
+    {
+      "id": "ecr-repo",
+      "type": "aws_ecr_repository",
+      "name": "Container Registry",
+      "properties": {
+        "name": "microservices",
+        "image_tag_mutability": "MUTABLE"
+      }
+    },
+    {
+      "id": "secrets-manager",
+      "type": "aws_secretsmanager_secret",
+      "name": "App Secrets",
+      "properties": {
+        "name": "app/production/secrets"
+      }
+    },
+    {
+      "id": "cloudwatch-logs",
+      "type": "aws_cloudwatch_log_group",
+      "name": "EKS Logs",
+      "properties": {
+        "retention_in_days": 30
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": "alb",
+      "to": "target-group"
+    },
+    {
+      "from": "target-group",
+      "to": "eks-cluster"
+    },
+    {
+      "from": "eks-cluster",
+      "to": "eks-nodegroup"
+    },
+    {
+      "from": "eks-cluster",
+      "to": "rds-postgres"
+    },
+    {
+      "from": "eks-cluster",
+      "to": "elasticache"
+    },
+    {
+      "from": "eks-cluster",
+      "to": "ecr-repo"
+    },
+    {
+      "from": "eks-cluster",
+      "to": "secrets-manager"
+    },
+    {
+      "from": "eks-cluster",
+      "to": "cloudwatch-logs"
+    },
+    {
+      "from": "nat-gateway",
+      "to": "igw-eks"
+    }
+  ]
+}

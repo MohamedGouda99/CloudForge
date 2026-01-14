@@ -1,0 +1,339 @@
+{
+  "version": "1.0",
+  "metadata": {
+    "name": "3-Tier Web Architecture",
+    "description": "Production-ready 3-tier architecture with Web, Application, and Database tiers",
+    "cloud_provider": "aws",
+    "author": "CloudForge",
+    "tags": ["3-tier", "production", "web-app", "rds", "alb"]
+  },
+  "resources": [
+    {
+      "id": "vpc-production",
+      "type": "aws_vpc",
+      "name": "Production VPC",
+      "properties": {
+        "cidr_block": "10.0.0.0/16",
+        "enable_dns_hostnames": true,
+        "enable_dns_support": true,
+        "instance_tenancy": "default"
+      }
+    },
+    {
+      "id": "igw-main",
+      "type": "aws_internet_gateway",
+      "name": "Internet Gateway",
+      "parent": "vpc-production",
+      "properties": {}
+    },
+    {
+      "id": "subnet-public-1",
+      "type": "aws_subnet",
+      "name": "Public Subnet AZ1",
+      "parent": "vpc-production",
+      "properties": {
+        "cidr_block": "10.0.1.0/24",
+        "availability_zone": "us-east-1a",
+        "map_public_ip_on_launch": true
+      }
+    },
+    {
+      "id": "subnet-public-2",
+      "type": "aws_subnet",
+      "name": "Public Subnet AZ2",
+      "parent": "vpc-production",
+      "properties": {
+        "cidr_block": "10.0.2.0/24",
+        "availability_zone": "us-east-1b",
+        "map_public_ip_on_launch": true
+      }
+    },
+    {
+      "id": "subnet-app-1",
+      "type": "aws_subnet",
+      "name": "App Subnet AZ1",
+      "parent": "vpc-production",
+      "properties": {
+        "cidr_block": "10.0.10.0/24",
+        "availability_zone": "us-east-1a",
+        "map_public_ip_on_launch": false
+      }
+    },
+    {
+      "id": "subnet-app-2",
+      "type": "aws_subnet",
+      "name": "App Subnet AZ2",
+      "parent": "vpc-production",
+      "properties": {
+        "cidr_block": "10.0.11.0/24",
+        "availability_zone": "us-east-1b",
+        "map_public_ip_on_launch": false
+      }
+    },
+    {
+      "id": "subnet-db-1",
+      "type": "aws_subnet",
+      "name": "DB Subnet AZ1",
+      "parent": "vpc-production",
+      "properties": {
+        "cidr_block": "10.0.20.0/24",
+        "availability_zone": "us-east-1a",
+        "map_public_ip_on_launch": false
+      }
+    },
+    {
+      "id": "subnet-db-2",
+      "type": "aws_subnet",
+      "name": "DB Subnet AZ2",
+      "parent": "vpc-production",
+      "properties": {
+        "cidr_block": "10.0.21.0/24",
+        "availability_zone": "us-east-1b",
+        "map_public_ip_on_launch": false
+      }
+    },
+    {
+      "id": "sg-alb",
+      "type": "aws_security_group",
+      "name": "ALB Security Group",
+      "parent": "vpc-production",
+      "properties": {
+        "description": "Security group for Application Load Balancer",
+        "ingress_http_port": 80,
+        "ingress_https_port": 443,
+        "ingress_cidr": "0.0.0.0/0"
+      }
+    },
+    {
+      "id": "sg-web",
+      "type": "aws_security_group",
+      "name": "Web Tier Security Group",
+      "parent": "vpc-production",
+      "properties": {
+        "description": "Security group for web servers",
+        "ingress_port": 80,
+        "ingress_protocol": "tcp"
+      }
+    },
+    {
+      "id": "sg-app",
+      "type": "aws_security_group",
+      "name": "App Tier Security Group",
+      "parent": "vpc-production",
+      "properties": {
+        "description": "Security group for application servers",
+        "ingress_port": 8080,
+        "ingress_protocol": "tcp"
+      }
+    },
+    {
+      "id": "sg-db",
+      "type": "aws_security_group",
+      "name": "DB Security Group",
+      "parent": "vpc-production",
+      "properties": {
+        "description": "Security group for database",
+        "ingress_port": 3306,
+        "ingress_protocol": "tcp"
+      }
+    },
+    {
+      "id": "alb-web",
+      "type": "aws_lb",
+      "name": "Web Application LB",
+      "parent": "vpc-production",
+      "properties": {
+        "load_balancer_type": "application",
+        "internal": false,
+        "enable_deletion_protection": false
+      }
+    },
+    {
+      "id": "tg-web",
+      "type": "aws_lb_target_group",
+      "name": "Web Target Group",
+      "parent": "vpc-production",
+      "properties": {
+        "port": 80,
+        "protocol": "HTTP",
+        "target_type": "instance",
+        "health_check_path": "/health"
+      }
+    },
+    {
+      "id": "ec2-web-1",
+      "type": "aws_instance",
+      "name": "Web Server 1",
+      "parent": "subnet-public-1",
+      "properties": {
+        "ami": "ami-0c55b159cbfafe1f0",
+        "instance_type": "t3.medium",
+        "associate_public_ip_address": true,
+        "user_data": "#!/bin/bash\nyum install -y nginx\nsystemctl start nginx"
+      }
+    },
+    {
+      "id": "ec2-web-2",
+      "type": "aws_instance",
+      "name": "Web Server 2",
+      "parent": "subnet-public-2",
+      "properties": {
+        "ami": "ami-0c55b159cbfafe1f0",
+        "instance_type": "t3.medium",
+        "associate_public_ip_address": true,
+        "user_data": "#!/bin/bash\nyum install -y nginx\nsystemctl start nginx"
+      }
+    },
+    {
+      "id": "ec2-app-1",
+      "type": "aws_instance",
+      "name": "App Server 1",
+      "parent": "subnet-app-1",
+      "properties": {
+        "ami": "ami-0c55b159cbfafe1f0",
+        "instance_type": "t3.large",
+        "associate_public_ip_address": false
+      }
+    },
+    {
+      "id": "ec2-app-2",
+      "type": "aws_instance",
+      "name": "App Server 2",
+      "parent": "subnet-app-2",
+      "properties": {
+        "ami": "ami-0c55b159cbfafe1f0",
+        "instance_type": "t3.large",
+        "associate_public_ip_address": false
+      }
+    },
+    {
+      "id": "rds-mysql",
+      "type": "aws_db_instance",
+      "name": "MySQL Primary",
+      "parent": "subnet-db-1",
+      "properties": {
+        "engine": "mysql",
+        "engine_version": "8.0.35",
+        "instance_class": "db.t3.medium",
+        "allocated_storage": 100,
+        "storage_type": "gp3",
+        "db_name": "production",
+        "username": "admin",
+        "multi_az": true,
+        "backup_retention_period": 7,
+        "skip_final_snapshot": false,
+        "deletion_protection": true
+      }
+    },
+    {
+      "id": "elasticache-redis",
+      "type": "aws_elasticache_cluster",
+      "name": "Redis Cache",
+      "parent": "subnet-app-1",
+      "properties": {
+        "engine": "redis",
+        "engine_version": "7.0",
+        "node_type": "cache.t3.medium",
+        "num_cache_nodes": 2,
+        "port": 6379
+      }
+    },
+    {
+      "id": "nat-gateway",
+      "type": "aws_nat_gateway",
+      "name": "NAT Gateway",
+      "parent": "subnet-public-1",
+      "properties": {}
+    },
+    {
+      "id": "s3-assets",
+      "type": "aws_s3_bucket",
+      "name": "Static Assets",
+      "properties": {
+        "bucket_prefix": "production-assets-",
+        "versioning": true,
+        "encryption": "AES256"
+      }
+    },
+    {
+      "id": "cloudwatch-logs",
+      "type": "aws_cloudwatch_log_group",
+      "name": "Application Logs",
+      "properties": {
+        "retention_in_days": 30
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": "alb-web",
+      "to": "tg-web",
+      "label": "routes to"
+    },
+    {
+      "from": "alb-web",
+      "to": "sg-alb",
+      "label": "uses"
+    },
+    {
+      "from": "ec2-web-1",
+      "to": "sg-web",
+      "label": "uses"
+    },
+    {
+      "from": "ec2-web-2",
+      "to": "sg-web",
+      "label": "uses"
+    },
+    {
+      "from": "ec2-web-1",
+      "to": "ec2-app-1",
+      "label": "connects to"
+    },
+    {
+      "from": "ec2-web-2",
+      "to": "ec2-app-2",
+      "label": "connects to"
+    },
+    {
+      "from": "ec2-app-1",
+      "to": "sg-app",
+      "label": "uses"
+    },
+    {
+      "from": "ec2-app-2",
+      "to": "sg-app",
+      "label": "uses"
+    },
+    {
+      "from": "ec2-app-1",
+      "to": "rds-mysql",
+      "label": "queries"
+    },
+    {
+      "from": "ec2-app-2",
+      "to": "rds-mysql",
+      "label": "queries"
+    },
+    {
+      "from": "ec2-app-1",
+      "to": "elasticache-redis",
+      "label": "caches"
+    },
+    {
+      "from": "ec2-app-2",
+      "to": "elasticache-redis",
+      "label": "caches"
+    },
+    {
+      "from": "rds-mysql",
+      "to": "sg-db",
+      "label": "uses"
+    },
+    {
+      "from": "nat-gateway",
+      "to": "igw-main",
+      "label": "routes via"
+    }
+  ]
+}

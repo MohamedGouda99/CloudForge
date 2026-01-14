@@ -24,6 +24,23 @@ class AWSGenerator(CloudProviderGenerator):
     - And more...
     """
 
+    # Fields that must always be rendered as lists in Terraform HCL
+    LIST_TYPE_FIELDS = frozenset({
+        'vpc_security_group_ids',
+        'security_groups',
+        'security_group_ids',
+        'subnet_ids',
+        'availability_zones',
+        'vpc_zone_identifier',
+        'target_group_arns',
+        'load_balancer_arns',
+        'instance_ids',
+        'cidr_blocks',
+        'ipv6_cidr_blocks',
+        'prefix_list_ids',
+        'self',
+    })
+
     def __init__(self):
         self._config = PROVIDER_CONFIGS[CloudProvider.AWS]
         self._supported_types = self._build_supported_types()
@@ -183,6 +200,16 @@ provider "aws" {
             if isinstance(value, list) and value:
                 formatted = HCLFormatter.format_value(value)
                 lines.append(f"  {field_name} = {formatted}")
+                continue
+
+            # Handle fields that must always be lists (even if single value)
+            if field_name in self.LIST_TYPE_FIELDS:
+                # Wrap single value in brackets
+                if var_collector.is_reference(value):
+                    lines.append(f"  {field_name} = [{value}]")
+                else:
+                    formatted = HCLFormatter.format_value(value)
+                    lines.append(f"  {field_name} = [{formatted}]")
                 continue
 
             # Handle references vs variables
