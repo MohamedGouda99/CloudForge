@@ -1,0 +1,20 @@
+# Postman API Testing - Git Ignore
+
+# Sensitive environment files with real credentials
+environments/*-secrets.json
+environments/*.secret.json
+
+# Don't commit production credentials
+environments/production.postman_environment.json
+
+# Newman reports (generated)
+reports/
+*.html
+newman-report-*.json
+
+# Node modules (if using local newman)
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db

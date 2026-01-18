@@ -1,0 +1,278 @@
+openapi: 3.0.3
+info:
+  title: CloudForge Test Management API
+  description: Endpoints for test run tracking and reporting (optional CI integration)
+  version: 1.0.0
+
+paths:
+  /api/tests/runs:
+    get:
+      summary: List test runs
+      description: Returns recent test run history
+      operationId: listTestRuns
+      tags:
+        - Tests
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [unit, integration, e2e, load, accessibility, security]
+          description: Filter by test type
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [running, passed, failed, error]
+          description: Filter by status
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Maximum results to return
+      responses:
+        '200':
+          description: List of test runs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestRunListResponse'
+        '401':
+          description: Unauthorized
+
+    post:
+      summary: Record a test run
+      description: Record a new test run result (called by CI system)
+      operationId: createTestRun
+      tags:
+        - Tests
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTestRunRequest'
+      responses:
+        '201':
+          description: Test run recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestRun'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+
+  /api/tests/runs/{id}:
+    get:
+      summary: Get test run details
+      description: Returns detailed information about a specific test run
+      operationId: getTestRun
+      tags:
+        - Tests
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Test run details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestRun'
+        '404':
+          description: Test run not found
+
+    patch:
+      summary: Update test run
+      description: Update test run status (e.g., mark as completed)
+      operationId: updateTestRun
+      tags:
+        - Tests
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTestRunRequest'
+      responses:
+        '200':
+          description: Test run updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestRun'
+        '404':
+          description: Test run not found
+
+  /api/tests/coverage:
+    get:
+      summary: Get coverage summary
+      description: Returns latest code coverage metrics
+      operationId: getCoverage
+      tags:
+        - Tests
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Coverage summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CoverageSummary'
+
+components:
+  schemas:
+    TestRun:
+      type: object
+      required:
+        - id
+        - run_type
+        - status
+        - started_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        run_type:
+          type: string
+          enum: [unit, integration, e2e, load, accessibility, security]
+        status:
+          type: string
+          enum: [running, passed, failed, error]
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        total_tests:
+          type: integer
+        passed_tests:
+          type: integer
+        failed_tests:
+          type: integer
+        coverage_percent:
+          type: number
+          minimum: 0
+          maximum: 100
+        report_url:
+          type: string
+          format: uri
+        triggered_by:
+          type: string
+        duration_seconds:
+          type: number
+
+    TestRunListResponse:
+      type: object
+      required:
+        - runs
+        - total
+      properties:
+        runs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestRun'
+        total:
+          type: integer
+
+    CreateTestRunRequest:
+      type: object
+      required:
+        - run_type
+      properties:
+        run_type:
+          type: string
+          enum: [unit, integration, e2e, load, accessibility, security]
+        triggered_by:
+          type: string
+          default: manual
+
+    UpdateTestRunRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [running, passed, failed, error]
+        completed_at:
+          type: string
+          format: date-time
+        total_tests:
+          type: integer
+        passed_tests:
+          type: integer
+        failed_tests:
+          type: integer
+        coverage_percent:
+          type: number
+        report_url:
+          type: string
+          format: uri
+
+    CoverageSummary:
+      type: object
+      required:
+        - backend
+        - frontend
+        - updated_at
+      properties:
+        backend:
+          $ref: '#/components/schemas/CoverageMetrics'
+        frontend:
+          $ref: '#/components/schemas/CoverageMetrics'
+        updated_at:
+          type: string
+          format: date-time
+
+    CoverageMetrics:
+      type: object
+      required:
+        - line_coverage
+        - branch_coverage
+      properties:
+        line_coverage:
+          type: number
+          minimum: 0
+          maximum: 100
+        branch_coverage:
+          type: number
+          minimum: 0
+          maximum: 100
+        function_coverage:
+          type: number
+          minimum: 0
+          maximum: 100
+        files_covered:
+          type: integer
+        total_files:
+          type: integer
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

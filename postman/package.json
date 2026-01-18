@@ -1,0 +1,16 @@
+{
+  "name": "cloudforge-api-tests",
+  "version": "1.0.0",
+  "description": "Newman API tests for CloudForge",
+  "scripts": {
+    "test": "newman run collections/cloudforge-api.postman_collection.json -e environments/local.postman_environment.json",
+    "test:local": "newman run collections/cloudforge-api.postman_collection.json -e environments/local.postman_environment.json --reporters cli,htmlextra --reporter-htmlextra-export reports/api-test-report.html",
+    "test:staging": "newman run collections/cloudforge-api.postman_collection.json -e environments/staging.postman_environment.json --reporters cli,htmlextra",
+    "test:ci": "newman run collections/cloudforge-api.postman_collection.json -e environments/local.postman_environment.json --reporters cli,junitfull --reporter-junitfull-export reports/api-test-results.xml"
+  },
+  "devDependencies": {
+    "newman": "^6.2.1",
+    "newman-reporter-htmlextra": "^1.23.1",
+    "newman-reporter-junitfull": "^1.1.1"
+  }
+}

@@ -1,9 +1,22 @@
 import { useState, useEffect, useMemo } from 'react';
-import { AWSResource, ResourceField } from '../lib/resources/awsResources';
+import { type CloudResource } from '../lib/resources';
 import CloudIcon from './CloudIcon';
 
+// Field definition for resource configuration
+interface ResourceField {
+  name: string;
+  label?: string;
+  type: 'string' | 'number' | 'boolean' | 'array' | 'object' | 'select' | 'text' | 'textarea' | 'json';
+  required?: boolean;
+  default?: unknown;
+  defaultValue?: unknown;
+  description?: string;
+  placeholder?: string;
+  options?: Array<string | { value: string; label: string }>;
+}
+
 interface ResourceConfigModalProps {
-  resource: AWSResource;
+  resource: CloudResource & { fields?: ResourceField[] };
   initialConfig: Record<string, any>;
   isOpen: boolean;
   onClose: () => void;
@@ -84,12 +97,16 @@ export default function ResourceConfigModal({
             required={field.required}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
           >
-            <option value="">Select {field.label}</option>
-            {field.options?.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
+            <option value="">Select {field.label || field.name}</option>
+            {field.options?.map((opt) => {
+              const optValue = typeof opt === 'string' ? opt : opt.value;
+              const optLabel = typeof opt === 'string' ? opt : opt.label;
+              return (
+                <option key={optValue} value={optValue}>
+                  {optLabel}
+                </option>
+              );
+            })}
           </select>
         );
 

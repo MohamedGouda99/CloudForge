@@ -1,7 +1,8 @@
-import { memo, useMemo, useState, useCallback, useRef, useEffect, type CSSProperties } from 'react';
+import { memo, useMemo, useState, useCallback, type CSSProperties } from 'react';
 import { Handle, Position, NodeProps, NodeResizer, useReactFlow } from 'reactflow';
 import CloudIcon from '../CloudIcon';
 import { getCloudIconPath } from '../../lib/resources/cloudIconsComplete';
+import { useDisplaySettings } from '../../context/DisplaySettingsContext';
 
 const GRID_SIZE = 10;
 const MIN_SIZE = 60;
@@ -38,6 +39,7 @@ const snapToGrid = (value: number) => {
 function ResourceNodeEnhanced({ id, data, selected }: NodeProps<ResourceNodeData>) {
   const { setNodes, getNode } = useReactFlow();
   const [hovered, setHovered] = useState(false);
+  const { showNodeTitles } = useDisplaySettings();
 
   // Get current dimensions from node style (support independent width/height)
   const currentNode = getNode(id);
@@ -295,32 +297,34 @@ function ResourceNodeEnhanced({ id, data, selected }: NodeProps<ResourceNodeData
         )}
 
         {/* Label below the node */}
-        <div
-          style={{
-            position: 'absolute',
-            top: `${displayHeight + LABEL_OFFSET}px`,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            pointerEvents: 'none',
-            userSelect: 'none',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <span
+        {showNodeTitles && (
+          <div
             style={{
-              padding: '3px 8px',
-              borderRadius: '4px',
-              fontSize: '10px',
-              fontWeight: 600,
-              boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
-              backgroundColor: selected ? '#E60000' : 'rgba(17, 24, 39, 0.85)',
-              color: 'white',
-              transition: 'background-color 150ms ease',
+              position: 'absolute',
+              top: `${displayHeight + LABEL_OFFSET}px`,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              pointerEvents: 'none',
+              userSelect: 'none',
+              whiteSpace: 'nowrap',
             }}
           >
-            {displayName}
-          </span>
-        </div>
+            <span
+              style={{
+                padding: '3px 8px',
+                borderRadius: '4px',
+                fontSize: '10px',
+                fontWeight: 600,
+                boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
+                backgroundColor: selected ? '#E60000' : 'rgba(17, 24, 39, 0.85)',
+                color: 'white',
+                transition: 'background-color 150ms ease',
+              }}
+            >
+              {displayName}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

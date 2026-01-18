@@ -1,0 +1,588 @@
+openapi: 3.0.3
+info:
+  title: CloudForge Resource Catalog API
+  description: |
+    REST API for accessing unified cloud resource schemas across AWS, GCP, and Azure providers.
+    Serves resource definitions for the visual infrastructure designer.
+  version: 2.0.0
+  contact:
+    name: CloudForge Team
+
+servers:
+  - url: http://localhost:8000/api
+    description: Local development server
+
+tags:
+  - name: catalog
+    description: Resource catalog operations
+  - name: containment
+    description: Container resource validation
+
+paths:
+  /catalog/:
+    get:
+      summary: Get resource catalog
+      description: |
+        Returns all resource definitions for a provider with optional filtering.
+        Supports filtering by category, classification, or both.
+      operationId: getResourceCatalog
+      tags:
+        - catalog
+      parameters:
+        - name: provider
+          in: query
+          description: Cloud provider to fetch resources for
+          required: false
+          schema:
+            type: string
+            enum: [aws, gcp, azure]
+            default: aws
+        - name: category
+          in: query
+          description: Filter by resource category
+          required: false
+          schema:
+            type: string
+            enum:
+              - compute
+              - containers
+              - storage
+              - database
+              - networking
+              - security
+              - analytics
+              - serverless
+              - developer-tools
+              - management
+              - messaging
+              - machine-learning
+        - name: classification
+          in: query
+          description: Filter by visual classification
+          required: false
+          schema:
+            type: string
+            enum: [icon, container]
+      responses:
+        '200':
+          description: Successful response with resource catalog
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogResponse'
+        '400':
+          description: Invalid provider specified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "Provider 'xyz' not supported. Use 'aws', 'gcp', or 'azure'."
+
+  /catalog/{terraform_resource}:
+    get:
+      summary: Get single resource by Terraform type
+      description: Returns the complete schema for a specific Terraform resource type.
+      operationId: getResourceByType
+      tags:
+        - catalog
+      parameters:
+        - name: terraform_resource
+          in: path
+          description: Terraform resource type (e.g., aws_instance, google_compute_instance)
+          required: true
+          schema:
+            type: string
+            example: aws_instance
+      responses:
+        '200':
+          description: Resource found or not found response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceLookupResponse'
+
+  /catalog/{terraform_resource}/defaults:
+    get:
+      summary: Get default values for a resource
+      description: Returns all default values for a resource type's inputs.
+      operationId: getResourceDefaults
+      tags:
+        - catalog
+      parameters:
+        - name: terraform_resource
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Default values map
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /catalog/{terraform_resource}/required:
+    get:
+      summary: Get required arguments for a resource
+      description: Returns the list of required Terraform arguments.
+      operationId: getRequiredArgs
+      tags:
+        - catalog
+      parameters:
+        - name: terraform_resource
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of required argument names
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /catalog/containers/list:
+    get:
+      summary: List container resource types
+      description: Returns all resource types classified as containers.
+      operationId: getContainerTypes
+      tags:
+        - containment
+      parameters:
+        - name: provider
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [aws, gcp, azure]
+            default: aws
+      responses:
+        '200':
+          description: List of container resource types
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                example:
+                  - aws_vpc
+                  - aws_ecs_cluster
+                  - google_compute_network
+                  - azurerm_virtual_network
+
+  /catalog/icons/list:
+    get:
+      summary: List icon resource types
+      description: Returns all resource types classified as icons.
+      operationId: getIconTypes
+      tags:
+        - catalog
+      parameters:
+        - name: provider
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [aws, gcp, azure]
+            default: aws
+      responses:
+        '200':
+          description: List of icon resource types
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+  /catalog/categories/list:
+    get:
+      summary: List available categories
+      description: Returns all categories that have at least one resource.
+      operationId: getCategories
+      tags:
+        - catalog
+      parameters:
+        - name: provider
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [aws, gcp, azure]
+            default: aws
+      responses:
+        '200':
+          description: List of category names
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                example:
+                  - compute
+                  - containers
+                  - database
+                  - networking
+                  - security
+                  - storage
+
+  /catalog/containment/{terraform_resource}:
+    get:
+      summary: Get containment rules for a container
+      description: Returns valid child types for a container resource.
+      operationId: getContainmentRules
+      tags:
+        - containment
+      parameters:
+        - name: terraform_resource
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Containment rules response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContainmentRulesResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /catalog/validate-containment:
+    post:
+      summary: Validate parent-child containment
+      description: Checks if a child resource can be placed in a container.
+      operationId: validateContainment
+      tags:
+        - containment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateContainmentRequest'
+      responses:
+        '200':
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidateContainmentResponse'
+
+components:
+  schemas:
+    CatalogResponse:
+      type: object
+      required:
+        - version
+        - provider
+        - resources
+        - total
+      properties:
+        version:
+          type: string
+          description: Terraform provider version
+          example: "5.x"
+        lastUpdated:
+          type: string
+          format: date-time
+          description: Last catalog update timestamp
+        provider:
+          type: string
+          enum: [aws, gcp, azure]
+          description: Cloud provider
+        category:
+          type: string
+          description: Category filter applied (if any)
+        resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceDefinition'
+        total:
+          type: integer
+          description: Total number of resources returned
+
+    ResourceDefinition:
+      type: object
+      required:
+        - id
+        - terraform_resource
+        - name
+        - description
+        - icon
+        - category
+        - classification
+        - inputs
+        - outputs
+        - terraform
+      properties:
+        id:
+          type: string
+          description: Unique identifier within provider
+          example: ec2_instance
+        terraform_resource:
+          type: string
+          description: Terraform resource type
+          example: aws_instance
+        name:
+          type: string
+          description: Human-readable name
+          example: EC2 Instance
+        description:
+          type: string
+          description: Brief description
+        icon:
+          type: string
+          description: Icon path for visual designer
+          example: /cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Compute/64/Arch_Amazon-EC2_64.svg
+        category:
+          type: string
+          enum:
+            - compute
+            - containers
+            - storage
+            - database
+            - networking
+            - security
+            - analytics
+            - serverless
+            - developer-tools
+            - management
+            - messaging
+            - machine-learning
+        classification:
+          type: string
+          enum: [icon, container]
+        inputs:
+          $ref: '#/components/schemas/InputSchema'
+        outputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/OutputAttribute'
+        terraform:
+          $ref: '#/components/schemas/TerraformMetadata'
+        relations:
+          $ref: '#/components/schemas/RelationshipRules'
+
+    InputSchema:
+      type: object
+      required:
+        - required
+        - optional
+      properties:
+        required:
+          type: array
+          items:
+            $ref: '#/components/schemas/InputAttribute'
+        optional:
+          type: array
+          items:
+            $ref: '#/components/schemas/InputAttribute'
+        blocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/BlockAttribute'
+
+    InputAttribute:
+      type: object
+      required:
+        - name
+        - type
+        - description
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [string, number, bool, list(string), list(number), map(string), set(string)]
+        description:
+          type: string
+        example:
+          type: string
+        default: {}
+        options:
+          type: array
+          items:
+            type: string
+        reference:
+          type: string
+          description: Reference format (e.g., aws_subnet.id)
+        validation:
+          $ref: '#/components/schemas/ValidationRule'
+        group:
+          type: string
+          enum: [basic, advanced]
+
+    BlockAttribute:
+      type: object
+      required:
+        - name
+        - description
+        - required
+        - multiple
+        - attributes
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        required:
+          type: boolean
+        multiple:
+          type: boolean
+        attributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/InputAttribute'
+
+    OutputAttribute:
+      type: object
+      required:
+        - name
+        - type
+        - description
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        description:
+          type: string
+
+    TerraformMetadata:
+      type: object
+      required:
+        - resourceType
+        - requiredArgs
+        - referenceableAttrs
+      properties:
+        resourceType:
+          type: string
+        requiredArgs:
+          type: array
+          items:
+            type: string
+        referenceableAttrs:
+          type: object
+          additionalProperties:
+            type: string
+
+    ValidationRule:
+      type: object
+      properties:
+        pattern:
+          type: string
+        min:
+          type: number
+        max:
+          type: number
+        minLength:
+          type: integer
+        maxLength:
+          type: integer
+
+    RelationshipRules:
+      type: object
+      properties:
+        containmentRules:
+          type: array
+          items:
+            type: object
+        edgeRules:
+          type: array
+          items:
+            type: object
+        autoResolveRules:
+          type: array
+          items:
+            type: object
+        validChildren:
+          type: array
+          items:
+            type: object
+
+    ResourceLookupResponse:
+      type: object
+      required:
+        - found
+      properties:
+        found:
+          type: boolean
+        resource:
+          $ref: '#/components/schemas/ResourceDefinition'
+
+    ContainmentRulesResponse:
+      type: object
+      required:
+        - terraform_resource
+        - is_container
+        - childTypes
+      properties:
+        terraform_resource:
+          type: string
+        is_container:
+          type: boolean
+        childTypes:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+
+    ValidateContainmentRequest:
+      type: object
+      required:
+        - container_type
+        - child_type
+      properties:
+        container_type:
+          type: string
+          description: Parent container resource type
+        child_type:
+          type: string
+          description: Child resource type to validate
+
+    ValidateContainmentResponse:
+      type: object
+      required:
+        - valid
+      properties:
+        valid:
+          type: boolean
+        warning:
+          type: string
+        suggestion:
+          type: string
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string

@@ -1,0 +1,264 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cloudforge.dev/schemas/terraform-generation.json",
+  "title": "Terraform Generation API Schema",
+  "description": "Schema for the Terraform generation request and response",
+  "definitions": {
+    "GenerateRequest": {
+      "type": "object",
+      "description": "POST /api/terraform/generate/{project_id}",
+      "properties": {
+        "project_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Project UUID"
+        }
+      },
+      "required": ["project_id"]
+    },
+    "GenerateResponse": {
+      "type": "object",
+      "required": ["success", "terraform_code"],
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "terraform_code": {
+          "type": "string",
+          "description": "Generated HCL code"
+        },
+        "validation": {
+          "$ref": "#/definitions/ValidationResult"
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Warning"
+          }
+        },
+        "resources_generated": {
+          "type": "integer",
+          "description": "Number of resources in generated code"
+        },
+        "generation_time_ms": {
+          "type": "integer",
+          "description": "Time taken to generate code in milliseconds"
+        }
+      }
+    },
+    "ValidationResult": {
+      "type": "object",
+      "required": ["valid"],
+      "properties": {
+        "valid": {
+          "type": "boolean"
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ValidationError"
+          }
+        }
+      }
+    },
+    "ValidationError": {
+      "type": "object",
+      "required": ["resource_type", "resource_name", "field", "message"],
+      "properties": {
+        "resource_type": {
+          "type": "string",
+          "description": "Terraform resource type",
+          "example": "aws_instance"
+        },
+        "resource_name": {
+          "type": "string",
+          "description": "Resource name in diagram"
+        },
+        "field": {
+          "type": "string",
+          "description": "Field that failed validation"
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable error message"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["error", "warning"],
+          "default": "error"
+        }
+      }
+    },
+    "Warning": {
+      "type": "object",
+      "required": ["code", "message"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "MISSING_SUBNET",
+            "DEPRECATED_INSTANCE_TYPE",
+            "DEPRECATED_RUNTIME",
+            "MISSING_IAM_ROLE",
+            "CIRCULAR_DEPENDENCY",
+            "UNRESOLVED_REFERENCE"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "resource_name": {
+          "type": "string"
+        },
+        "suggestion": {
+          "type": "string"
+        }
+      }
+    },
+    "DiagramData": {
+      "type": "object",
+      "description": "Structure of project.diagram_data JSON stored in database",
+      "required": ["nodes", "edges"],
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DiagramNode"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DiagramEdge"
+          }
+        },
+        "viewport": {
+          "type": "object",
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" },
+            "zoom": { "type": "number" }
+          }
+        }
+      }
+    },
+    "DiagramNode": {
+      "type": "object",
+      "required": ["id", "type", "position", "data"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique node ID (UUID)"
+        },
+        "type": {
+          "type": "string",
+          "description": "Node type for React Flow",
+          "enum": ["iconNode", "containerNode"]
+        },
+        "position": {
+          "type": "object",
+          "required": ["x", "y"],
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" }
+          }
+        },
+        "data": {
+          "$ref": "#/definitions/NodeData"
+        },
+        "parentId": {
+          "type": "string",
+          "description": "Parent container node ID (for containment)"
+        },
+        "extent": {
+          "type": "string",
+          "enum": ["parent"],
+          "description": "Set to 'parent' for nodes inside containers"
+        }
+      }
+    },
+    "NodeData": {
+      "type": "object",
+      "required": ["resourceType", "label"],
+      "properties": {
+        "resourceType": {
+          "type": "string",
+          "description": "Terraform resource type",
+          "example": "aws_instance"
+        },
+        "label": {
+          "type": "string",
+          "description": "User-provided resource name"
+        },
+        "icon": {
+          "type": "string",
+          "description": "Icon path"
+        },
+        "config": {
+          "type": "object",
+          "description": "Resource configuration (key-value pairs)",
+          "additionalProperties": true
+        }
+      }
+    },
+    "DiagramEdge": {
+      "type": "object",
+      "required": ["id", "source", "target"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string",
+          "description": "Source node ID"
+        },
+        "target": {
+          "type": "string",
+          "description": "Target node ID"
+        },
+        "sourceHandle": {
+          "type": "string"
+        },
+        "targetHandle": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "description": "Edge type for styling"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "edgeKind": {
+              "type": "string",
+              "enum": ["connect", "attach", "associate", "route"],
+              "description": "Semantic edge type for relationship rules"
+            }
+          }
+        }
+      }
+    },
+    "HCLOutput": {
+      "type": "object",
+      "description": "Structure of generated Terraform files",
+      "properties": {
+        "main.tf": {
+          "type": "string",
+          "description": "Main configuration with provider and resources"
+        },
+        "variables.tf": {
+          "type": "string",
+          "description": "Variable definitions"
+        },
+        "outputs.tf": {
+          "type": "string",
+          "description": "Output definitions"
+        },
+        "terraform.tfvars": {
+          "type": "string",
+          "description": "Variable values"
+        }
+      }
+    }
+  }
+}

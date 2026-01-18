@@ -1,0 +1,233 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CloudForge API Test Collection Structure",
+  "description": "Contract defining the expected structure of the Postman collection",
+  "type": "object",
+  "required": ["info", "item", "event", "variable"],
+  "properties": {
+    "info": {
+      "type": "object",
+      "required": ["name", "schema"],
+      "properties": {
+        "name": {
+          "const": "CloudForge API",
+          "description": "Collection name must be 'CloudForge API'"
+        },
+        "schema": {
+          "const": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+          "description": "Must use Postman Collection v2.1 schema"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional collection description"
+        }
+      }
+    },
+    "item": {
+      "type": "array",
+      "description": "Collection folders organized by endpoint group",
+      "minItems": 9,
+      "items": {
+        "$ref": "#/definitions/folder"
+      }
+    },
+    "event": {
+      "type": "array",
+      "description": "Collection-level scripts",
+      "contains": {
+        "type": "object",
+        "properties": {
+          "listen": { "const": "prerequest" }
+        },
+        "required": ["listen", "script"]
+      }
+    },
+    "variable": {
+      "type": "array",
+      "description": "Collection variables including schemas and thresholds",
+      "minItems": 1
+    }
+  },
+  "definitions": {
+    "folder": {
+      "type": "object",
+      "required": ["name", "item"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": [
+            "Auth",
+            "Projects",
+            "Resources",
+            "Terraform",
+            "Security",
+            "Dashboard",
+            "Health",
+            "Drift",
+            "Config"
+          ],
+          "description": "Folder name must match API endpoint group"
+        },
+        "item": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/request"
+          }
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "request": {
+      "type": "object",
+      "required": ["name", "request", "event"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable request name"
+        },
+        "request": {
+          "type": "object",
+          "required": ["method", "url"],
+          "properties": {
+            "method": {
+              "type": "string",
+              "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"]
+            },
+            "url": {
+              "type": "object",
+              "required": ["raw", "host", "path"],
+              "properties": {
+                "raw": { "type": "string" },
+                "host": {
+                  "type": "array",
+                  "items": { "const": "{{baseUrl}}" }
+                },
+                "path": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "query": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "key": { "type": "string" },
+                      "value": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            },
+            "header": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": { "type": "string" },
+                  "value": { "type": "string" }
+                }
+              }
+            },
+            "body": {
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "type": "string",
+                  "enum": ["raw", "urlencoded", "formdata", "none"]
+                },
+                "raw": { "type": "string" },
+                "options": {
+                  "type": "object",
+                  "properties": {
+                    "raw": {
+                      "type": "object",
+                      "properties": {
+                        "language": { "const": "json" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "event": {
+          "type": "array",
+          "description": "Must include test script",
+          "contains": {
+            "type": "object",
+            "required": ["listen", "script"],
+            "properties": {
+              "listen": { "const": "test" },
+              "script": {
+                "type": "object",
+                "required": ["exec"],
+                "properties": {
+                  "exec": {
+                    "type": "array",
+                    "minItems": 1,
+                    "description": "Test assertions must not be empty"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "requiredFolders": {
+    "description": "All 9 endpoint groups must be present",
+    "folders": [
+      {
+        "name": "Auth",
+        "minRequests": 3,
+        "requiredRequests": ["Register", "Login", "Get Current User"]
+      },
+      {
+        "name": "Projects",
+        "minRequests": 5,
+        "requiredRequests": ["Create Project", "List Projects", "Get Project", "Update Project", "Delete Project"]
+      },
+      {
+        "name": "Resources",
+        "minRequests": 6,
+        "requiredRequests": ["Create Resource", "List Project Resources", "Update Resource", "Delete Resource", "Create Connection", "List Connections"]
+      },
+      {
+        "name": "Terraform",
+        "minRequests": 8,
+        "requiredRequests": ["Generate", "Validate", "Plan", "Deploy", "Destroy", "Latest Output", "Download", "Files"]
+      },
+      {
+        "name": "Security",
+        "minRequests": 3,
+        "requiredRequests": ["TFSec Scan", "Terrascan Scan", "Infracost Estimate"]
+      },
+      {
+        "name": "Dashboard",
+        "minRequests": 2,
+        "requiredRequests": ["Stats", "Analytics"]
+      },
+      {
+        "name": "Health",
+        "minRequests": 2,
+        "requiredRequests": ["Health Check", "Ready Check"]
+      },
+      {
+        "name": "Drift",
+        "minRequests": 3,
+        "requiredRequests": ["Start Scan", "Get Scan", "List Project Scans"]
+      },
+      {
+        "name": "Config",
+        "minRequests": 2,
+        "requiredRequests": ["Icons Catalog", "Resources Catalog"]
+      }
+    ]
+  }
+}

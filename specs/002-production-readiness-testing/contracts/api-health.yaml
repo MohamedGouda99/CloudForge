@@ -1,0 +1,157 @@
+openapi: 3.0.3
+info:
+  title: CloudForge Health & Metrics API
+  description: Health check and observability endpoints for production monitoring
+  version: 1.0.0
+
+paths:
+  /api/health:
+    get:
+      summary: Basic health check
+      description: Returns service health status for load balancer probes
+      operationId: getHealth
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/health/ready:
+    get:
+      summary: Readiness check
+      description: Returns whether service is ready to accept traffic (DB connected, dependencies available)
+      operationId: getReadiness
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+        '503':
+          description: Service is not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+
+  /api/health/live:
+    get:
+      summary: Liveness check
+      description: Returns whether service process is alive (for container restart decisions)
+      operationId: getLiveness
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LivenessResponse'
+
+  /metrics:
+    get:
+      summary: Prometheus metrics endpoint
+      description: Exposes application metrics in Prometheus format for scraping
+      operationId: getMetrics
+      tags:
+        - Observability
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP http_requests_total Total HTTP requests
+                  # TYPE http_requests_total counter
+                  http_requests_total{method="GET",endpoint="/api/projects",status="200"} 1234
+                  # HELP http_request_duration_seconds HTTP request latency
+                  # TYPE http_request_duration_seconds histogram
+                  http_request_duration_seconds_bucket{le="0.1"} 800
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+          description: Overall health status
+        timestamp:
+          type: string
+          format: date-time
+          description: Health check timestamp
+        version:
+          type: string
+          description: Application version
+        uptime_seconds:
+          type: number
+          description: Seconds since service started
+
+    ReadinessResponse:
+      type: object
+      required:
+        - ready
+        - checks
+      properties:
+        ready:
+          type: boolean
+          description: Whether service is ready to accept traffic
+        checks:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/DependencyCheck'
+          description: Individual dependency check results
+          example:
+            database:
+              status: healthy
+              latency_ms: 5
+            redis:
+              status: healthy
+              latency_ms: 2
+
+    DependencyCheck:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy, degraded]
+        latency_ms:
+          type: number
+          description: Response time in milliseconds
+        message:
+          type: string
+          description: Additional status message
+
+    LivenessResponse:
+      type: object
+      required:
+        - alive
+      properties:
+        alive:
+          type: boolean
+          description: Whether service process is alive
+        timestamp:
+          type: string
+          format: date-time

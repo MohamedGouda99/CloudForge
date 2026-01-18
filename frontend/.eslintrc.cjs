@@ -35,5 +35,6 @@ module.exports = {
     'react-hooks/exhaustive-deps': 'off',
     'no-useless-escape': 'off',
     'react/no-unescaped-entities': 'off',
+    'no-console': ['error', { allow: ['warn', 'error'] }],
   },
 };

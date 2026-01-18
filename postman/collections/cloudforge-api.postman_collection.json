@@ -1,0 +1,1237 @@
+{
+  "info": {
+    "name": "CloudForge API",
+    "_postman_id": "cloudforge-api-collection",
+    "description": "Comprehensive API test collection for CloudForge - Infrastructure as Code Platform.\n\nFeatures:\n- Automatic authentication with token caching\n- JSON schema validation for all responses\n- Response time assertions by endpoint tier\n- Multi-environment support (local, staging, production)\n\nRun with: newman run cloudforge-api.postman_collection.json -e ../environments/local.postman_environment.json",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Collection-level pre-request script for automatic authentication",
+          "// This runs before EVERY request in the collection",
+          "",
+          "const baseUrl = pm.environment.get('baseUrl');",
+          "const tokenExpiry = parseInt(pm.environment.get('tokenExpiry') || '0');",
+          "const now = Date.now();",
+          "",
+          "// Skip auth for health endpoints and login/register",
+          "const skipAuthPaths = ['/health', '/api/auth/login', '/api/auth/register'];",
+          "const currentPath = pm.request.url.getPath();",
+          "const shouldSkipAuth = skipAuthPaths.some(path => currentPath.includes(path));",
+          "",
+          "if (shouldSkipAuth) {",
+          "    console.log('Skipping auth for:', currentPath);",
+          "    return;",
+          "}",
+          "",
+          "// Check if we need a new token",
+          "const accessToken = pm.environment.get('accessToken');",
+          "if (!accessToken || now > tokenExpiry) {",
+          "    console.log('Token missing or expired, obtaining new token...');",
+          "    ",
+          "    const username = pm.environment.get('testUsername');",
+          "    const password = pm.environment.get('testPassword');",
+          "    ",
+          "    if (!username || !password) {",
+          "        console.error('Test credentials not configured in environment');",
+          "        return;",
+          "    }",
+          "    ",
+          "    pm.sendRequest({",
+          "        url: baseUrl + '/api/auth/login',",
+          "        method: 'POST',",
+          "        header: {",
+          "            'Content-Type': 'application/x-www-form-urlencoded'",
+          "        },",
+          "        body: {",
+          "            mode: 'urlencoded',",
+          "            urlencoded: [",
+          "                { key: 'username', value: username },",
+          "                { key: 'password', value: password }",
+          "            ]",
+          "        }",
+          "    }, function(err, res) {",
+          "        if (err) {",
+          "            console.error('Authentication failed:', err);",
+          "            return;",
+          "        }",
+          "        ",
+          "        if (res.code === 200) {",
+          "            const json = res.json();",
+          "            pm.environment.set('accessToken', json.access_token);",
+          "            // Token expires in 1 hour, refresh 5 minutes early",
+          "            pm.environment.set('tokenExpiry', (now + 3300000).toString());",
+          "            console.log('Token obtained successfully');",
+          "        } else {",
+          "            console.error('Login failed with status:', res.code);",
+          "        }",
+          "    });",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Collection-level test script - runs after EVERY request",
+          "",
+          "// Get response time threshold based on endpoint category",
+          "function getResponseTimeThreshold() {",
+          "    const path = pm.request.url.getPath();",
+          "    const multiplier = parseFloat(pm.environment.get('responseTimeMultiplier') || '1');",
+          "    ",
+          "    // Fast tier (200ms) - Health checks",
+          "    if (path.includes('/health')) {",
+          "        return 200 * multiplier;",
+          "    }",
+          "    ",
+          "    // Long-running tier (5000ms) - Security scans, cost estimation, icons catalog",
+          "    if (path.includes('/tfsec') || path.includes('/terrascan') || path.includes('/infracost') || path.includes('/icons/catalog')) {",
+          "        return 5000 * multiplier;",
+          "    }",
+          "    ",
+          "    // Complex tier (2000ms) - Terraform generation",
+          "    if (path.includes('/terraform/generate') || path.includes('/terraform/plan') || ",
+          "        path.includes('/terraform/deploy') || path.includes('/terraform/destroy')) {",
+          "        return 2000 * multiplier;",
+          "    }",
+          "    ",
+          "    // Standard tier (500ms) - Default for CRUD operations",
+          "    return 500 * multiplier;",
+          "}",
+          "",
+          "// Response time assertion",
+          "pm.test('Response time is acceptable', function() {",
+          "    const threshold = getResponseTimeThreshold();",
+          "    pm.expect(pm.response.responseTime).to.be.below(threshold);",
+          "});",
+          "",
+          "// Content-Type assertion (skip for 204 No Content)",
+          "if (pm.response.code !== 204) {",
+          "    pm.test('Content-Type is JSON', function() {",
+          "        const contentType = pm.response.headers.get('Content-Type');",
+          "        if (contentType) {",
+          "            pm.expect(contentType).to.include('application/json');",
+          "        }",
+          "    });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "testProjectId",
+      "value": "",
+      "type": "string",
+      "description": "ID of test project created during test run"
+    },
+    {
+      "key": "testResourceId",
+      "value": "",
+      "type": "string",
+      "description": "ID of test resource created during test run"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "description": "Health check and readiness endpoints",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Basic health check endpoint"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response indicates healthy status', function() {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('status');",
+                  "    pm.expect(json.status).to.equal('healthy');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "description": "Authentication endpoints for user management",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"testuser_{{$timestamp}}\",\n  \"email\": \"test_{{$timestamp}}@example.com\",\n  \"password\": \"TestPassword123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Register a new user account"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 or 201', function() {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "pm.test('Response contains user data', function() {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('id');",
+                  "    pm.expect(json).to.have.property('username');",
+                  "    pm.expect(json).to.have.property('email');",
+                  "});",
+                  "",
+                  "pm.test('Password not returned in response', function() {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.not.have.property('password');",
+                  "    pm.expect(json).to.not.have.property('hashed_password');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "username",
+                  "value": "{{testUsername}}",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "{{testPassword}}",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Login to obtain JWT access token"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains access_token', function() {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('access_token');",
+                  "    pm.expect(json).to.have.property('token_type', 'bearer');",
+                  "});",
+                  "",
+                  "pm.test('Token is valid JWT format', function() {",
+                  "    const json = pm.response.json();",
+                  "    const parts = json.access_token.split('.');",
+                  "    pm.expect(parts).to.have.lengthOf(3);",
+                  "});",
+                  "",
+                  "// Store token for subsequent requests",
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    pm.environment.set('accessToken', json.access_token);",
+                  "    pm.environment.set('tokenExpiry', (Date.now() + 3300000).toString());",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login - Invalid Credentials",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "username",
+                  "value": "invalid_user",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "wrong_password",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Test login with invalid credentials"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 401 or 400', function() {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([400, 401]);",
+                  "});",
+                  "",
+                  "pm.test('Error message is present', function() {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('detail');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            },
+            "description": "Get currently authenticated user details"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains user data', function() {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('id');",
+                  "    pm.expect(json).to.have.property('username');",
+                  "    pm.expect(json).to.have.property('email');",
+                  "});",
+                  "",
+                  "pm.test('Password not exposed', function() {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.not.have.property('password');",
+                  "    pm.expect(json).to.not.have.property('hashed_password');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Projects",
+      "description": "Project CRUD operations",
+      "item": [
+        {
+          "name": "Create Project",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"test-project-{{$timestamp}}\",\n  \"description\": \"Test project created by Newman\",\n  \"cloud_provider\": \"aws\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", ""]
+            },
+            "description": "Create a new project"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', function() {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response contains project with ID', function() {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('id');",
+                  "    pm.expect(json.id).to.be.a('number');",
+                  "});",
+                  "",
+                  "pm.test('Project has required fields', function() {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('name');",
+                  "    pm.expect(json).to.have.property('cloud_provider');",
+                  "});",
+                  "",
+                  "// Store project ID for subsequent tests",
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('testProjectId', json.id.toString());",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Projects",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", ""]
+            },
+            "description": "List all projects for current user"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is array', function() {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('array');",
+                  "});",
+                  "",
+                  "pm.test('Each project has required fields', function() {",
+                  "    const json = pm.response.json();",
+                  "    json.forEach(project => {",
+                  "        pm.expect(project).to.have.property('id');",
+                  "        pm.expect(project).to.have.property('name');",
+                  "        pm.expect(project).to.have.property('cloud_provider');",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Project",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/{{testProjectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", "{{testProjectId}}"]
+            },
+            "description": "Get a specific project by ID"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains project data', function() {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('id');",
+                  "    pm.expect(json).to.have.property('name');",
+                  "    pm.expect(json).to.have.property('cloud_provider');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Project",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"updated-project-{{$timestamp}}\",\n  \"description\": \"Updated by Newman test\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/{{testProjectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", "{{testProjectId}}"]
+            },
+            "description": "Update an existing project"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Project was updated', function() {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.name).to.include('updated-project');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Project - Not Found",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/999999",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", "999999"]
+            },
+            "description": "Test 404 response for non-existent project"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 404', function() {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test('Error message is present', function() {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('detail');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Resources",
+      "description": "Resource management endpoints",
+      "item": [
+        {
+          "name": "Create Resource",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"project_id\": {{testProjectId}},\n  \"resource_type\": \"aws_vpc\",\n  \"name\": \"test-vpc\",\n  \"config\": {\n    \"cidr_block\": \"10.0.0.0/16\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/resources/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "resources", ""]
+            },
+            "description": "Create a new resource"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201 or 422', function() {",
+                  "    // 201 = created, 422 = validation error (e.g., project deleted)",
+                  "    pm.expect(pm.response.code).to.be.oneOf([201, 422]);",
+                  "});",
+                  "",
+                  "pm.test('Resource has ID when created', function() {",
+                  "    if (pm.response.code === 201) {",
+                  "        const json = pm.response.json();",
+                  "        pm.expect(json).to.have.property('id');",
+                  "    }",
+                  "});",
+                  "",
+                  "// Store resource ID",
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('testResourceId', json.id.toString());",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Project Resources",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/resources/project/{{testProjectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "resources", "project", "{{testProjectId}}"]
+            },
+            "description": "List all resources for a project"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 or 404', function() {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+                  "});",
+                  "",
+                  "pm.test('Response is array when 200', function() {",
+                  "    if (pm.response.code === 200) {",
+                  "        const json = pm.response.json();",
+                  "        pm.expect(json).to.be.an('array');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Terraform",
+      "description": "Terraform generation and operations",
+      "item": [
+        {
+          "name": "Generate Terraform",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/terraform/generate/{{testProjectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "terraform", "generate", "{{testProjectId}}"]
+            },
+            "description": "Generate Terraform code for a project"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200, 400, or 404', function() {",
+                  "    // 200 = generated, 400 = no diagram data, 404 = project not found",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 400, 404]);",
+                  "});",
+                  "",
+                  "pm.test('Response time under 4 seconds', function() {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(4000);",
+                  "});",
+                  "",
+                  "pm.test('Response contains terraform config when 200', function() {",
+                  "    if (pm.response.code === 200) {",
+                  "        const json = pm.response.json();",
+                  "        pm.expect(json).to.be.an('object');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Validate Terraform",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/terraform/validate/{{testProjectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "terraform", "validate", "{{testProjectId}}"]
+            },
+            "description": "Validate Terraform configuration"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200, 400, or 404', function() {",
+                  "    // 200 = valid, 400 = no terraform config, 404 = project not found",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 400, 404]);",
+                  "});",
+                  "",
+                  "pm.test('Response contains validation result when 200', function() {",
+                  "    if (pm.response.code === 200) {",
+                  "        const json = pm.response.json();",
+                  "        pm.expect(json).to.be.an('object');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Latest Terraform Output",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/terraform/latest/{{testProjectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "terraform", "latest", "{{testProjectId}}"]
+            },
+            "description": "Get the latest Terraform output for a project"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 or 404', function() {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Security",
+      "description": "Security scanning endpoints",
+      "item": [
+        {
+          "name": "TFSec Scan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/security/tfsec/{{testProjectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "security", "tfsec", "{{testProjectId}}"]
+            },
+            "description": "Run TFSec security scan"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200, 202, 400, or 404', function() {",
+                  "    // 200/202 = scan started/completed, 400 = no terraform config, 404 = project not found",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 202, 400, 404]);",
+                  "});",
+                  "",
+                  "pm.test('Response time under 10 seconds', function() {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(10000);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Terrascan Scan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/security/terrascan/{{testProjectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "security", "terrascan", "{{testProjectId}}"]
+            },
+            "description": "Run Terrascan policy scan"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200, 202, 400, or 404', function() {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 202, 400, 404]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Infracost Estimate",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/security/infracost/{{testProjectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "security", "infracost", "{{testProjectId}}"]
+            },
+            "description": "Get infrastructure cost estimate"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200, 202, 400, or 404', function() {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 202, 400, 404]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "description": "Dashboard and analytics endpoints",
+      "item": [
+        {
+          "name": "Get Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "dashboard", "stats"]
+            },
+            "description": "Get dashboard statistics"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is object', function() {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Analytics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard/analytics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "dashboard", "analytics"]
+            },
+            "description": "Get analytics data"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Drift",
+      "description": "Infrastructure drift detection",
+      "item": [
+        {
+          "name": "Start Drift Scan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/drift/scan/{{testProjectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "drift", "scan", "{{testProjectId}}"]
+            },
+            "description": "Start a drift detection scan"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 202 or 404', function() {",
+                  "    // 202 = scan started, 404 = project not found",
+                  "    pm.expect(pm.response.code).to.be.oneOf([202, 404]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Project Scans",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/drift/project/{{testProjectId}}/scans",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "drift", "project", "{{testProjectId}}", "scans"]
+            },
+            "description": "List drift scans for a project"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 or 404', function() {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+                  "});",
+                  "",
+                  "pm.test('Response is array when 200', function() {",
+                  "    if (pm.response.code === 200) {",
+                  "        const json = pm.response.json();",
+                  "        pm.expect(json).to.be.an('array');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Config",
+      "description": "Configuration and catalog endpoints",
+      "item": [
+        {
+          "name": "Get Icons Catalog",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/icons/catalog",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "icons", "catalog"]
+            },
+            "description": "Get available cloud service icons"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response time under 5 seconds', function() {",
+                  "    // Icons catalog can be slow due to scanning many files",
+                  "    pm.expect(pm.response.responseTime).to.be.below(5000);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Resources Config",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/config/resources/aws",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "config", "resources", "aws"]
+            },
+            "description": "Get AWS resource configuration catalog"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 or 404', function() {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Cleanup",
+      "description": "Cleanup test data - runs last to delete test resources",
+      "item": [
+        {
+          "name": "Delete Test Project",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/{{testProjectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", "{{testProjectId}}"]
+            },
+            "description": "Delete the test project created during test run"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 204 or 404', function() {",
+                  "    // 204 = deleted, 404 = already deleted or never created",
+                  "    pm.expect(pm.response.code).to.be.oneOf([204, 404]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

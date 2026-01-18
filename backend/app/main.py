@@ -10,7 +10,7 @@ from app.core.config import settings
 from app.core.database import engine, Base
 from app.core.bootstrap import ensure_default_admin
 from app.core.logging import setup_logging, get_logger, RequestLoggingMiddleware
-from app.api.endpoints import auth, projects, resources, terraform, drift, icons, security, dashboard, assistant
+from app.api.endpoints import auth, projects, resources, terraform, drift, icons, security, dashboard, assistant, health, metrics, config, catalog
 import socketio
 import traceback
 
@@ -123,6 +123,10 @@ app.include_router(drift.router, prefix="/api/drift", tags=["drift"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"])
 app.include_router(icons.router, prefix="/api", tags=["icons"])
 app.include_router(assistant.router, tags=["assistant"])
+app.include_router(health.router, prefix="/api/health", tags=["health"])
+app.include_router(metrics.router, prefix="/metrics", tags=["metrics"])
+app.include_router(config.router, prefix="/api/config", tags=["config"])
+app.include_router(catalog.router, prefix="/api/catalog", tags=["catalog"])
 
 
 @app.get("/")

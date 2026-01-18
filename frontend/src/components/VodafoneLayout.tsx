@@ -35,6 +35,9 @@ export default function VodafoneLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
+  // Check if we're on a project designer page (e.g., /projects/27)
+  const isDesignerPage = /^\/projects\/\d+/.test(location.pathname);
+
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -67,19 +70,21 @@ export default function VodafoneLayout() {
             </Link>
           </div>
 
-          {/* Center: Search */}
-          <div className="hidden lg:flex flex-1 max-w-2xl mx-8">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search projects, resources..."
-                className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-gray-700 border border-transparent rounded-lg
-                         focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent
-                         text-gray-900 dark:text-white placeholder-gray-500"
-              />
+          {/* Center: Search - Hidden on designer page */}
+          {!isDesignerPage && (
+            <div className="hidden lg:flex flex-1 max-w-2xl mx-8">
+              <div className="relative w-full">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search projects, resources..."
+                  className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-gray-700 border border-transparent rounded-lg
+                           focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent
+                           text-gray-900 dark:text-white placeholder-gray-500"
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Right: Actions */}
           <div className="flex items-center gap-3">

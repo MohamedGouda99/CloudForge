@@ -1,4 +1,4 @@
-# CLAUDE.md
+﻿# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -202,6 +202,81 @@ Located at `backend/src/terraform/`, this is a separate TypeScript module called
 ### Cloud Service Icons
 
 Icons stored in `Cloud_Services/` directory, mounted read-only at `/app/Cloud_Services` in containers.
+
+## Resource Catalog Architecture
+
+The unified resource catalog is the single source of truth for all cloud resource definitions. It's a TypeScript package at `shared/resource-catalog/` that defines resource schemas consumed by both frontend and backend.
+
+### Resource Classification
+
+Resources are classified as either:
+- **Container**: Visual nodes that can hold child resources (e.g., `aws_vpc`, `aws_ecs_cluster`, `aws_s3_bucket`)
+- **Icon**: Standalone resources that cannot contain children (e.g., `aws_instance`, `aws_lambda_function`)
+
+### Key Files
+
+```
+shared/resource-catalog/src/
+├── types.ts                  # Core types: ServiceDefinition, ValidChildRule, etc.
+├── aws/
+│   ├── index.ts             # Exports all AWS resources
+│   ├── icons.ts             # Icon path constants
+│   ├── compute/             # EC2, Lambda, Auto Scaling
+│   ├── containers/          # ECS, EKS
+│   ├── networking/          # VPC, Subnet, Load Balancer
+│   ├── storage/             # S3, EFS, EBS
+│   ├── database/            # RDS, DynamoDB
+│   ├── security/            # IAM, KMS, Cognito
+│   ├── messaging/           # SNS, SQS
+│   ├── management/          # CloudWatch
+│   └── developer-tools/     # CodePipeline, CodeBuild
+```
+
+### ServiceDefinition Structure
+
+```typescript
+interface ServiceDefinition {
+  id: string;
+  terraform_resource: string;    // e.g., "aws_vpc"
+  name: string;
+  description: string;
+  icon: string;
+  category: ServiceCategory;
+  classification: 'container' | 'icon';
+  inputs: InputSchema;
+  outputs: OutputAttribute[];
+  terraform: TerraformMetadata;
+  relations?: {
+    containmentRules?: ContainmentRule[];  // Auto-wiring when placed in parent
+    edgeRules?: EdgeRule[];                // Auto-wiring when connected via edge
+    validChildren?: ValidChildRule[];      // Valid child types for containers
+  };
+}
+```
+
+### Backend Catalog API
+
+- `GET /api/catalog` - List all resources (supports `?category=`, `?classification=` filters)
+- `GET /api/catalog/{terraform_resource}` - Get single resource schema
+- `GET /api/catalog/containment/{terraform_resource}` - Get valid child types for container
+- `POST /api/catalog/validate-containment` - Validate parent-child relationship
+
+### Frontend Catalog Integration
+
+```typescript
+// frontend/src/lib/catalog/index.ts
+import { fetchCatalog, getResourceSchema, canContain } from '../lib/catalog';
+
+// frontend/src/features/designer/utils/nodeClassifier.ts
+import { isContainerNode, getValidChildTypes, validateContainment } from './nodeClassifier';
+```
+
+### Adding a New Cloud Resource (Updated)
+
+1. **Catalog:** Create resource definition in `shared/resource-catalog/src/aws/{category}/{resource}.ts`
+2. **Export:** Add to category's `index.ts` and main `aws/index.ts`
+3. **Build:** Run `npm run build` in `shared/resource-catalog/`
+4. **Backend:** The schema_loader auto-discovers resources from the built catalog
 
 ## Common Development Patterns
 

@@ -11,57 +11,99 @@ on:
       - develop
   workflow_dispatch:
 
+env:
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "20"
+
 jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: cloudforge_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
+      # Frontend Setup and Tests
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
-      
+
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
-      
+
       - name: Run frontend lint
         working-directory: frontend
-        run: npm run lint || echo "Lint check completed"
-      
+        run: npm run lint
+
       - name: Run frontend type check
         working-directory: frontend
-        run: npm run type-check || echo "Type check completed"
-      
+        run: npm run type-check
+
+      - name: Run frontend unit tests
+        working-directory: frontend
+        run: npm run test --if-present
+
+      # Backend Setup and Tests
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-      
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
       - name: Install backend dependencies
         working-directory: backend
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      
-      - name: Run backend tests
+          pip install pytest pytest-asyncio pytest-cov httpx
+
+      - name: Run backend unit tests
         working-directory: backend
-        run: pytest || echo "Backend tests completed"
-      
+        run: pytest tests/unit -v --cov=app --cov-report=term-missing
+        env:
+          DATABASE_URL: "sqlite:///:memory:"
+          SECRET_KEY: "test-secret-key-for-ci-pipeline"
+          TESTING: "true"
+
+      - name: Run backend integration tests
+        working-directory: backend
+        run: pytest tests/integration -v --tb=short
+        env:
+          DATABASE_URL: "postgresql://test:test@localhost:5432/cloudforge_test"
+          SECRET_KEY: "test-secret-key-for-ci-pipeline"
+          TESTING: "true"
+
       - name: Test summary
+        if: always()
         run: |
-          echo "✅ Test pipeline completed successfully"
-          echo "All checks have been executed"
-
-
-
-
-
-
-
+          echo "================================"
+          echo "Test Pipeline Summary"
+          echo "================================"
+          echo "Frontend lint: ✓"
+          echo "Frontend type-check: ✓"
+          echo "Frontend unit tests: ✓"
+          echo "Backend unit tests: ✓"
+          echo "Backend integration tests: ✓"
+          echo "================================"

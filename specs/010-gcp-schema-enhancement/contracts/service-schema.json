@@ -1,0 +1,155 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GCP Service Definition Schema",
+  "description": "Schema for validating GCP service definitions in *Data.ts files",
+  "type": "object",
+  "required": ["id", "name", "description", "terraform_resource", "icon", "inputs", "outputs"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for the service (snake_case)",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable display name"
+    },
+    "description": {
+      "type": "string",
+      "description": "Brief description of the service"
+    },
+    "terraform_resource": {
+      "type": "string",
+      "description": "Terraform resource type",
+      "pattern": "^google_[a-z][a-z0-9_]*$"
+    },
+    "icon": {
+      "type": "string",
+      "description": "Path to the service icon",
+      "pattern": "^/cloud_icons/GCP/"
+    },
+    "inputs": {
+      "type": "object",
+      "required": ["required", "optional"],
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/ServiceInput" }
+        },
+        "optional": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/ServiceInput" }
+        },
+        "blocks": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/ServiceBlock" }
+        }
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/ServiceOutput" }
+    }
+  },
+  "definitions": {
+    "ServiceInput": {
+      "type": "object",
+      "required": ["name", "type"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Argument name as in Terraform"
+        },
+        "type": {
+          "type": "string",
+          "description": "Data type",
+          "enum": ["string", "number", "bool", "list(string)", "list(number)", "list(object)", "map(string)", "map(number)", "set(string)", "object"]
+        },
+        "description": {
+          "type": "string"
+        },
+        "example": {
+          "type": ["string", "number", "boolean"]
+        },
+        "default": {},
+        "options": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "reference": {
+          "type": "string",
+          "description": "Reference to another resource's output"
+        },
+        "required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ServiceBlock": {
+      "type": "object",
+      "required": ["name", "attributes"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Block name as in Terraform"
+        },
+        "description": {
+          "type": "string"
+        },
+        "multiple": {
+          "type": "boolean",
+          "description": "Whether multiple instances allowed"
+        },
+        "attributes": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/BlockAttribute" }
+        },
+        "nested_blocks": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/ServiceBlock" }
+        }
+      }
+    },
+    "BlockAttribute": {
+      "type": "object",
+      "required": ["name", "type"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "default": {},
+        "options": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "ServiceOutput": {
+      "type": "object",
+      "required": ["name", "type", "description"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Output attribute name"
+        },
+        "type": {
+          "type": "string",
+          "description": "Data type"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description"
+        }
+      }
+    }
+  }
+}

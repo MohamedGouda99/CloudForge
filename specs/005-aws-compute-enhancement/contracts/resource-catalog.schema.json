@@ -1,0 +1,351 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cloudforge.dev/schemas/resource-catalog.json",
+  "title": "Resource Catalog Schema",
+  "description": "Schema for the unified resource catalog API response",
+  "type": "object",
+  "required": ["version", "lastUpdated", "provider", "resources"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Terraform provider version",
+      "pattern": "^[0-9]+\\.x$",
+      "example": "5.x"
+    },
+    "lastUpdated": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of last schema update"
+    },
+    "provider": {
+      "type": "string",
+      "enum": ["aws", "azure", "gcp"],
+      "description": "Cloud provider"
+    },
+    "category": {
+      "type": "string",
+      "enum": ["compute", "containers", "storage", "database", "networking", "security", "analytics", "application"],
+      "description": "Resource category filter (optional)"
+    },
+    "resources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ServiceDefinition"
+      }
+    }
+  },
+  "definitions": {
+    "ServiceDefinition": {
+      "type": "object",
+      "required": ["id", "terraform_resource", "name", "description", "icon", "category", "classification", "inputs", "outputs"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "example": "ec2_instance"
+        },
+        "terraform_resource": {
+          "type": "string",
+          "description": "Terraform resource type",
+          "pattern": "^aws_[a-z_]+$",
+          "example": "aws_instance"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable name",
+          "example": "EC2 Instance"
+        },
+        "description": {
+          "type": "string",
+          "description": "Brief description of the resource"
+        },
+        "icon": {
+          "type": "string",
+          "description": "Path to the resource icon",
+          "pattern": "^/cloud_icons/",
+          "example": "/cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Compute/64/Arch_Amazon-EC2_64.svg"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["compute", "containers", "storage", "database", "networking", "security", "analytics", "application"]
+        },
+        "classification": {
+          "type": "string",
+          "enum": ["icon", "container"],
+          "description": "Visual node classification"
+        },
+        "inputs": {
+          "$ref": "#/definitions/InputSchema"
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/OutputAttribute"
+          }
+        },
+        "terraform": {
+          "$ref": "#/definitions/TerraformMetadata"
+        },
+        "relations": {
+          "$ref": "#/definitions/RelationshipRules"
+        }
+      }
+    },
+    "InputSchema": {
+      "type": "object",
+      "required": ["required", "optional"],
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/InputAttribute"
+          }
+        },
+        "optional": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/InputAttribute"
+          }
+        },
+        "blocks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BlockAttribute"
+          }
+        }
+      }
+    },
+    "InputAttribute": {
+      "type": "object",
+      "required": ["name", "type", "description"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Terraform argument name"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["string", "number", "bool", "list(string)", "list(number)", "map(string)", "set(string)"]
+        },
+        "description": {
+          "type": "string"
+        },
+        "example": {
+          "type": "string"
+        },
+        "default": {},
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reference": {
+          "type": "string",
+          "description": "Reference format for cross-resource linking",
+          "pattern": "^aws_[a-z_]+\\.[a-z_]+$"
+        },
+        "validation": {
+          "$ref": "#/definitions/ValidationRule"
+        },
+        "group": {
+          "type": "string",
+          "enum": ["basic", "advanced"]
+        }
+      }
+    },
+    "BlockAttribute": {
+      "type": "object",
+      "required": ["name", "description", "attributes"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean",
+          "default": false
+        },
+        "multiple": {
+          "type": "boolean",
+          "default": false
+        },
+        "attributes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/InputAttribute"
+          }
+        }
+      }
+    },
+    "OutputAttribute": {
+      "type": "object",
+      "required": ["name", "type", "description"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "ValidationRule": {
+      "type": "object",
+      "properties": {
+        "pattern": {
+          "type": "string",
+          "description": "Regex pattern for validation"
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "minLength": {
+          "type": "integer"
+        },
+        "maxLength": {
+          "type": "integer"
+        }
+      }
+    },
+    "TerraformMetadata": {
+      "type": "object",
+      "properties": {
+        "resourceType": {
+          "type": "string"
+        },
+        "requiredArgs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "referenceableAttrs": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "RelationshipRules": {
+      "type": "object",
+      "properties": {
+        "containmentRules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ContainmentRule"
+          }
+        },
+        "edgeRules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/EdgeRule"
+          }
+        },
+        "autoResolveRules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AutoResolveRule"
+          }
+        }
+      }
+    },
+    "ContainmentRule": {
+      "type": "object",
+      "required": ["whenParentResourceType", "apply"],
+      "properties": {
+        "whenParentResourceType": {
+          "type": "string"
+        },
+        "apply": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AttributeMapping"
+          }
+        }
+      }
+    },
+    "EdgeRule": {
+      "type": "object",
+      "required": ["whenEdgeKind", "direction", "toResourceType", "apply"],
+      "properties": {
+        "whenEdgeKind": {
+          "type": "string",
+          "enum": ["connect", "attach", "associate", "route"]
+        },
+        "direction": {
+          "type": "string",
+          "enum": ["inbound", "outbound"]
+        },
+        "toResourceType": {
+          "type": "string"
+        },
+        "apply": {}
+      }
+    },
+    "AutoResolveRule": {
+      "type": "object",
+      "required": ["requiredArg", "acceptsResourceTypes", "search", "onMissing"],
+      "properties": {
+        "requiredArg": {
+          "type": "string"
+        },
+        "acceptsResourceTypes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "search": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "onMissing": {
+          "type": "object",
+          "required": ["level", "message"],
+          "properties": {
+            "level": {
+              "type": "string",
+              "enum": ["error", "warning"]
+            },
+            "message": {
+              "type": "string"
+            },
+            "fixHint": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "AttributeMapping": {
+      "type": "object",
+      "properties": {
+        "setArg": {
+          "type": "string"
+        },
+        "pushToListArg": {
+          "type": "string"
+        },
+        "toParentAttr": {
+          "type": "string"
+        },
+        "toTargetAttr": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

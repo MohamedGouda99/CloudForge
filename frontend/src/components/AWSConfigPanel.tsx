@@ -25,10 +25,10 @@ import {
   getResourceSchema,
   validateSchema,
   getDefaultValues,
-  SchemaField,
-  ResourceSchema,
-  SchemaBlock,
-} from '../lib/resources/resourceSchemas';
+  type SchemaField,
+  type ResourceSchema,
+  type SchemaBlock,
+} from '../lib/resources/resourceSchemaAPI';
 import CloudIcon from './CloudIcon';
 import { resolveResourceIcon } from '../lib/resources/iconResolver';
 

@@ -1,0 +1,137 @@
+# GitHub Actions Workflow Contract: Newman API Tests
+# This contract defines the expected structure and behavior of the CI workflow
+
+name: API Tests (Newman)
+
+# Trigger Contract
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'local'
+        type: choice
+        options:
+          - local
+          - staging
+
+# Environment Variables Contract
+env:
+  NODE_VERSION: "20"
+  NEWMAN_VERSION: "^6.0.0"
+
+jobs:
+  api-tests:
+    name: Newman API Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      # Backend service for local testing
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: cloudforge_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      # Step 1: Checkout code
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Step 2: Setup Node.js for Newman
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # Step 3: Install Newman and reporters
+      - name: Install Newman
+        run: |
+          npm install -g newman@${{ env.NEWMAN_VERSION }}
+          npm install -g newman-reporter-htmlextra
+          npm install -g newman-reporter-junitfull
+
+      # Step 4: Setup Python for backend
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      # Step 5: Install backend dependencies
+      - name: Install Backend Dependencies
+        run: pip install -r backend/requirements.txt
+        working-directory: backend
+
+      # Step 6: Start backend service
+      - name: Start Backend
+        run: |
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          sleep 10  # Wait for startup
+        working-directory: backend
+        env:
+          DATABASE_URL: "postgresql://test:test@localhost:5432/cloudforge_test"
+          SECRET_KEY: "test-secret-key-for-api-tests"
+
+      # Step 7: Wait for backend health
+      - name: Wait for Backend
+        run: |
+          for i in {1..30}; do
+            curl -sf http://localhost:8000/health && break
+            echo "Waiting for backend... ($i/30)"
+            sleep 2
+          done
+
+      # Step 8: Run Newman tests
+      - name: Run API Tests
+        run: |
+          newman run postman/collections/cloudforge-api.postman_collection.json \
+            --environment postman/environments/local.postman_environment.json \
+            --reporters cli,htmlextra,junitfull \
+            --reporter-htmlextra-export reports/api-test-report.html \
+            --reporter-junitfull-export reports/api-test-results.xml \
+            --delay-request 100 \
+            --timeout-request 30000
+
+      # Step 9: Upload test reports
+      - name: Upload Test Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-test-reports
+          path: reports/
+          retention-days: 30
+
+      # Step 10: Publish test results
+      - name: Publish Test Results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: API Test Results
+          path: reports/api-test-results.xml
+          reporter: java-junit
+
+# Expected Outputs Contract
+# - reports/api-test-report.html: Human-readable HTML report
+# - reports/api-test-results.xml: JUnit XML for CI integration
+# - GitHub Actions test summary with pass/fail counts
+
+# Success Criteria Contract
+# - All tests pass (exit code 0)
+# - Total execution time < 5 minutes
+# - Report artifacts uploaded successfully

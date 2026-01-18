@@ -1,0 +1,240 @@
+# GitHub Actions CD Workflow Contract
+# Deploys to staging automatically, production with approval
+
+name: CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "20"
+
+jobs:
+  # Run CI checks first
+  ci:
+    name: CI Validation
+    uses: ./.github/workflows/ci.yml
+
+  # Build and push Docker images
+  build-images:
+    name: Build Docker Images
+    needs: [ci]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      backend-image: ${{ steps.meta-backend.outputs.tags }}
+      frontend-image: ${{ steps.meta-frontend.outputs.tags }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Backend image metadata
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/backend
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Frontend image metadata
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/frontend
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Deploy to staging (automatic)
+  deploy-staging:
+    name: Deploy to Staging
+    needs: [build-images]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: staging
+      url: https://staging.cloudforge.example.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to staging
+        run: |
+          echo "Deploying to staging environment"
+          echo "Backend image: ${{ needs.build-images.outputs.backend-image }}"
+          echo "Frontend image: ${{ needs.build-images.outputs.frontend-image }}"
+          # Add actual deployment commands here
+          # kubectl set image deployment/backend backend=${{ needs.build-images.outputs.backend-image }}
+          # kubectl set image deployment/frontend frontend=${{ needs.build-images.outputs.frontend-image }}
+
+      - name: Wait for deployment
+        run: |
+          echo "Waiting for deployment to stabilize..."
+          sleep 30
+          # kubectl rollout status deployment/backend --timeout=120s
+          # kubectl rollout status deployment/frontend --timeout=120s
+
+  # Smoke tests on staging
+  smoke-tests:
+    name: Smoke Tests
+    needs: [deploy-staging]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Health check
+        run: |
+          echo "Running health checks against staging"
+          # curl -f https://staging.cloudforge.example.com/api/health || exit 1
+          echo "Health check passed"
+
+      - name: API smoke test
+        run: |
+          echo "Running API smoke tests"
+          # curl -f https://staging.cloudforge.example.com/api/projects || exit 1
+          echo "API smoke tests passed"
+
+      - name: Frontend smoke test
+        run: |
+          echo "Running frontend smoke tests"
+          # curl -f https://staging.cloudforge.example.com/ || exit 1
+          echo "Frontend smoke tests passed"
+
+  # Load tests on staging (optional, runs on demand)
+  load-tests:
+    name: Load Tests
+    needs: [smoke-tests]
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Locust
+        run: pip install locust
+
+      - name: Run load tests
+        run: |
+          echo "Running load tests against staging"
+          # locust -f backend/locust/locustfile.py \
+          #   --host=https://staging.cloudforge.example.com \
+          #   --users=100 \
+          #   --spawn-rate=10 \
+          #   --run-time=5m \
+          #   --headless \
+          #   --html=load-test-report.html
+          echo "Load tests completed"
+
+      - name: Upload load test report
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-test-report
+          path: load-test-report.html
+          retention-days: 30
+
+  # Production deployment (requires approval)
+  deploy-production:
+    name: Deploy to Production
+    needs: [smoke-tests]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: https://cloudforge.example.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to production
+        run: |
+          echo "Deploying to production environment"
+          echo "Backend image: ${{ needs.build-images.outputs.backend-image }}"
+          echo "Frontend image: ${{ needs.build-images.outputs.frontend-image }}"
+          # Add actual deployment commands here
+
+      - name: Wait for deployment
+        run: |
+          echo "Waiting for production deployment to stabilize..."
+          sleep 30
+
+      - name: Production health check
+        run: |
+          echo "Running production health checks"
+          # curl -f https://cloudforge.example.com/api/health || exit 1
+          echo "Production health check passed"
+
+  # Rollback job (manual trigger only)
+  rollback:
+    name: Rollback Production
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
+    runs-on: ubuntu-latest
+    environment:
+      name: production-rollback
+    steps:
+      - name: Rollback
+        run: |
+          echo "Rolling back production to previous version"
+          # kubectl rollout undo deployment/backend
+          # kubectl rollout undo deployment/frontend
+          echo "Rollback completed"
+
+  # Notify on completion
+  notify:
+    name: Notify
+    needs: [deploy-staging, deploy-production]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify success
+        if: needs.deploy-production.result == 'success' || needs.deploy-staging.result == 'success'
+        run: echo "Deployment completed successfully"
+
+      - name: Notify failure
+        if: needs.deploy-production.result == 'failure' || needs.deploy-staging.result == 'failure'
+        run: |
+          echo "Deployment failed"
+          exit 1

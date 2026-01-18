@@ -1,0 +1,141 @@
+# GitHub Actions Workflow for API Tests
+# Runs Newman API tests against backend service
+
+name: API Tests
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+      - 'postman/**'
+      - '.github/workflows/api-tests.yml'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+      - 'postman/**'
+      - '.github/workflows/api-tests.yml'
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "20"
+
+jobs:
+  api-tests:
+    name: Newman API Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: cloudforge
+          POSTGRES_PASSWORD: cloudforge_test_password
+          POSTGRES_DB: cloudforge_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: postman/package-lock.json
+
+      - name: Install backend dependencies
+        run: pip install -r requirements.txt
+        working-directory: backend
+
+      - name: Install Newman and reporters
+        run: npm ci
+        working-directory: postman
+
+      - name: Start backend service
+        run: |
+          cd backend
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          echo "Waiting for backend to start..."
+          sleep 10
+        env:
+          DATABASE_URL: "postgresql://cloudforge:cloudforge_test_password@localhost:5432/cloudforge_test"
+          SECRET_KEY: "test-secret-key-for-ci"
+          ENVIRONMENT: "test"
+          REDIS_URL: "redis://localhost:6379"
+
+      - name: Wait for backend health
+        run: |
+          echo "Checking backend health..."
+          for i in {1..30}; do
+            if curl -s http://localhost:8000/health | grep -q "healthy"; then
+              echo "Backend is healthy!"
+              exit 0
+            fi
+            echo "Attempt $i: Backend not ready, waiting..."
+            sleep 2
+          done
+          echo "Backend failed to start"
+          exit 1
+
+      - name: Run Newman tests
+        run: |
+          npx newman run collections/cloudforge-api.postman_collection.json \
+            -e environments/local.postman_environment.json \
+            --reporters cli,junitfull,htmlextra \
+            --reporter-junitfull-export ../reports/api-test-results.xml \
+            --reporter-htmlextra-export ../reports/api-test-report.html \
+            --timeout-request 30000
+        working-directory: postman
+        continue-on-error: true
+
+      - name: Upload JUnit test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-test-results
+          path: reports/api-test-results.xml
+          retention-days: 30
+
+      - name: Upload HTML test report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-test-report
+          path: reports/api-test-report.html
+          retention-days: 30
+
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: reports/api-test-results.xml
+          check_name: API Test Results
+          comment_mode: always

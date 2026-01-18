@@ -23,9 +23,12 @@ import {
   CloudProvider,
   CloudResource,
   resolveResourceIcon,
+  initializeSchemaCache,
 } from '../../lib/resources';
 import { buildCredentialsQuery } from '../../lib/utils/credentials';
 import { nodeTypes } from '../../components/nodes';
+import { edgeTypes } from '../../components/edges';
+import { DisplaySettingsProvider } from '../../context/DisplaySettingsContext';
 import ResourceConfigModal from '../../components/ResourceConfigModal';
 import CloudCredentialsModal from '../../components/CloudCredentialsModal';
 import DeploymentLogsModal from '../../components/DeploymentLogsModal';
@@ -202,6 +205,14 @@ export default function DesignerPageFinal() {
 
   // Terraform files state
   const [terraformFiles, setTerraformFiles] = useState<Record<string, string>>({});
+
+  // Display options state
+  const [gridType, setGridType] = useState<'dots' | 'lines' | 'none'>('dots');
+  const [showNodeTitles, setShowNodeTitles] = useState(true);
+  const [showConnectors, setShowConnectors] = useState(true);
+  const [showConnectorLabels, setShowConnectorLabels] = useState(true);
+  const [animateConnectorLine, setAnimateConnectorLine] = useState(false);
+  const [animateConnectorCircles, setAnimateConnectorCircles] = useState(false);
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
@@ -602,6 +613,17 @@ export default function DesignerPageFinal() {
   useEffect(() => {
     loadProject();
   }, [projectId]);
+
+  // Initialize schema and classifier caches
+  useEffect(() => {
+    const initCaches = async () => {
+      await initializeSchemaCache(provider);
+      // Also initialize classifier cache for node types
+      const { initializeClassifierCache } = await import('./utils/nodeClassifier');
+      await initializeClassifierCache();
+    };
+    initCaches().catch(console.error);
+  }, [provider]);
 
   // Load credentials from localStorage
   useEffect(() => {
@@ -1142,6 +1164,86 @@ export default function DesignerPageFinal() {
       return null;
     }
   }, [nodes]);
+
+  // Export canvas as PNG image
+  const exportAsImage = useCallback(async () => {
+    try {
+      const reactFlowEl = document.querySelector('.react-flow') as HTMLElement;
+      if (!reactFlowEl) {
+        console.error('React Flow element not found');
+        return;
+      }
+
+      const dataUrl = await toPng(reactFlowEl, {
+        backgroundColor: '#1e1e1e',
+        filter: (node) => {
+          // Exclude controls, minimap, and attribution
+          if (node.classList) {
+            const exclude = ['react-flow__controls', 'react-flow__minimap', 'react-flow__attribution'];
+            return !exclude.some(cls => node.classList.contains(cls));
+          }
+          return true;
+        },
+      });
+
+      // Create download link
+      const link = document.createElement('a');
+      link.download = `${project?.name || 'architecture'}-diagram.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (error) {
+      console.error('Failed to export as image:', error);
+    }
+  }, [project?.name]);
+
+  // Export canvas as PDF
+  const exportAsPdf = useCallback(async () => {
+    try {
+      const reactFlowEl = document.querySelector('.react-flow') as HTMLElement;
+      if (!reactFlowEl) {
+        console.error('React Flow element not found');
+        return;
+      }
+
+      const dataUrl = await toPng(reactFlowEl, {
+        backgroundColor: '#1e1e1e',
+        filter: (node) => {
+          if (node.classList) {
+            const exclude = ['react-flow__controls', 'react-flow__minimap', 'react-flow__attribution'];
+            return !exclude.some(cls => node.classList.contains(cls));
+          }
+          return true;
+        },
+      });
+
+      // Create a simple PDF with the image
+      // For now, we'll create an HTML page that prints as PDF
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>${project?.name || 'Architecture'} - Diagram</title>
+              <style>
+                body { margin: 0; padding: 20px; background: #fff; }
+                img { max-width: 100%; height: auto; }
+                h1 { font-family: system-ui, sans-serif; color: #333; margin-bottom: 20px; }
+              </style>
+            </head>
+            <body>
+              <h1>${project?.name || 'Architecture'} Diagram</h1>
+              <img src="${dataUrl}" alt="Architecture Diagram" />
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+      }
+    } catch (error) {
+      console.error('Failed to export as PDF:', error);
+    }
+  }, [project?.name]);
 
   const saveProject = useCallback(
     async (options?: { silent?: boolean; regionConfig?: Record<string, string>; skipTerraformGeneration?: boolean }) => {
@@ -2367,6 +2469,26 @@ export default function DesignerPageFinal() {
         onFitView={handleFitView}
         onDelete={handleDeleteSelected}
         onBack={() => navigate('/dashboard')}
+        onNavigateHome={() => navigate('/dashboard')}
+        terraformLoading={terraformAction === 'validate' ? 'validate' :
+                          terraformAction === 'plan' ? 'plan' :
+                          terraformAction === 'apply' ? 'apply' :
+                          terraformAction === 'destroy' ? 'destroy' : null}
+        onExportImage={exportAsImage}
+        onExportPdf={exportAsPdf}
+        // Display options
+        gridType={gridType}
+        onGridTypeChange={setGridType}
+        showNodeTitles={showNodeTitles}
+        onToggleNodeTitles={() => setShowNodeTitles(prev => !prev)}
+        showConnectors={showConnectors}
+        onToggleConnectors={() => setShowConnectors(prev => !prev)}
+        showConnectorLabels={showConnectorLabels}
+        onToggleConnectorLabels={() => setShowConnectorLabels(prev => !prev)}
+        animateConnectorLine={animateConnectorLine}
+        onToggleAnimateConnectorLine={() => setAnimateConnectorLine(prev => !prev)}
+        animateConnectorCircles={animateConnectorCircles}
+        onToggleAnimateConnectorCircles={() => setAnimateConnectorCircles(prev => !prev)}
       />
 
       {/* Main Content Row */}
@@ -2400,6 +2522,15 @@ export default function DesignerPageFinal() {
               onShowCodeChange={setShowCodePanel}
               floatingToggle={false}
             >
+              <DisplaySettingsProvider
+                value={{
+                  showNodeTitles,
+                  showConnectors,
+                  showConnectorLabels,
+                  animateConnectorLine,
+                  animateConnectorCircles,
+                }}
+              >
               <ReactFlow
                 defaultEdgeOptions={defaultEdgeOptions}
                 nodes={nodes}
@@ -2427,6 +2558,7 @@ export default function DesignerPageFinal() {
                   setZoom(Math.round(viewport.zoom * 100));
                 }}
                 nodeTypes={nodeTypes}
+                edgeTypes={edgeTypes}
                 snapToGrid={false}
                 minZoom={0.25}
                 maxZoom={1.75}
@@ -2444,7 +2576,15 @@ export default function DesignerPageFinal() {
                 // Disable attribution for cleaner UI
                 proOptions={{ hideAttribution: true }}
               >
-                <Background gap={16} size={2} color="#d1d5db" variant={BackgroundVariant.Dots} style={{ backgroundColor: '#ffffff' }} />
+                {gridType !== 'none' && (
+                  <Background
+                    gap={16}
+                    size={2}
+                    color="#d1d5db"
+                    variant={gridType === 'lines' ? BackgroundVariant.Lines : BackgroundVariant.Dots}
+                    style={{ backgroundColor: '#ffffff' }}
+                  />
+                )}
                 <Controls showZoom={false} showFitView={false} />
                 {showMinimap && <MiniMap />}
                 
@@ -2457,6 +2597,7 @@ export default function DesignerPageFinal() {
                   <span className="text-primary font-bold">{edges.length}</span>
                 </div>
               </ReactFlow>
+              </DisplaySettingsProvider>
             </DesignerWithCodeView>
           </div>
 

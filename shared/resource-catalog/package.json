@@ -1,0 +1,88 @@
+{
+  "name": "@cloudforge/resource-catalog",
+  "version": "1.1.0",
+  "description": "Unified resource catalog for CloudForge - single source of truth for cloud resource definitions (AWS, GCP, Azure)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./types": {
+      "import": "./dist/types.js",
+      "types": "./dist/types.d.ts"
+    },
+    "./aws": {
+      "import": "./dist/aws/index.js",
+      "types": "./dist/aws/index.d.ts"
+    },
+    "./aws/compute": {
+      "import": "./dist/aws/compute/index.js",
+      "types": "./dist/aws/compute/index.d.ts"
+    },
+    "./aws/containers": {
+      "import": "./dist/aws/containers/index.js",
+      "types": "./dist/aws/containers/index.d.ts"
+    },
+    "./gcp": {
+      "import": "./dist/gcp/index.js",
+      "types": "./dist/gcp/index.d.ts"
+    },
+    "./gcp/compute": {
+      "import": "./dist/gcp/compute/index.js",
+      "types": "./dist/gcp/compute/index.d.ts"
+    },
+    "./gcp/networking": {
+      "import": "./dist/gcp/networking/index.js",
+      "types": "./dist/gcp/networking/index.d.ts"
+    },
+    "./azure": {
+      "import": "./dist/azure/index.js",
+      "types": "./dist/azure/index.d.ts"
+    },
+    "./azure/compute": {
+      "import": "./dist/azure/compute/index.js",
+      "types": "./dist/azure/compute/index.d.ts"
+    },
+    "./azure/networking": {
+      "import": "./dist/azure/networking/index.js",
+      "types": "./dist/azure/networking/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:json": "ts-node scripts/generate-json.ts",
+    "build:all": "npm run build && npm run build:json",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "lint": "eslint src/",
+    "clean": "rimraf dist"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "rimraf": "^5.0.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.0",
+    "vitest": "^1.2.0"
+  },
+  "peerDependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "keywords": [
+    "cloudforge",
+    "terraform",
+    "aws",
+    "gcp",
+    "azure",
+    "multi-cloud",
+    "resource-catalog",
+    "infrastructure"
+  ],
+  "license": "MIT"
+}

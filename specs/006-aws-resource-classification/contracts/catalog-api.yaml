@@ -1,0 +1,431 @@
+openapi: 3.0.3
+info:
+  title: CloudForge Catalog API
+  description: API for AWS resource catalog with classification and containment rules
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8000/api
+    description: Local development server
+
+paths:
+  /catalog:
+    get:
+      summary: Get resource catalog
+      description: Returns all resources with optional filtering by provider, category, or classification
+      operationId: getCatalog
+      tags:
+        - Catalog
+      parameters:
+        - name: provider
+          in: query
+          schema:
+            type: string
+            enum: [aws, azure, gcp]
+            default: aws
+          description: Cloud provider filter
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [compute, networking, storage, database, containers, serverless, security, analytics, developer-tools, management, messaging, machine-learning]
+          description: Service category filter
+        - name: classification
+          in: query
+          schema:
+            type: string
+            enum: [container, icon]
+          description: Classification filter
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /catalog/{terraform_resource}:
+    get:
+      summary: Get single resource definition
+      description: Returns the full schema for a specific Terraform resource type
+      operationId: getResource
+      tags:
+        - Catalog
+      parameters:
+        - name: terraform_resource
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Terraform resource type (e.g., aws_instance)
+          example: aws_instance
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceDefinition'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /catalog/containers/list:
+    get:
+      summary: Get container resource types
+      description: Returns list of resource types classified as containers
+      operationId: getContainers
+      tags:
+        - Catalog
+      parameters:
+        - name: provider
+          in: query
+          schema:
+            type: string
+            enum: [aws, azure, gcp]
+            default: aws
+          description: Cloud provider filter
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContainersListResponse'
+
+  /catalog/containment/{terraform_resource}:
+    get:
+      summary: Get containment rules for a resource
+      description: Returns valid child types for a container resource
+      operationId: getContainmentRules
+      tags:
+        - Catalog
+      parameters:
+        - name: terraform_resource
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Container resource type
+          example: aws_vpc
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContainmentRulesResponse'
+        '404':
+          description: Resource not found or not a container
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /catalog/validate-containment:
+    post:
+      summary: Validate containment relationship
+      description: Check if a child resource can be placed in a container
+      operationId: validateContainment
+      tags:
+        - Catalog
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateContainmentRequest'
+      responses:
+        '200':
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidateContainmentResponse'
+
+components:
+  schemas:
+    CatalogResponse:
+      type: object
+      required:
+        - resources
+        - total
+        - version
+      properties:
+        resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceDefinition'
+        total:
+          type: integer
+          description: Total number of resources
+        version:
+          type: string
+          description: Catalog version for cache validation
+
+    ServiceDefinition:
+      type: object
+      required:
+        - id
+        - terraform_resource
+        - name
+        - description
+        - icon
+        - category
+        - classification
+        - inputs
+        - outputs
+      properties:
+        id:
+          type: string
+          example: ec2_instance
+        terraform_resource:
+          type: string
+          example: aws_instance
+        name:
+          type: string
+          example: EC2 Instance
+        description:
+          type: string
+          example: Virtual server in the cloud
+        icon:
+          type: string
+          example: /cloud_icons/AWS/Architecture-Service-Icons_07312025/Arch_Compute/64/Arch_Amazon-EC2_64.svg
+        category:
+          type: string
+          enum: [compute, networking, storage, database, containers, serverless, security, analytics, developer-tools, management, messaging, machine-learning]
+        classification:
+          type: string
+          enum: [container, icon]
+          description: Visual node type - container can hold children, icon is standalone
+        inputs:
+          $ref: '#/components/schemas/InputSchema'
+        outputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/OutputAttribute'
+        terraform:
+          $ref: '#/components/schemas/TerraformMetadata'
+        relations:
+          $ref: '#/components/schemas/RelationshipRules'
+
+    InputSchema:
+      type: object
+      properties:
+        required:
+          type: array
+          items:
+            $ref: '#/components/schemas/InputAttribute'
+        optional:
+          type: array
+          items:
+            $ref: '#/components/schemas/InputAttribute'
+        blocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/BlockDefinition'
+
+    InputAttribute:
+      type: object
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        description:
+          type: string
+        default:
+          {}
+        validation:
+          type: object
+          properties:
+            min:
+              type: number
+            max:
+              type: number
+            pattern:
+              type: string
+            options:
+              type: array
+              items:
+                type: string
+
+    OutputAttribute:
+      type: object
+      required:
+        - name
+        - type
+        - description
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        description:
+          type: string
+
+    BlockDefinition:
+      type: object
+      required:
+        - name
+        - attributes
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        multiple:
+          type: boolean
+          default: false
+        attributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/InputAttribute'
+
+    TerraformMetadata:
+      type: object
+      properties:
+        provider:
+          type: string
+          example: aws
+        provider_version:
+          type: string
+          example: "~> 5.0"
+        docs_url:
+          type: string
+          format: uri
+
+    RelationshipRules:
+      type: object
+      properties:
+        containmentRules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContainmentRule'
+        edgeRules:
+          type: array
+          items:
+            $ref: '#/components/schemas/EdgeRule'
+
+    ContainmentRule:
+      type: object
+      required:
+        - childTypes
+      properties:
+        childTypes:
+          type: array
+          items:
+            type: string
+          example: [aws_subnet, aws_security_group, aws_internet_gateway]
+        maxChildren:
+          type: integer
+        description:
+          type: string
+
+    EdgeRule:
+      type: object
+      required:
+        - targetType
+        - sourceAttribute
+        - targetAttribute
+        - required
+      properties:
+        targetType:
+          type: string
+        sourceAttribute:
+          type: string
+        targetAttribute:
+          type: string
+        required:
+          type: boolean
+
+    ContainersListResponse:
+      type: object
+      required:
+        - containers
+      properties:
+        containers:
+          type: array
+          items:
+            type: object
+            properties:
+              terraform_resource:
+                type: string
+              name:
+                type: string
+              childTypes:
+                type: array
+                items:
+                  type: string
+
+    ContainmentRulesResponse:
+      type: object
+      required:
+        - terraform_resource
+        - is_container
+      properties:
+        terraform_resource:
+          type: string
+        is_container:
+          type: boolean
+        childTypes:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+
+    ValidateContainmentRequest:
+      type: object
+      required:
+        - container_type
+        - child_type
+      properties:
+        container_type:
+          type: string
+          description: Parent container resource type
+          example: aws_vpc
+        child_type:
+          type: string
+          description: Child resource type to validate
+          example: aws_subnet
+
+    ValidateContainmentResponse:
+      type: object
+      required:
+        - valid
+      properties:
+        valid:
+          type: boolean
+          description: Whether the containment is valid
+        warning:
+          type: string
+          description: Warning message if placement is non-standard
+        suggestion:
+          type: string
+          description: Suggested correct container if invalid
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object

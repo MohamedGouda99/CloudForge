@@ -1,0 +1,750 @@
+{
+  "config": {
+    "configFile": "C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\playwright.config.ts",
+    "rootDir": "C:/Users/goda/Desktop/CloudForge/frontend/tests/e2e",
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 4
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "html",
+        {
+          "outputFolder": "playwright-report"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "playwright-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 15000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "C:/Users/goda/Desktop/CloudForge/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "C:/Users/goda/Desktop/CloudForge/frontend/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "C:/Users/goda/Desktop/CloudForge/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "id": "firefox",
+        "name": "firefox",
+        "testDir": "C:/Users/goda/Desktop/CloudForge/frontend/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "C:/Users/goda/Desktop/CloudForge/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "id": "webkit",
+        "name": "webkit",
+        "testDir": "C:/Users/goda/Desktop/CloudForge/frontend/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "version": "1.40.1",
+    "workers": 4,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "auth.spec.ts",
+      "file": "auth.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Authentication",
+          "file": "auth.spec.ts",
+          "line": 19,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should display login page for unauthenticated users",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "status": "passed",
+                      "duration": 21690,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-14T21:28:03.884Z",
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\test-results\\auth-Authentication-should-display-login-page-for-unauthenticated-users-chromium\\trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-cb5ed821a745efbd8063",
+              "file": "auth.spec.ts",
+              "line": 26,
+              "column": 3
+            },
+            {
+              "title": "should show error message for invalid credentials",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "status": "failed",
+                      "duration": 26933,
+                      "error": {
+                        "message": "Error: \u001b[31mTimed out 10000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.text-red-300, .text-red-400')\nExpected: visible\nReceived: hidden\nCall log:\n  \u001b[2m- expect.toBeVisible with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for locator('.text-red-300, .text-red-400')\u001b[22m\n",
+                        "stack": "Error: \u001b[31mTimed out 10000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.text-red-300, .text-red-400')\nExpected: visible\nReceived: hidden\nCall log:\n  \u001b[2m- expect.toBeVisible with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for locator('.text-red-300, .text-red-400')\u001b[22m\n\n    at C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\tests\\e2e\\auth.spec.ts:44:64",
+                        "location": {
+                          "file": "C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\tests\\e2e\\auth.spec.ts",
+                          "column": 64,
+                          "line": 44
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 42 |\u001b[39m\u001b[0m\n\u001b[0m \u001b[90m 43 |\u001b[39m     \u001b[90m// Should show error message - look for red text containing error\u001b[39m\u001b[0m\n\u001b[0m\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 44 |\u001b[39m     \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mlocator(\u001b[32m'.text-red-300, .text-red-400'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible({ timeout\u001b[33m:\u001b[39m \u001b[35m10000\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m\n\u001b[0m \u001b[90m    |\u001b[39m                                                                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\u001b[0m\n\u001b[0m \u001b[90m 45 |\u001b[39m   })\u001b[33m;\u001b[39m\u001b[0m\n\u001b[0m \u001b[90m 46 |\u001b[39m\u001b[0m\n\u001b[0m \u001b[90m 47 |\u001b[39m   test(\u001b[32m'should successfully login with valid credentials'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\tests\\e2e\\auth.spec.ts",
+                            "column": 64,
+                            "line": 44
+                          },
+                          "message": "Error: \u001b[31mTimed out 10000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.text-red-300, .text-red-400')\nExpected: visible\nReceived: hidden\nCall log:\n  \u001b[2m- expect.toBeVisible with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for locator('.text-red-300, .text-red-400')\u001b[22m\n\n\n\u001b[0m \u001b[90m 42 |\u001b[39m\u001b[0m\n\u001b[0m \u001b[90m 43 |\u001b[39m     \u001b[90m// Should show error message - look for red text containing error\u001b[39m\u001b[0m\n\u001b[0m\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 44 |\u001b[39m     \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mlocator(\u001b[32m'.text-red-300, .text-red-400'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible({ timeout\u001b[33m:\u001b[39m \u001b[35m10000\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m\n\u001b[0m \u001b[90m    |\u001b[39m                                                                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\u001b[0m\n\u001b[0m \u001b[90m 45 |\u001b[39m   })\u001b[33m;\u001b[39m\u001b[0m\n\u001b[0m \u001b[90m 46 |\u001b[39m\u001b[0m\n\u001b[0m \u001b[90m 47 |\u001b[39m   test(\u001b[32m'should successfully login with valid credentials'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m\n\n\u001b[2m    at C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\tests\\e2e\\auth.spec.ts:44:64\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-14T21:28:03.878Z",
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\test-results\\auth-Authentication-should-show-error-message-for-invalid-credentials-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\test-results\\auth-Authentication-should-show-error-message-for-invalid-credentials-chromium\\trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\tests\\e2e\\auth.spec.ts",
+                        "column": 64,
+                        "line": 44
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-afed02026e120cf69438",
+              "file": "auth.spec.ts",
+              "line": 35,
+              "column": 3
+            },
+            {
+              "title": "should successfully login with valid credentials",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "status": "passed",
+                      "duration": 21062,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-14T21:28:03.854Z",
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\test-results\\auth-Authentication-should-successfully-login-with-valid-credentials-chromium\\trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-66b5ea365dd54d9f9f16",
+              "file": "auth.spec.ts",
+              "line": 47,
+              "column": 3
+            },
+            {
+              "title": "should persist authentication across page reload",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "status": "passed",
+                      "duration": 27305,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-14T21:28:03.834Z",
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\test-results\\auth-Authentication-should-persist-authentication-across-page-reload-chromium\\trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-61a87c91f345eec90f19",
+              "file": "auth.spec.ts",
+              "line": 55,
+              "column": 3
+            },
+            {
+              "title": "should logout successfully",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "status": "passed",
+                      "duration": 19077,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-14T21:28:25.869Z",
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\test-results\\auth-Authentication-should-logout-successfully-chromium\\trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-e4d5ddc7448b856855a2",
+              "file": "auth.spec.ts",
+              "line": 70,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Protected Routes",
+          "file": "auth.spec.ts",
+          "line": 92,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should redirect to login when accessing protected route",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "status": "passed",
+                      "duration": 20194,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-14T21:28:26.622Z",
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\test-results\\auth-Protected-Routes-should-redirect-to-login-when-accessing-protected-route-chromium\\trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-546339e4ae874a1c8afe",
+              "file": "auth.spec.ts",
+              "line": 93,
+              "column": 3
+            },
+            {
+              "title": "should access dashboard after login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "status": "passed",
+                      "duration": 15920,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-14T21:28:39.383Z",
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\test-results\\auth-Protected-Routes-should-access-dashboard-after-login-chromium\\trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-3556394b5d69f3f7276e",
+              "file": "auth.spec.ts",
+              "line": 101,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Landing Page Navigation",
+          "file": "auth.spec.ts",
+          "line": 116,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should navigate from landing page to login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "status": "passed",
+                      "duration": 21465,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-14T21:28:32.134Z",
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\test-results\\auth-Landing-Page-Navigation-should-navigate-from-landing-page-to-login-chromium\\trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-6b1250c86309a2cded3b",
+              "file": "auth.spec.ts",
+              "line": 117,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "designer.spec.ts",
+      "file": "designer.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Designer Page",
+          "file": "designer.spec.ts",
+          "line": 21,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should display dashboard after login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "status": "passed",
+                      "duration": 13212,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-14T21:28:44.978Z",
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\test-results\\designer-Designer-Page-should-display-dashboard-after-login-chromium\\trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "6d905bbcf0c658e36a11-9f1766ec542ed4ee9c52",
+              "file": "designer.spec.ts",
+              "line": 26,
+              "column": 3
+            },
+            {
+              "title": "should have new project functionality",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "status": "passed",
+                      "duration": 12961,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-14T21:28:46.853Z",
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\test-results\\designer-Designer-Page-should-have-new-project-functionality-chromium\\trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "6d905bbcf0c658e36a11-3b5e5a391db07fec7c20",
+              "file": "designer.spec.ts",
+              "line": 30,
+              "column": 3
+            },
+            {
+              "title": "should navigate to designer when clicking a project",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "status": "passed",
+                      "duration": 17230,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-14T21:28:53.632Z",
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\test-results\\designer-Designer-Page-should-navigate-to-designer-when-clicking-a-project-chromium\\trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "6d905bbcf0c658e36a11-6b4556d239e0a0b2fabe",
+              "file": "designer.spec.ts",
+              "line": 35,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Terraform Generation",
+          "file": "designer.spec.ts",
+          "line": 47,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should have terraform generation option",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "status": "passed",
+                      "duration": 15782,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-14T21:28:56.518Z",
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\test-results\\designer-Terraform-Generation-should-have-terraform-generation-option-chromium\\trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "6d905bbcf0c658e36a11-485d5f3be7e7ae49f832",
+              "file": "designer.spec.ts",
+              "line": 52,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Canvas Interactions",
+          "file": "designer.spec.ts",
+          "line": 68,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should display canvas when project is opened",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "status": "passed",
+                      "duration": 13140,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-14T21:28:58.216Z",
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\test-results\\designer-Canvas-Interactions-should-display-canvas-when-project-is-opened-chromium\\trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "6d905bbcf0c658e36a11-252fb934b066229f44c6",
+              "file": "designer.spec.ts",
+              "line": 79,
+              "column": 3
+            },
+            {
+              "title": "should have zoom controls when canvas is visible",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "status": "failed",
+                      "duration": 23503,
+                      "error": {
+                        "message": "Error: \u001b[31mTimed out 15000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveURL\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nLocator: locator(':root')\nExpected pattern: \u001b[32m/dashboard|projects/i\u001b[39m\nReceived string:  \u001b[31m\"http://localhost:3000/login\"\u001b[39m\nCall log:\n  \u001b[2m- expect.toHaveURL with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for locator(':root')\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n",
+                        "stack": "Error: \u001b[31mTimed out 15000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveURL\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nLocator: locator(':root')\nExpected pattern: \u001b[32m/dashboard|projects/i\u001b[39m\nReceived string:  \u001b[31m\"http://localhost:3000/login\"\u001b[39m\nCall log:\n  \u001b[2m- expect.toHaveURL with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for locator(':root')\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\n    at loginAndWaitForDashboard (C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\tests\\e2e\\designer.spec.ts:18:22)\n    at C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\tests\\e2e\\designer.spec.ts:70:5",
+                        "location": {
+                          "file": "C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\tests\\e2e\\designer.spec.ts",
+                          "column": 22,
+                          "line": 18
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 16 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mlocator(\u001b[32m'input[placeholder=\"Enter your username\"]'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible({ timeout\u001b[33m:\u001b[39m \u001b[35m15000\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m\n\u001b[0m \u001b[90m 17 |\u001b[39m   \u001b[36mawait\u001b[39m login(page)\u001b[33m;\u001b[39m\u001b[0m\n\u001b[0m\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 18 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page)\u001b[33m.\u001b[39mtoHaveURL(\u001b[35m/dashboard|projects/i\u001b[39m\u001b[33m,\u001b[39m { timeout\u001b[33m:\u001b[39m \u001b[35m15000\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m\n\u001b[0m \u001b[90m    |\u001b[39m                      \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\u001b[0m\n\u001b[0m \u001b[90m 19 |\u001b[39m }\u001b[0m\n\u001b[0m \u001b[90m 20 |\u001b[39m\u001b[0m\n\u001b[0m \u001b[90m 21 |\u001b[39m test\u001b[33m.\u001b[39mdescribe(\u001b[32m'Designer Page'\u001b[39m\u001b[33m,\u001b[39m () \u001b[33m=>\u001b[39m {\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\tests\\e2e\\designer.spec.ts",
+                            "column": 22,
+                            "line": 18
+                          },
+                          "message": "Error: \u001b[31mTimed out 15000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveURL\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nLocator: locator(':root')\nExpected pattern: \u001b[32m/dashboard|projects/i\u001b[39m\nReceived string:  \u001b[31m\"http://localhost:3000/login\"\u001b[39m\nCall log:\n  \u001b[2m- expect.toHaveURL with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for locator(':root')\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\u001b[2m  -   locator resolved to <html lang=\"en\">…</html>\u001b[22m\n\u001b[2m  -   unexpected value \"http://localhost:3000/login\"\u001b[22m\n\n\n\u001b[0m \u001b[90m 16 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mlocator(\u001b[32m'input[placeholder=\"Enter your username\"]'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible({ timeout\u001b[33m:\u001b[39m \u001b[35m15000\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m\n\u001b[0m \u001b[90m 17 |\u001b[39m   \u001b[36mawait\u001b[39m login(page)\u001b[33m;\u001b[39m\u001b[0m\n\u001b[0m\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 18 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page)\u001b[33m.\u001b[39mtoHaveURL(\u001b[35m/dashboard|projects/i\u001b[39m\u001b[33m,\u001b[39m { timeout\u001b[33m:\u001b[39m \u001b[35m15000\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m\n\u001b[0m \u001b[90m    |\u001b[39m                      \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\u001b[0m\n\u001b[0m \u001b[90m 19 |\u001b[39m }\u001b[0m\n\u001b[0m \u001b[90m 20 |\u001b[39m\u001b[0m\n\u001b[0m \u001b[90m 21 |\u001b[39m test\u001b[33m.\u001b[39mdescribe(\u001b[32m'Designer Page'\u001b[39m\u001b[33m,\u001b[39m () \u001b[33m=>\u001b[39m {\u001b[0m\n\n\u001b[2m    at loginAndWaitForDashboard (C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\tests\\e2e\\designer.spec.ts:18:22)\u001b[22m\n\u001b[2m    at C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\tests\\e2e\\designer.spec.ts:70:5\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-14T21:28:59.828Z",
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\test-results\\designer-Canvas-Interactions-should-have-zoom-controls-when-canvas-is-visible-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\test-results\\designer-Canvas-Interactions-should-have-zoom-controls-when-canvas-is-visible-chromium\\trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\Users\\goda\\Desktop\\CloudForge\\frontend\\tests\\e2e\\designer.spec.ts",
+                        "column": 22,
+                        "line": 18
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "6d905bbcf0c658e36a11-e8407ff5ede74007f71f",
+              "file": "designer.spec.ts",
+              "line": 86,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-01-14T21:28:02.009Z",
+    "duration": 86003.742,
+    "expected": 12,
+    "skipped": 0,
+    "unexpected": 2,
+    "flaky": 0
+  }
+}

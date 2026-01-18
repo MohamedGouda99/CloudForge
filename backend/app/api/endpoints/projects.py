@@ -295,6 +295,20 @@ def update_project(
 
                     # INTELLIGENT CONTAINMENT-BASED AUTO-WIRING
                     # When resources are nested inside containers (VPC, Subnet, etc.), auto-wire references
+                    #
+                    # TODO: Refactor to use dynamic catalog lookup instead of hardcoded lists
+                    # The schema_loader now has get_containment_auto_wire(child_type, parent_type)
+                    # which returns apply rules from the resource catalog's containmentRules.
+                    # Example usage:
+                    #   from app.services.terraform.schema_loader import get_schema_loader
+                    #   loader = get_schema_loader()
+                    #   apply_rules = loader.get_containment_auto_wire(resource_type, parent_type)
+                    #   for rule in apply_rules:
+                    #       arg_name = rule.get("setArg")
+                    #       parent_attr = rule.get("toParentAttr")
+                    #       if arg_name and parent_attr:
+                    #           config[arg_name] = f"{parent_type}.{parent_tf_name}.{parent_attr}"
+                    #
                     parent_id = node.get('parentId')
                     if parent_id and parent_id in node_map:
                         parent_node = node_map[parent_id]

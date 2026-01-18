@@ -7,6 +7,7 @@ import os
 class Settings(BaseSettings):
     APP_NAME: str = "CloudForge"
     VERSION: str = "0.1.0"
+    APP_VERSION: str = "0.1.0"  # Alias for VERSION used in health checks
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
 

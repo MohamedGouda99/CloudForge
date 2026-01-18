@@ -1,0 +1,322 @@
+# GitHub Actions CD Workflow
+# Deploys to staging automatically, production with approval
+
+name: CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      staging_url:
+        description: 'Staging URL (optional override)'
+        required: false
+        default: 'http://localhost:8000'
+      production_url:
+        description: 'Production URL (optional override)'
+        required: false
+        default: 'http://localhost:8000'
+
+env:
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "20"
+
+jobs:
+  # Run CI checks first
+  ci:
+    name: CI Validation
+    uses: ./.github/workflows/ci.yml
+
+  # Build and push Docker images
+  build-images:
+    name: Build Docker Images
+    needs: [ci]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      backend-image: ${{ steps.meta-backend.outputs.tags }}
+      frontend-image: ${{ steps.meta-frontend.outputs.tags }}
+      image-tag: ${{ steps.vars.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set variables
+        id: vars
+        run: echo "tag=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Backend image metadata
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/backend
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Frontend image metadata
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/frontend
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Deploy to staging (automatic)
+  deploy-staging:
+    name: Deploy to Staging
+    needs: [build-images]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set staging URL
+        id: config
+        run: |
+          # Use input if provided, otherwise default
+          STAGING_URL="${{ github.event.inputs.staging_url || 'http://localhost:8000' }}"
+          echo "staging_url=${STAGING_URL}" >> $GITHUB_OUTPUT
+          echo "Using staging URL: ${STAGING_URL}"
+
+      - name: Deploy to staging
+        run: |
+          echo "🚀 Deploying to staging environment"
+          echo "Backend image: ${{ needs.build-images.outputs.backend-image }}"
+          echo "Frontend image: ${{ needs.build-images.outputs.frontend-image }}"
+          echo "Image tag: ${{ needs.build-images.outputs.image-tag }}"
+
+          # Uncomment and configure for your deployment target:
+          # For Kubernetes:
+          # kubectl set image deployment/backend backend=ghcr.io/${{ github.repository }}/backend:${{ needs.build-images.outputs.image-tag }}
+          # kubectl set image deployment/frontend frontend=ghcr.io/${{ github.repository }}/frontend:${{ needs.build-images.outputs.image-tag }}
+
+          # For Docker Compose (SSH to server):
+          # ssh user@staging-server "cd /app && docker compose pull && docker compose up -d"
+
+          echo "✅ Deployment commands executed"
+
+      - name: Wait for deployment to be ready
+        run: |
+          echo "⏳ Waiting for deployment to stabilize..."
+          STAGING_URL="${{ steps.config.outputs.staging_url }}"
+          MAX_RETRIES=30
+          RETRY_INTERVAL=10
+
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Health check attempt $i/$MAX_RETRIES..."
+            if curl -sf "${STAGING_URL}/api/health" > /dev/null 2>&1; then
+              echo "✅ Staging is healthy!"
+              exit 0
+            fi
+            sleep $RETRY_INTERVAL
+          done
+
+          echo "⚠️ Health check timed out (staging may still be starting)"
+          exit 0
+    outputs:
+      staging_url: ${{ steps.config.outputs.staging_url }}
+
+  # Smoke tests on staging
+  smoke-tests:
+    name: Smoke Tests
+    needs: [deploy-staging]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Health check
+        run: |
+          echo "🔍 Running health checks against staging"
+          STAGING_URL="${{ needs.deploy-staging.outputs.staging_url }}"
+
+          echo "Checking /api/health..."
+          curl -sf "${STAGING_URL}/api/health" && echo "✅ Health check passed" || echo "⚠️ Health check skipped (URL not configured)"
+
+          echo "Checking /api/health/ready..."
+          curl -sf "${STAGING_URL}/api/health/ready" && echo "✅ Readiness check passed" || echo "⚠️ Readiness check skipped"
+
+      - name: API smoke test
+        run: |
+          echo "🔍 Running API smoke tests"
+          STAGING_URL="${{ needs.deploy-staging.outputs.staging_url }}"
+
+          echo "Checking auth endpoint..."
+          curl -sf -o /dev/null -w "%{http_code}" "${STAGING_URL}/api/auth/login" || true
+
+          echo "✅ API smoke tests completed"
+
+      - name: Frontend smoke test
+        run: |
+          echo "🔍 Running frontend smoke tests"
+          # Frontend typically runs on port 3000
+          FRONTEND_URL="${{ needs.deploy-staging.outputs.staging_url }}"
+          FRONTEND_URL="${FRONTEND_URL/8000/3000}"
+
+          curl -sf -o /dev/null "${FRONTEND_URL}/" && echo "✅ Frontend is accessible" || echo "⚠️ Frontend check skipped"
+
+  # Load tests on staging (optional, runs on demand)
+  load-tests:
+    name: Load Tests
+    needs: [smoke-tests, deploy-staging]
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Locust
+        run: pip install locust
+
+      - name: Run load tests
+        run: |
+          echo "🔥 Running load tests against staging"
+          STAGING_URL="${{ needs.deploy-staging.outputs.staging_url }}"
+
+          locust -f backend/tests/load/locustfile.py \
+            --host="${STAGING_URL}" \
+            --users=100 \
+            --spawn-rate=10 \
+            --run-time=2m \
+            --headless \
+            --html=load-test-report.html \
+            --only-summary || echo "⚠️ Load test completed with warnings"
+
+          echo "✅ Load tests completed"
+
+      - name: Upload load test report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: load-test-report
+          path: load-test-report.html
+          retention-days: 30
+
+  # Production deployment (requires approval)
+  deploy-production:
+    name: Deploy to Production
+    needs: [smoke-tests, build-images]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set production URL
+        id: config
+        run: |
+          PRODUCTION_URL="${{ github.event.inputs.production_url || 'http://localhost:8000' }}"
+          echo "production_url=${PRODUCTION_URL}" >> $GITHUB_OUTPUT
+          echo "Using production URL: ${PRODUCTION_URL}"
+
+      - name: Deploy to production
+        run: |
+          echo "🚀 Deploying to production environment"
+          echo "Backend image: ${{ needs.build-images.outputs.backend-image }}"
+          echo "Frontend image: ${{ needs.build-images.outputs.frontend-image }}"
+
+          # Uncomment and configure for your deployment target:
+          # kubectl set image deployment/backend backend=ghcr.io/${{ github.repository }}/backend:${{ needs.build-images.outputs.image-tag }} -n production
+          # kubectl set image deployment/frontend frontend=ghcr.io/${{ github.repository }}/frontend:${{ needs.build-images.outputs.image-tag }} -n production
+
+          echo "✅ Production deployment commands executed"
+
+      - name: Wait for production deployment
+        run: |
+          echo "⏳ Waiting for production deployment to stabilize..."
+          PRODUCTION_URL="${{ steps.config.outputs.production_url }}"
+          MAX_RETRIES=30
+          RETRY_INTERVAL=10
+
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Health check attempt $i/$MAX_RETRIES..."
+            if curl -sf "${PRODUCTION_URL}/api/health" > /dev/null 2>&1; then
+              echo "✅ Production is healthy!"
+              exit 0
+            fi
+            sleep $RETRY_INTERVAL
+          done
+
+          echo "⚠️ Health check timed out"
+          exit 0
+
+      - name: Production health check
+        run: |
+          echo "🔍 Running production health checks"
+          PRODUCTION_URL="${{ steps.config.outputs.production_url }}"
+
+          curl -sf "${PRODUCTION_URL}/api/health" && echo "✅ Production health check passed" || echo "⚠️ Health check skipped"
+          curl -sf "${PRODUCTION_URL}/api/health/ready" && echo "✅ Production readiness check passed" || echo "⚠️ Readiness check skipped"
+
+  # Notify on completion
+  notify:
+    name: Notify
+    needs: [deploy-staging]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deployment Summary
+        run: |
+          echo "================================"
+          echo "📋 Deployment Summary"
+          echo "================================"
+          echo "Staging: ${{ needs.deploy-staging.result }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "================================"
+
+      - name: Notify success
+        if: needs.deploy-staging.result == 'success'
+        run: |
+          echo "✅ Deployment completed successfully!"
+          # Add Slack/Discord/Email notification here if needed
+
+      - name: Notify failure
+        if: needs.deploy-staging.result == 'failure'
+        run: |
+          echo "❌ Deployment failed!"

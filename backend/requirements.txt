@@ -56,6 +56,16 @@ pytest==7.4.3
 pytest-asyncio==0.21.1
 pytest-cov==4.1.0
 httpx==0.25.2
+locust==2.20.1
+faker==22.0.0
+
+# Observability
+structlog==24.1.0
+prometheus-client==0.19.0
+
+# Security Scanning
+pip-audit==2.6.1
+safety>=3.0.0
 
 # Development
 black==23.12.0
