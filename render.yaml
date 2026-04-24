@@ -1,11 +1,19 @@
-# Render Blueprint — provisions the CloudForge backend + managed Postgres +
-# Key-Value (Redis) in one shot. The frontend lives on Vercel and is not
-# managed here.
+# Render Blueprint — provisions the CloudForge backend web service only.
+# Database + cache live on FREE external providers to stay on a zero-dollar
+# plan (Render deprecated free Postgres/Redis in 2024).
 #
-# To deploy:
-#   1. Go to https://dashboard.render.com/blueprints
-#   2. Click "New Blueprint Instance" → connect this repo
-#   3. Render reads this file and provisions everything on the free plan
+# Required free accounts:
+#   1. Neon        https://console.neon.tech    (Postgres, no card)
+#   2. Upstash     https://console.upstash.com  (Redis, no card)
+#   3. Render      https://dashboard.render.com (web service, no card)
+#   4. Vercel      https://vercel.com           (frontend, already signed up)
+#
+# Deployment flow (details in DEPLOYMENT.md):
+#   1. Create a Neon project  → copy the "pooled" connection string
+#   2. Create an Upstash Redis DB → copy the rediss:// URL
+#   3. Push this repo → Render dashboard → New → Blueprint Instance
+#   4. When prompted, paste DATABASE_URL (Neon) and REDIS_URL (Upstash)
+#   5. Render builds the Dockerfile and exposes a public URL
 #
 # Docs: https://render.com/docs/blueprint-spec
 
@@ -21,26 +29,23 @@ services:
     autoDeploy: true
     healthCheckPath: /api/health
     envVars:
-      # Database + cache — injected by the managed resources below
+      # External managed services — paste these once in the Render dashboard
+      # when the Blueprint prompts you.
       - key: DATABASE_URL
-        fromDatabase:
-          name: cloudforge-postgres
-          property: connectionString
+        sync: false
       - key: REDIS_URL
-        fromDatabase:
-          name: cloudforge-redis
-          property: connectionString
+        sync: false
 
-      # App settings
+      # App settings — auto-applied
       - key: ENVIRONMENT
         value: production
       - key: ALLOWED_ORIGINS
-        # Updated after the Vercel frontend is deployed.
+        # Will be updated to the Vercel URL after the frontend deploys.
         value: http://localhost:3000
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
         value: "43200"
 
-      # Secret key — Render generates a random strong value on first deploy
+      # Secret key — Render generates a strong random value on first deploy
       - key: SECRET_KEY
         generateValue: true
 
@@ -52,23 +57,10 @@ services:
       - key: INITIAL_ADMIN_EMAIL
         value: admin@cloudforge.dev
 
-      # Optional feature keys — users can fill these in the Render dashboard.
+      # Optional feature keys — fill in the Render dashboard to enable.
       - key: INFRACOST_API_KEY
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: GOOGLE_OAUTH_CLIENT_ID
         sync: false
-
-databases:
-  - name: cloudforge-postgres
-    databaseName: cloudforge
-    user: cloudforge
-    plan: free
-    postgresMajorVersion: "15"
-    ipAllowList: []
-
-  - name: cloudforge-redis
-    plan: free
-    maxmemoryPolicy: allkeys-lru
-    ipAllowList: []
