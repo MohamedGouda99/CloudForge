@@ -53,6 +53,23 @@ Before opening a PR:
 - [ ] No secrets in the diff (use `.env` locally, `.env.example` for docs)
 - [ ] Relevant spec updated under `specs/<branch-name>/` if the PR changes specified behavior
 
+## Branch naming
+
+CloudForge uses [speckit](https://github.com/github/spec-kit) for non-trivial features, so the branch name is load-bearing — it maps 1:1 to a folder in `specs/`. Keep branches short-lived and delete them after merge.
+
+| Prefix | When | Example |
+|--------|------|---------|
+| `NNN-<kebab-name>` | Speckit feature (number = next free under `specs/`) | `012-role-based-access-control` |
+| `fix/<short-desc>` | Bug fix outside a speckit flow | `fix/terraform-generator-null-ref` |
+| `chore/<short-desc>` | Tooling, deps, refactors that aren't a feature | `chore/bump-fastapi-0.110` |
+| `docs/<short-desc>` | Documentation-only change | `docs/contributor-setup-mac` |
+| `hotfix/<short-desc>` | Urgent production-affecting patch against `main` | `hotfix/cors-allowed-origins` |
+| `release/<vX.Y.Z>` | Release-preparation branch | `release/v1.2.0` |
+
+**Tags for archival:** use `archive/<old-branch-name>` tags to preserve work from deleted branches. Example: `archive/replit-agent` holds a 5-month-old Replit experiment that's no longer an active branch but whose commits remain retrievable.
+
+**Protected branches:** `main` is the default and production branch. Open PRs from your feature/fix branch against `main` — direct pushes to `main` should be reserved for trivial documentation changes.
+
 ## Spec-driven work
 
 Non-trivial features follow the [speckit](https://github.com/github/spec-kit) workflow. If you're tackling something in `specs/`, read the spec + plan + tasks there first — they're the source of truth, not the code alone.
