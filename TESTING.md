@@ -1,64 +1,85 @@
-# CloudForge Testing Guide
+# Testing Guide
 
-This document describes the testing infrastructure for CloudForge, including how to run tests locally, understand the CI/CD pipeline, and contribute to test coverage.
+CloudForge's test strategy covers **unit**, **integration**, **contract**, **E2E**, **accessibility**, **load**, and **security** layers — all drivable from one-line scripts in `scripts/`. This guide shows how to run each locally, what CI enforces, and how to write new tests.
 
-## Quick Start
+> **Coverage gate:** 80% minimum on both backend and frontend. CI blocks PRs that drop below.
+
+---
+
+## Table of Contents
+
+- [Quick Commands](#quick-commands)
+- [Test Layers](#test-layers)
+  - [Unit](#unit-tests)
+  - [Integration](#integration-tests)
+  - [Contract](#contract-tests)
+  - [End-to-End (Playwright)](#e2e-tests-playwright)
+  - [Load (Locust)](#load-tests-locust)
+  - [Security](#security-scans)
+  - [Accessibility](#accessibility-tests)
+- [CI/CD Pipeline](#cicd-pipeline)
+- [Writing Tests](#writing-tests)
+- [Fixtures & Test Data](#fixtures--test-data)
+- [Troubleshooting](#troubleshooting)
+- [Environment Variables](#environment-variables)
+- [Script Reference](#script-reference)
+
+---
+
+## Quick Commands
 
 ```bash
-# Run all tests
-./scripts/test-all.sh
-
-# Run with coverage
-./scripts/test-all.sh --coverage
-
-# Run specific test types
-./scripts/test-backend.sh --unit
-./scripts/test-frontend.sh
-./scripts/test-e2e.sh
+./scripts/test-all.sh                # everything (unit + integration + contract)
+./scripts/test-all.sh --coverage     # with coverage report
+./scripts/test-backend.sh --unit     # backend unit only
+./scripts/test-frontend.sh           # frontend unit only
+./scripts/test-e2e.sh                # full browser E2E (slow)
+./scripts/test-a11y.sh               # accessibility
+./scripts/load-test.sh               # Locust load test
+./scripts/security-scan.sh           # pip-audit + npm audit + TFSec
+./scripts/smoke-test.sh              # post-deploy smoke
 ```
 
-## Test Types
+---
+
+## Test Layers
 
 ### Unit Tests
 
-Unit tests verify individual functions and components in isolation.
+Fast, isolated tests — no I/O, no DB, no network. These run on every keystroke in watch mode.
 
 **Backend (pytest)**
 ```bash
 cd backend
-pytest tests/unit -v
-
-# With coverage
+pytest tests/unit -v                          # all unit tests
 pytest tests/unit -v --cov=app --cov-report=html --cov-fail-under=80
+pytest tests/unit/test_file.py::TestClass::test_method -v  # single test
+pytest -m "not slow" -v                       # skip slow-marked tests
 ```
 
 **Frontend (Vitest)**
 ```bash
 cd frontend
-npm run test
-
-# With coverage
-npm run test:coverage
-
-# Watch mode
-npm run test:watch
+npm run test                                  # watch mode
+npm run test:run                              # single run
+npm run test:coverage                         # with c8 coverage
 ```
 
 ### Integration Tests
 
-Integration tests verify API endpoints and database interactions.
+Verify API endpoints against a real Postgres + Redis (not mocks).
 
 ```bash
 cd backend
-
-# Requires PostgreSQL and Redis running
-export DATABASE_URL=postgresql://user:pass@localhost:5432/test
+export DATABASE_URL=postgresql://cloudforge:cloudforge_dev_password@localhost:5432/cloudforge
 pytest tests/integration -v
 ```
 
+> For fully-isolated runs, start the stack first: `docker compose up -d postgres redis`.
+
 ### Contract Tests
 
-Contract tests verify Terraform generator output format.
+Verify the Terraform generator's HCL output matches known-good fixtures. These guard against accidental changes to the emitted Terraform format.
 
 ```bash
 cd backend
@@ -67,118 +88,95 @@ pytest tests/contract -v
 
 ### E2E Tests (Playwright)
 
-End-to-end tests verify complete user workflows in a browser.
+Complete user journeys in a real browser — login → create project → drag resources → generate Terraform.
 
 ```bash
 cd frontend
-
-# Run all E2E tests
-npx playwright test
-
-# Run specific browser
-npx playwright test --project=chromium
-npx playwright test --project=firefox
-npx playwright test --project=webkit
-
-# Run in headed mode (see the browser)
-npx playwright test --headed
-
-# Debug mode
-npx playwright test --debug
-
-# View report
-npx playwright show-report
+npx playwright test                           # all browsers, headless
+npx playwright test --project=chromium        # one browser
+npx playwright test --headed                  # watch it click
+npx playwright test --debug                   # step-through
+npx playwright show-report                    # HTML results
 ```
+
+**First run only:** `npx playwright install --with-deps` to pull browser binaries.
 
 ### Load Tests (Locust)
 
-Load tests validate system capacity under concurrent users.
+Stress the backend under concurrent users — useful for capacity planning.
 
 ```bash
 cd backend
 
-# Headless mode
+# Headless, scripted
 locust -f tests/load/locustfile.py --host http://localhost:8000 \
   --users 100 --spawn-rate 10 --run-time 60s --headless
 
-# With web UI
+# Interactive UI at http://localhost:8089
 locust -f tests/load/locustfile.py --host http://localhost:8000
-# Open http://localhost:8089
 ```
 
 ### Security Scans
 
+Third-party dependency CVEs + Terraform misconfigurations.
+
 ```bash
-# All security scans
-./scripts/security-scan.sh
-
-# Backend only
-./scripts/security-scan.sh --backend-only
-
-# Frontend only
-./scripts/security-scan.sh --frontend-only
-
-# With auto-fix attempt
-./scripts/security-scan.sh --fix
+./scripts/security-scan.sh                    # all layers
+./scripts/security-scan.sh --backend-only     # pip-audit
+./scripts/security-scan.sh --frontend-only    # npm audit
+./scripts/security-scan.sh --fix              # best-effort auto-fix
 ```
 
 ### Accessibility Tests
 
+WCAG compliance check via pa11y-ci.
+
 ```bash
 cd frontend
-npx playwright test tests/a11y
-
-# Or use the script
+npm run test:a11y
+# or
 ./scripts/test-a11y.sh
 ```
 
+---
+
 ## CI/CD Pipeline
 
-### Pull Request Validation
+### On every pull request
 
-When you open a PR, the CI pipeline automatically runs:
+1. **Lint + typecheck** — `black`, `flake8`, `mypy`, `eslint`, `tsc --noEmit`
+2. **Unit tests** — backend + frontend with coverage
+3. **Integration tests** — against a real Postgres spun up by GitHub Actions
+4. **Security scans** — dependency CVEs, secret detection
+5. **Build verification** — `npm run build` must succeed
 
-1. **Lint & Typecheck** - Code quality checks
-2. **Unit Tests** - Backend and frontend unit tests with coverage
-3. **Integration Tests** - API and database tests
-4. **Security Scans** - Dependency vulnerability checks
-5. **Build Verification** - Frontend build
+PRs are blocked until all required checks pass.
 
-PRs cannot be merged until all required checks pass.
+### On merge to `main`
 
-### Deployment Pipeline
+1. Full CI re-run
+2. Docker images built
+3. Auto-deploy to staging
+4. Smoke tests against staging
+5. Production deploy **requires manual approval**
 
-On merge to `main`:
-
-1. CI validation runs
-2. Docker images are built
-3. Automatic deployment to staging
-4. Smoke tests run against staging
-5. Production deployment requires approval
-
-## Coverage Requirements
-
-- **Backend**: 80% minimum coverage (enforced in CI)
-- **Frontend**: 80% minimum coverage (enforced in CI)
-
-View coverage reports:
-- Backend: `backend/htmlcov/index.html`
-- Frontend: `frontend/coverage/index.html`
+---
 
 ## Writing Tests
 
-### Backend Test Example
+### Backend — pytest
 
 ```python
 # backend/tests/unit/test_example.py
 import pytest
 from app.services.example import ExampleService
 
+
 class TestExampleService:
     def test_process_data(self):
         service = ExampleService()
         result = service.process_data({"key": "value"})
-        assert result["processed"] == True
+        assert result["processed"] is True
 
     def test_process_data_invalid(self):
         service = ExampleService()
@@ -186,64 +184,85 @@ class TestExampleService:
             service.process_data(None)
 ```
 
-### Frontend Test Example
+Markers defined in `pytest.ini`: `unit`, `integration`, `contract`, `load`, `slow`. Use them:
+
+```python
+@pytest.mark.integration
+def test_db_round_trip(db_session):
+    ...
+```
+
+### Frontend — Vitest
 
 ```typescript
-// frontend/tests/unit/example.test.ts
+// frontend/src/lib/__tests__/example.test.ts
 import { describe, it, expect } from 'vitest';
-import { processData } from '@/lib/example';
+import { processData } from '../example';
 
 describe('processData', () => {
-  it('should process valid data', () => {
+  it('processes valid data', () => {
     const result = processData({ key: 'value' });
     expect(result.processed).toBe(true);
   });
 
-  it('should throw on invalid data', () => {
+  it('throws on invalid data', () => {
     expect(() => processData(null)).toThrow();
   });
 });
 ```
 
-### E2E Test Example
+### E2E — Playwright
 
 ```typescript
-// frontend/tests/e2e/example.spec.ts
+// frontend/tests/e2e/designer.spec.ts
 import { test, expect } from '@playwright/test';
 
-test.describe('Feature', () => {
-  test('should complete workflow', async ({ page }) => {
-    await page.goto('/feature');
-    await page.click('button[data-testid="action"]');
-    await expect(page.locator('.result')).toBeVisible();
+test.describe('Designer', () => {
+  test('creates a project and generates Terraform', async ({ page }) => {
+    await page.goto('/login');
+    await page.fill('[name=username]', 'admin');
+    await page.fill('[name=password]', 'admin123');
+    await page.click('button[type=submit]');
+
+    await page.goto('/designer');
+    await page.click('button[data-testid="new-project"]');
+    // ... drag resources, click generate ...
+    await expect(page.locator('[data-testid="hcl-output"]')).toContainText('resource "aws_vpc"');
   });
 });
 ```
 
-## Test Data & Fixtures
+---
 
-### Backend Fixtures
+## Fixtures & Test Data
 
-Shared fixtures are in `backend/tests/conftest.py`:
+### Backend — `backend/tests/conftest.py`
 
-- `client` - Test client without authentication
-- `authenticated_client` - Test client with JWT token
-- `db_session` - Database session for tests
-- `test_user` - Pre-created test user
-- `test_project` - Pre-created test project
+| Fixture | Purpose |
+|---|---|
+| `client` | `TestClient` without auth |
+| `authenticated_client` | `TestClient` with a valid JWT |
+| `db_session` | Per-test SQLAlchemy session on an in-memory SQLite |
+| `test_user` | Pre-created user (`testuser` / `testpass`) |
+| `test_project` | Pre-created empty project owned by `test_user` |
 
-### Frontend Setup
+### Frontend — `frontend/tests/setup.ts`
 
-Test setup is in `frontend/tests/setup.ts`.
+Global DOM shims, mock handlers, and `@testing-library/jest-dom` matchers.
+
+---
 
 ## Troubleshooting
 
 ### Tests fail with database errors
 
-Ensure you're using SQLite for unit tests:
+Unit tests should use SQLite in memory:
+
 ```bash
 export DATABASE_URL=sqlite:///:memory:
 ```
+
+If you need Postgres locally: `docker compose up -d postgres` and point `DATABASE_URL` at it.
 
 ### Playwright browsers not installed
 
@@ -254,41 +273,52 @@ npx playwright install --with-deps
 
 ### Coverage below threshold
 
-Run coverage report to find gaps:
+See exactly which lines are uncovered:
+
 ```bash
 pytest tests/ --cov=app --cov-report=term-missing
 ```
 
-### Security scan fails
-
-Update vulnerable dependencies:
+Front-end:
 ```bash
-# Backend
-pip-audit --fix
-
-# Frontend
-npm audit fix
+npm run test:coverage -- --reporter=verbose
 ```
 
-## Environment Variables for Testing
+### Security scan fails
 
-| Variable | Purpose | Default |
-|----------|---------|---------|
-| `DATABASE_URL` | Database connection | `sqlite:///:memory:` |
-| `SECRET_KEY` | JWT signing | `test-secret-key` |
+Update the vulnerable dependency:
+
+```bash
+pip-audit --fix                    # backend
+npm audit fix                      # frontend
+```
+
+If `--fix` can't resolve it, pin a safe version manually in `requirements.txt` / `package.json` and rerun.
+
+---
+
+## Environment Variables
+
+| Variable | Purpose | Default (tests) |
+|---|---|---|
+| `DATABASE_URL` | DB connection string | `sqlite:///:memory:` |
+| `SECRET_KEY` | JWT signing key | `test-secret-key` |
 | `REDIS_URL` | Redis connection | `redis://localhost:6379` |
 | `CI` | CI environment flag | `false` |
-| `HEADLESS` | Run browsers headless | `true` in CI |
+| `HEADLESS` | Force headless browsers | `true` in CI |
 
-## Scripts Reference
+---
+
+## Script Reference
 
 | Script | Purpose |
-|--------|---------|
-| `scripts/test-all.sh` | Run all tests |
-| `scripts/test-backend.sh` | Backend tests |
-| `scripts/test-frontend.sh` | Frontend tests |
-| `scripts/test-e2e.sh` | E2E browser tests |
-| `scripts/test-a11y.sh` | Accessibility tests |
-| `scripts/load-test.sh` | Load/performance tests |
-| `scripts/security-scan.sh` | Security scans |
-| `scripts/smoke-test.sh` | Deployment smoke tests |
+|---|---|
+| `scripts/test-all.sh` | Backend + frontend + contract |
+| `scripts/test-backend.sh` | Backend only (`--unit`, `--integration`, `--contract` flags) |
+| `scripts/test-frontend.sh` | Frontend Vitest |
+| `scripts/test-e2e.sh` | Playwright E2E |
+| `scripts/test-a11y.sh` | Accessibility (pa11y-ci) |
+| `scripts/load-test.sh` | Locust load test |
+| `scripts/security-scan.sh` | `pip-audit`, `npm audit`, `TFSec` |
+| `scripts/smoke-test.sh` | Post-deploy smoke checks |
+| `scripts/first-run.sh` | New-contributor bootstrap (env + build + compose up) |

@@ -1,14 +1,26 @@
-# CloudForge Architecture JSON Schema
+# Architecture Import Schema
 
-This document describes the JSON format for importing cloud architecture diagrams into CloudForge.
+This reference describes the JSON format CloudForge uses for importing and exporting cloud-architecture diagrams. The format is stable across provider (AWS/Azure/GCP) and is the interchange between the visual designer, the Terraform generator, and external tooling.
 
-## Overview
+## Why this matters
 
-CloudForge supports importing infrastructure architectures via a standardized JSON format. This allows you to:
-- Programmatically generate architecture diagrams
-- Share architectures as portable files
-- Import pre-built templates
-- Migrate from other tools
+- **Programmatic generation** — produce diagrams from an LLM, a CSV, or a Terraform import
+- **Portability** — share an architecture as a single file checked into git
+- **Templates** — drop in pre-built stacks (e.g. "VPC + ALB + ECS + RDS") and edit visually
+- **Migration** — import from other tools that can emit this format
+
+## Contents
+
+- [Schema Version](#schema-version)
+- [JSON Structure](#json-structure)
+- [Root Properties](#root-properties)
+- [Metadata Object](#metadata-object)
+- [Resources Array](#resources-array)
+- [Connections Array](#connections-array)
+- [Groups Array](#groups-array)
+- [Provider-Specific Fields](#provider-specific-fields)
+- [Validation](#validation)
+- [Examples](#examples)
 
 ## Schema Version
 
@@ -24,7 +36,7 @@ Current schema version: `1.0`
     "description": "Description of the architecture",
     "cloud_provider": "aws",
     "author": "Your Name",
-    "created_at": "2024-01-15T10:30:00Z"
+    "created_at": "2026-04-24T10:30:00Z"
   },
   "resources": [...],
   "connections": [...],
@@ -52,7 +64,7 @@ Current schema version: `1.0`
     "cloud_provider": "aws",
     "author": "DevOps Team",
     "tags": ["production", "aws", "web-app"],
-    "created_at": "2024-01-15T10:30:00Z"
+    "created_at": "2026-04-24T10:30:00Z"
   }
 }
 ```

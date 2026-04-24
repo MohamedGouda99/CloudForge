@@ -1,4 +1,14 @@
-# CloudForge Entity Relationship Diagrams
+# Entity Relationship Diagrams
+
+This document is the authoritative visual reference for CloudForge's data layer. Diagrams below are authored in [Mermaid](https://mermaid.js.org/) and render natively on GitHub. They're kept in sync with `backend/app/models/` — when a model changes, update the matching diagram in the same PR.
+
+## Contents
+
+- [Backend Database (SQLAlchemy)](#backend-database-erd-sqlalchemy-models)
+- [Relationship Matrix](#relationship-matrix)
+- [Key Design Decisions](#key-design-decisions)
+
+---
 
 ## Backend Database ERD (SQLAlchemy Models)
 
