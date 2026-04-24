@@ -1,15 +1,16 @@
+<h1 align="center">CloudForge</h1>
+
 <p align="center">
-  <img src="frontend/public/vodafone.png" alt="Vodafone CloudForge" width="120" />
+  <b>Visual Infrastructure-as-Code for Multi-Cloud Teams</b><br/>
+  <sub>Design, secure, and cost-estimate AWS / Azure / GCP infrastructure — export production-ready Terraform.</sub>
 </p>
 
-<h1 align="center">
-  <img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=700&size=40&pause=1000&color=E60000&center=true&vCenter=true&width=600&height=70&lines=CloudForge;Enterprise+IaC+Platform;Terraform+Made+Visual" alt="CloudForge" />
-</h1>
-
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.0.0-E60000?style=for-the-badge&logo=semver&logoColor=white" alt="Version" />
-  <img src="https://img.shields.io/badge/license-Enterprise-E60000?style=for-the-badge&logo=opensourceinitiative&logoColor=white" alt="License" />
-  <img src="https://img.shields.io/badge/platform-Multi--Cloud-E60000?style=for-the-badge&logo=icloud&logoColor=white" alt="Platform" />
+  <img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License: MIT" />
+  <img src="https://img.shields.io/badge/python-3.11+-3776AB.svg?style=flat-square&logo=python&logoColor=white" alt="Python 3.11+" />
+  <img src="https://img.shields.io/badge/node-18+-339933.svg?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node 18+" />
+  <img src="https://img.shields.io/badge/docker-compose-2496ED.svg?style=flat-square&logo=docker&logoColor=white" alt="Docker Compose" />
+  <img src="https://img.shields.io/badge/PRs-welcome-success.svg?style=flat-square" alt="PRs welcome" />
 </p>
 
 <p align="center">
@@ -17,18 +18,9 @@
   <img src="https://img.shields.io/badge/Azure-0078D4?style=flat-square&logo=microsoftazure&logoColor=white" alt="Azure" />
   <img src="https://img.shields.io/badge/GCP-4285F4?style=flat-square&logo=googlecloud&logoColor=white" alt="GCP" />
   <img src="https://img.shields.io/badge/Terraform-7B42BC?style=flat-square&logo=terraform&logoColor=white" alt="Terraform" />
-  <img src="https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker" />
-  <img src="https://img.shields.io/badge/LocalStack-4D4D4D?style=flat-square&logo=amazonaws&logoColor=white" alt="LocalStack" />
+  <img src="https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/React-20232A?style=flat-square&logo=react&logoColor=61DAFB" alt="React" />
 </p>
-
-<p align="center">
-  <b>Visual Infrastructure as Code for Enterprise Teams</b><br/>
-  <sub>Design, Deploy, and Manage Multi-Cloud Infrastructure with AI-Powered Assistance</sub>
-</p>
-
----
-
-## Overview
 
 ```
  ██████╗██╗      ██████╗ ██╗   ██╗██████╗ ███████╗ ██████╗ ██████╗  ██████╗ ███████╗
@@ -39,7 +31,41 @@
  ╚═════╝╚══════╝ ╚═════╝  ╚═════╝ ╚═════╝ ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 ```
 
-**CloudForge** is a next-generation Infrastructure as Code (IaC) platform that transforms how enterprise teams design, deploy, and manage cloud infrastructure across AWS, Azure, and Google Cloud Platform.
+---
+
+## Table of Contents
+
+- [Why CloudForge?](#why-cloudforge)
+- [Quick Start](#quick-start)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Development](#development)
+- [Testing](#testing)
+- [Deployment](#deployment)
+- [API Reference](#api-reference)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [Security](#security)
+- [License](#license)
+- [Acknowledgments](#acknowledgments)
+
+---
+
+## Why CloudForge?
+
+Writing Terraform by hand is slow, error-prone, and closed to anyone who doesn't already know HCL. Pure visual tools (draw.io, Lucidchart) look nice but don't produce anything you can deploy.
+
+**CloudForge bridges that gap.** Drag resources onto a canvas, connect them, and get validated, security-scanned, cost-estimated Terraform out the other side — for AWS, Azure, or GCP, from one UI.
+
+| Problem | CloudForge's answer |
+|---|---|
+| HCL is a barrier for junior engineers and non-ops stakeholders | Drag-and-drop designer with per-resource forms |
+| Security misconfigurations ship to prod | Inline TFSec + Terrascan runs on every generation |
+| Costs discovered *after* the invoice | Real-time Infracost estimation in the UI |
+| "It worked on AWS" but you need Azure next quarter | Unified catalog generates provider-specific HCL from one diagram |
+| Diagrams in Confluence drift from reality | The diagram **is** the source of truth — Terraform is generated from it |
 
 ---
 
@@ -48,1226 +74,300 @@
 ```bash
 git clone https://github.com/MohamedGouda99/CloudForge.git
 cd CloudForge
-cp .env.example .env                    # optional: add INFRACOST_API_KEY, ANTHROPIC_API_KEY
-./scripts/first-run.sh                  # brings up the full stack and waits for health
+cp .env.example .env                # optional: add INFRACOST_API_KEY, ANTHROPIC_API_KEY
+./scripts/first-run.sh              # brings up the full stack and waits for health
 ```
 
 Then open:
 
-- **Frontend:** http://localhost:3000
-- **Backend API docs:** http://localhost:8000/docs
+- **Frontend** → http://localhost:3000
+- **Backend API docs** → http://localhost:8000/docs
 - **Default login:** `admin` / `admin123`
 
-> **⚠️ Security — change the default admin password immediately if you run this beyond localhost.** The bootstrap creates `admin`/`admin123` for zero-friction onboarding. Rotate it via the Settings page or by deleting the user and setting `INITIAL_ADMIN_PASSWORD` in your `.env` before first boot.
+> **⚠️ Change the default admin password before exposing beyond localhost.** Rotate it from the Settings page, or set `INITIAL_ADMIN_PASSWORD` in `.env` before the first boot.
 
-**Prerequisites:** Docker 24+, Docker Compose v2, Node.js 18+ (only needed if you build the shared catalog locally), Python 3.11+ (only for backend work outside Docker).
+**Prerequisites:** Docker 24+, Docker Compose v2. Node.js 18+ and Python 3.11+ are only needed if you work on the code outside Docker.
 
-**Runs everywhere Docker runs** — tested on Windows 11 + WSL2, macOS 14, and Ubuntu 22.04.
-
-Full contributor guide: [CONTRIBUTING.md](./CONTRIBUTING.md). Architecture + commands reference: [CLAUDE.md](./CLAUDE.md). Test suite reference: [TESTING.md](./TESTING.md). Vulnerability reporting: [SECURITY.md](./SECURITY.md).
-
----
-
-## Tech Stack
-
-<table>
-<tr>
-<td width="50%">
-
-### Backend Architecture
-```yaml
-Framework:    FastAPI 0.104+
-Language:     Python 3.11+
-Database:     PostgreSQL 15
-ORM:          SQLAlchemy 2.0
-Auth:         JWT + OAuth2
-Validation:   Pydantic v2
-Async:        Uvicorn + ASGI
-```
-
-</td>
-<td width="50%">
-
-### Frontend Architecture
-```yaml
-Framework:    React 18.3+
-Language:     TypeScript 5.6+
-State:        Zustand
-Styling:      TailwindCSS 3.4
-Canvas:       React Flow
-Build:        Vite 6.0
-HTTP:         Axios
-```
-
-</td>
-</tr>
-</table>
-
-### Infrastructure & DevOps
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           DOCKER COMPOSE                                │
-├─────────────┬─────────────┬─────────────┬─────────────┬────────────────┤
-│   Backend   │  Frontend   │  PostgreSQL │  LocalStack │    Nginx       │
-│   :8000     │   :5173     │    :5432    │    :4566    │     :80        │
-├─────────────┴─────────────┴─────────────┴─────────────┴────────────────┤
-│                         SECURITY LAYER                                  │
-│              TFSec • Terrascan • Infracost • OPA                       │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+**Tested platforms:** Windows 11 + WSL2, macOS 14, Ubuntu 22.04.
 
 ---
 
 ## Features
 
 ### Visual Infrastructure Designer
+- Drag-and-drop canvas with 100+ AWS / Azure / GCP resources, grouped by service category
+- Container resources (VPC, Subnet, ECS Cluster) hold child resources visually — matches Terraform's nesting model
+- Smart connection rules with auto-wiring (drop an EC2 into a Subnet → `subnet_id` gets filled in)
+- Per-resource forms expose only the fields that matter, validated against the Terraform provider schema
 
-```
-┌────────────────────────────────────────────────────────────────────┐
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐             │
-│  │    VPC      │───▶│   Subnet    │───▶│  Instance  │           
-│  │  10.0.0.0   │    │  10.0.1.0   │    │   t3.micro  │             │
-│  └─────────────┘    └─────────────┘    └─────────────┘             │
-│         │                  │                  │                    │
-│         ▼                  ▼                  ▼                    │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐             │
-│  │   Gateway   │    │  Security   │    │   Storage   │             │
-│  │   Internet  │    │    Group    │    │     S3      │             │
-│  └─────────────┘    └─────────────┘    └─────────────┘             │
-└────────────────────────────────────────────────────────────────────┘
-```
-
-| Feature | Description |
-|---------|-------------|
-| **Drag & Drop Designer** | Visual canvas with 100+ cloud resource icons |
-| **Smart Connections** | Auto-routing edges with dependency detection |
-| **Real-time Preview** | Live Terraform code generation |
-| **Multi-Cloud Support** | AWS, Azure, GCP unified interface |
+### Multi-Cloud Terraform Generation
+- One diagram → Terraform HCL for the provider you choose
+- Provider-specific generators under `backend/app/services/terraform/generators/`
+- Dependency-ordered output that `terraform plan` accepts on the first try
+- Variables extracted automatically so the output is reusable
 
 ### Security & Compliance
-
-```
-Security Pipeline
-═══════════════════════════════════════════════════════════════════
-
-[Terraform Code] ──▶ [TFSec Scan] ──▶ [Terrascan] ──▶ [Deploy]
-                          │                │
-                          ▼                ▼
-                    ┌──────────┐    ┌──────────┐
-                    │ Critical │    │  Policy  │
-                    │  Issues  │    │Violations│
-                    └──────────┘    └──────────┘
-```
-
-| Tool | Purpose | Integration |
-|------|---------|-------------|
-| **TFSec** | Static security analysis | CLI + Real-time |
-| **Terrascan** | Policy as code | OPA Rego policies |
-| **Infracost** | Cost estimation | Background auto-run |
+- **TFSec** — static analysis for cloud misconfigurations
+- **Terrascan** — policy-as-code (CIS, SOC2, HIPAA, PCI-DSS rule sets)
+- Results rendered inline on the affected resource, not dumped in a log file
 
 ### Cost Analytics
+- **Infracost** integration runs asynchronously via Celery so the UI stays responsive
+- Per-resource monthly/hourly breakdown + aggregated dashboard across projects
+- Currency-aware; shows cost *before* you apply
 
-```
-╔═══════════════════════════════════════════════════════════════════╗
-║                    COST ANALYTICS DASHBOARD                        ║
-╠═══════════════════════════════════════════════════════════════════╣
-║                                                                    ║
-║   Total Monthly Cost          │  Cost Distribution                ║
-║   ┌──────────────────┐        │  ┌─────────────────────────┐     ║
-║   │    $70.88        │        │  │ AWS ████████████  100%  │     ║
-║   │    ▲ +5%         │        │  │ Azure              0%   │     ║
-║   └──────────────────┘        │  │ GCP                0%   │     ║
-║                               │  └─────────────────────────┘     ║
-║   Resources: 5  │  Projects: 1                                    ║
-║                                                                    ║
-╚═══════════════════════════════════════════════════════════════════╝
-```
+### AI Assistant *(optional)*
+- Natural-language resource placement ("add a public load-balancer fronting my ECS service")
+- Powered by Anthropic Claude; enable by setting `ANTHROPIC_API_KEY`
+
+### Real-Time Collaboration
+- Socket.IO rooms for multi-user editing of the same canvas
+- Presence cursors + diagram patches broadcast to the project room
 
 ---
 
-## System Architecture
+## Architecture
 
-<p align="center">
-  <img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=600&size=24&pause=1000&color=E60000&center=true&vCenter=true&width=500&height=40&lines=Full+Stack+Architecture;Multi-Tier+Design;Enterprise+Ready" alt="System Architecture" />
-</p>
+```mermaid
+graph TB
+  subgraph Browser["Browser"]
+    UI["React + Vite<br/>React Flow canvas"]
+  end
 
+  subgraph Vercel["Vercel (Frontend)"]
+    Static["Static SPA"]
+  end
+
+  subgraph Railway["Railway (Backend)"]
+    API["FastAPI<br/>(uvicorn)"]
+    Celery["Celery worker<br/>scans + cost"]
+    PG["PostgreSQL<br/>users / projects / resources"]
+    Redis["Redis<br/>broker + cache"]
+  end
+
+  subgraph Catalog["Shared Catalog"]
+    TS["shared/resource-catalog<br/>TypeScript → JSON"]
+  end
+
+  subgraph Generation["Generation Pipeline"]
+    HCL["HCL generator<br/>(aws.py / azure.py / gcp.py)"]
+    TFSec["TFSec"]
+    Terrascan["Terrascan"]
+    Infracost["Infracost"]
+  end
+
+  UI -->|HTTPS REST + WS| API
+  Static --> UI
+  TS -->|Build output read at startup| API
+  API --> PG
+  API --> Redis
+  API --> Celery
+  Celery --> HCL
+  API --> HCL
+  HCL --> TFSec & Terrascan & Infracost
+  Celery --> PG
 ```
-╔═══════════════════════════════════════════════════════════════════════════════════════════╗
-║                                 CLOUDFORGE SYSTEM ARCHITECTURE                             ║
-╠═══════════════════════════════════════════════════════════════════════════════════════════╣
-║                                                                                            ║
-║    ┌─────────────────────────────────────────────────────────────────────────────────┐    ║
-║    │                              PRESENTATION LAYER                                  │    ║
-║    │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐            │    ║
-║    │  │   Browser   │  │   Desktop   │  │   Mobile    │  │    CLI      │            │    ║
-║    │  │   Client    │  │    App      │  │    App      │  │   Tools     │            │    ║
-║    │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘            │    ║
-║    └─────────┼────────────────┼────────────────┼────────────────┼────────────────────┘    ║
-║              │                │                │                │                          ║
-║              └────────────────┴────────────────┴────────────────┘                          ║
-║                                        │                                                   ║
-║                                        ▼                                                   ║
-║    ┌─────────────────────────────────────────────────────────────────────────────────┐    ║
-║    │                                 API GATEWAY                                      │    ║
-║    │                            ┌───────────────────┐                                 │    ║
-║    │                            │       Nginx       │                                 │    ║
-║    │                            │   Load Balancer   │                                 │    ║
-║    │                            │   SSL/TLS Term    │                                 │    ║
-║    │                            │   Rate Limiting   │                                 │    ║
-║    │                            └─────────┬─────────┘                                 │    ║
-║    └──────────────────────────────────────┼───────────────────────────────────────────┘    ║
-║                                           │                                                ║
-║                                           ▼                                                ║
-║    ┌─────────────────────────────────────────────────────────────────────────────────┐    ║
-║    │                              APPLICATION LAYER                                   │    ║
-║    │  ┌────────────────────────────────────────────────────────────────────────────┐ │    ║
-║    │  │                         FastAPI Backend Server                              │ │    ║
-║    │  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │ │    ║
-║    │  │  │  Auth API    │  │ Projects API │  │ Terraform API│  │ Dashboard API│   │ │    ║
-║    │  │  │  /api/auth   │  │ /api/projects│  │/api/terraform│  │/api/dashboard│   │ │    ║
-║    │  │  ├──────────────┤  ├──────────────┤  ├──────────────┤  ├──────────────┤   │ │    ║
-║    │  │  │• Login       │  │• CRUD Ops    │  │• Generate    │  │• Stats       │   │ │    ║
-║    │  │  │• Register    │  │• Resources   │  │• Validate    │  │• Analytics   │   │ │    ║
-║    │  │  │• JWT Tokens  │  │• Diagram     │  │• Plan/Apply  │  │• Metrics     │   │ │    ║
-║    │  │  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘   │ │    ║
-║    │  └────────────────────────────────────────────────────────────────────────────┘ │    ║
-║    └─────────────────────────────────────────────────────────────────────────────────┘    ║
-║                                           │                                                ║
-║                    ┌──────────────────────┼──────────────────────┐                        ║
-║                    │                      │                      │                        ║
-║                    ▼                      ▼                      ▼                        ║
-║    ┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐            ║
-║    │    DATA LAYER       │  │   SECURITY LAYER    │  │   EXTERNAL LAYER    │            ║
-║    │  ┌───────────────┐  │  │  ┌───────────────┐  │  │  ┌───────────────┐  │            ║
-║    │  │  PostgreSQL   │  │  │  │    TFSec      │  │  │  │  LocalStack   │  │            ║
-║    │  │   Database    │  │  │  │  Security Scan │  │  │  │ AWS Emulator  │  │            ║
-║    │  ├───────────────┤  │  │  └───────────────┘  │  │  └───────────────┘  │            ║
-║    │  │• Users        │  │  │  ┌───────────────┐  │  │  ┌───────────────┐  │            ║
-║    │  │• Projects     │  │  │  │   Terrascan   │  │  │  │    AWS S3     │  │            ║
-║    │  │• Resources    │  │  │  │ Policy Checks │  │  │  │  (Production) │  │            ║
-║    │  │• Cost Data    │  │  │  └───────────────┘  │  │  └───────────────┘  │            ║
-║    │  └───────────────┘  │  │  ┌───────────────┐  │  │  ┌───────────────┐  │            ║
-║    │                     │  │  │   Infracost   │  │  │  │ Azure/GCP     │  │            ║
-║    │                     │  │  │ Cost Analysis │  │  │  │   Clouds      │  │            ║
-║    │                     │  │  └───────────────┘  │  │  └───────────────┘  │            ║
-║    └─────────────────────┘  └─────────────────────┘  └─────────────────────┘            ║
-║                                                                                            ║
-╚═══════════════════════════════════════════════════════════════════════════════════════════╝
-```
+
+**Flow:** a user's diagram is stored as JSON in `projects.diagram_data`. `POST /api/terraform/generate/{id}` hands that JSON to a provider-specific generator, which walks the dependency graph and emits HCL. Security scans and cost estimation run as Celery tasks against the generated HCL; results are written back to `projects.tf_config` and `cost_estimates`.
+
+More detail in [`docs/CLOUDFORGE_ARCHITECTURE_SCHEMA.md`](./docs/CLOUDFORGE_ARCHITECTURE_SCHEMA.md) and [`CLAUDE.md`](./CLAUDE.md).
 
 ---
 
-## Software Architecture
+## Tech Stack
 
-<p align="center">
-  <img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=600&size=24&pause=1000&color=E60000&center=true&vCenter=true&width=600&height=40&lines=Frontend+Architecture;React+%2B+TypeScript+%2B+Zustand;Component-Based+Design" alt="Frontend Architecture" />
-</p>
-
-### Frontend Architecture (React)
-
-```
-╔════════════════════════════════════════════════════════════════════════════════════════╗
-║                              FRONTEND ARCHITECTURE                                      ║
-╠════════════════════════════════════════════════════════════════════════════════════════╣
-║                                                                                         ║
-║   ┌──────────────────────────────────────────────────────────────────────────────────┐ ║
-║   │                              ROUTING LAYER                                        │ ║
-║   │                         React Router v6 + Guards                                  │ ║
-║   │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌────────────┐ │ ║
-║   │  │     /       │ │  /login     │ │ /dashboard  │ │ /analytics  │ │ /projects/ │ │ ║
-║   │  │  Landing    │ │   Auth      │ │  Protected  │ │  Protected  │ │   :id      │ │ ║
-║   │  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘ └────────────┘ │ ║
-║   └──────────────────────────────────────────────────────────────────────────────────┘ ║
-║                                          │                                              ║
-║                                          ▼                                              ║
-║   ┌──────────────────────────────────────────────────────────────────────────────────┐ ║
-║   │                              FEATURE MODULES                                      │ ║
-║   │  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐ │ ║
-║   │  │   Dashboard    │  │    Designer    │  │   Analytics    │  │   Assistant    │ │ ║
-║   │  │   Module       │  │    Module      │  │    Module      │  │    Module      │ │ ║
-║   │  ├────────────────┤  ├────────────────┤  ├────────────────┤  ├────────────────┤ │ ║
-║   │  │ EnhancedDash   │  │ DesignerPage   │  │ AnalyticsPage  │  │ AssistantPage  │ │ ║
-║   │  │ MetricsCard    │  │ ReactFlow      │  │ DonutChart     │  │ ChatInterface  │ │ ║
-║   │  │ ProjectList    │  │ InspectorPanel │  │ BarChart       │  │ AIResponses    │ │ ║
-║   │  │ QuickActions   │  │ ToolbarPanel   │  │ CostTable      │  │ Suggestions    │ │ ║
-║   │  └────────────────┘  └────────────────┘  └────────────────┘  └────────────────┘ │ ║
-║   └──────────────────────────────────────────────────────────────────────────────────┘ ║
-║                                          │                                              ║
-║                                          ▼                                              ║
-║   ┌──────────────────────────────────────────────────────────────────────────────────┐ ║
-║   │                              STATE MANAGEMENT                                     │ ║
-║   │                               Zustand Stores                                      │ ║
-║   │  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐ │ ║
-║   │  │   authStore    │  │  projectStore  │  │ designerStore  │  │   uiStore      │ │ ║
-║   │  ├────────────────┤  ├────────────────┤  ├────────────────┤  ├────────────────┤ │ ║
-║   │  │ • token        │  │ • projects[]   │  │ • nodes[]      │  │ • theme        │ │ ║
-║   │  │ • user         │  │ • selected     │  │ • edges[]      │  │ • sidebar      │ │ ║
-║   │  │ • isAuth       │  │ • loading      │  │ • selectedNode │  │ • modals       │ │ ║
-║   │  │ • login()      │  │ • fetchAll()   │  │ • addNode()    │  │ • toasts       │ │ ║
-║   │  │ • logout()     │  │ • create()     │  │ • connect()    │  │ • loading      │ │ ║
-║   │  └────────────────┘  └────────────────┘  └────────────────┘  └────────────────┘ │ ║
-║   └──────────────────────────────────────────────────────────────────────────────────┘ ║
-║                                          │                                              ║
-║                                          ▼                                              ║
-║   ┌──────────────────────────────────────────────────────────────────────────────────┐ ║
-║   │                               SERVICE LAYER                                       │ ║
-║   │  ┌─────────────────────────────────────────────────────────────────────────────┐ │ ║
-║   │  │                            API Client (Axios)                                │ │ ║
-║   │  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │ │ ║
-║   │  │  │ Interceptors │  │  Auth Token  │  │ Error Handler│  │  Base URL    │    │ │ ║
-║   │  │  │  Request     │  │  Injection   │  │  Global      │  │  Config      │    │ │ ║
-║   │  │  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘    │ │ ║
-║   │  └─────────────────────────────────────────────────────────────────────────────┘ │ ║
-║   └──────────────────────────────────────────────────────────────────────────────────┘ ║
-║                                                                                         ║
-╚════════════════════════════════════════════════════════════════════════════════════════╝
-```
-
-<p align="center">
-  <img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=600&size=24&pause=1000&color=E60000&center=true&vCenter=true&width=600&height=40&lines=Backend+Architecture;FastAPI+%2B+SQLAlchemy+%2B+Pydantic;Layered+Design+Pattern" alt="Backend Architecture" />
-</p>
-
-### Backend Architecture (FastAPI)
-
-```
-╔════════════════════════════════════════════════════════════════════════════════════════╗
-║                               BACKEND ARCHITECTURE                                      ║
-╠════════════════════════════════════════════════════════════════════════════════════════╣
-║                                                                                         ║
-║   ┌──────────────────────────────────────────────────────────────────────────────────┐ ║
-║   │                              API ROUTER LAYER                                     │ ║
-║   │                          FastAPI Endpoints + OpenAPI                              │ ║
-║   │                                                                                   │ ║
-║   │    /api/auth          /api/projects       /api/terraform      /api/dashboard     │ ║
-║   │   ┌─────────┐        ┌─────────┐         ┌─────────┐         ┌─────────┐        │ ║
-║   │   │ login   │        │  CRUD   │         │ generate│         │  stats  │        │ ║
-║   │   │ register│        │resources│         │ validate│         │analytics│        │ ║
-║   │   │ me      │        │ diagram │         │ plan    │         │ export  │        │ ║
-║   │   │ refresh │        │ export  │         │ apply   │         │         │        │ ║
-║   │   └─────────┘        └─────────┘         │ tfsec   │         └─────────┘        │ ║
-║   │                                          │terrascan│                             │ ║
-║   │                                          │infracost│                             │ ║
-║   │                                          └─────────┘                             │ ║
-║   └──────────────────────────────────────────────────────────────────────────────────┘ ║
-║                                          │                                              ║
-║                      ┌───────────────────┼───────────────────┐                         ║
-║                      ▼                   ▼                   ▼                         ║
-║   ┌──────────────────────────────────────────────────────────────────────────────────┐ ║
-║   │                            BUSINESS LOGIC LAYER                                   │ ║
-║   │  ┌────────────────────┐  ┌────────────────────┐  ┌────────────────────┐         │ ║
-║   │  │   Auth Service     │  │  Terraform Service │  │   Cost Service     │         │ ║
-║   │  ├────────────────────┤  ├────────────────────┤  ├────────────────────┤         │ ║
-║   │  │ • Password Hashing │  │ • HCL Generation   │  │ • Infracost API    │         │ ║
-║   │  │ • JWT Creation     │  │ • Provider Config  │  │ • Cost Aggregation │         │ ║
-║   │  │ • Token Validation │  │ • Resource Mapping │  │ • Currency Convert │         │ ║
-║   │  │ • Session Mgmt     │  │ • State Management │  │ • Breakdown Parse  │         │ ║
-║   │  └────────────────────┘  └────────────────────┘  └────────────────────┘         │ ║
-║   │  ┌────────────────────┐  ┌────────────────────┐  ┌────────────────────┐         │ ║
-║   │  │  Security Service  │  │  Project Service   │  │  Resource Service  │         │ ║
-║   │  ├────────────────────┤  ├────────────────────┤  ├────────────────────┤         │ ║
-║   │  │ • TFSec Scanner    │  │ • CRUD Operations  │  │ • Type Validation  │         │ ║
-║   │  │ • Terrascan Checks │  │ • Diagram Storage  │  │ • Config Schema    │         │ ║
-║   │  │ • Policy Enforce   │  │ • Version Control  │  │ • Dependency Graph │         │ ║
-║   │  │ • Vuln Reports     │  │ • Access Control   │  │ • Position Mgmt    │         │ ║
-║   │  └────────────────────┘  └────────────────────┘  └────────────────────┘         │ ║
-║   └──────────────────────────────────────────────────────────────────────────────────┘ ║
-║                                          │                                              ║
-║                                          ▼                                              ║
-║   ┌──────────────────────────────────────────────────────────────────────────────────┐ ║
-║   │                            DATA ACCESS LAYER                                      │ ║
-║   │                        SQLAlchemy ORM + Pydantic                                  │ ║
-║   │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐                   │ ║
-║   │  │   User Model    │  │  Project Model  │  │ Resource Model  │                   │ ║
-║   │  │  ┌───────────┐  │  │  ┌───────────┐  │  │  ┌───────────┐  │                   │ ║
-║   │  │  │ id        │  │  │  │ id        │  │  │  │ id        │  │                   │ ║
-║   │  │  │ username  │  │  │  │ name      │  │  │  │ type      │  │                   │ ║
-║   │  │  │ email     │  │  │  │ owner_id  │  │  │  │ project_id│  │                   │ ║
-║   │  │  │ password  │  │  │  │ provider  │  │  │  │ config    │  │                   │ ║
-║   │  │  │ is_active │  │  │  │ diagram   │  │  │  │ position  │  │                   │ ║
-║   │  │  └───────────┘  │  │  │ tf_config │  │  │  └───────────┘  │                   │ ║
-║   │  └─────────────────┘  │  └───────────┘  │  └─────────────────┘                   │ ║
-║   │                       └─────────────────┘                                         │ ║
-║   │  ┌─────────────────────────────────────────────────────────────────────────────┐ │ ║
-║   │  │                          CostEstimate Model                                  │ │ ║
-║   │  │   id │ project_id │ monthly_cost │ currency │ resources_count │ breakdown   │ │ ║
-║   │  └─────────────────────────────────────────────────────────────────────────────┘ │ ║
-║   └──────────────────────────────────────────────────────────────────────────────────┘ ║
-║                                          │                                              ║
-║                                          ▼                                              ║
-║   ┌──────────────────────────────────────────────────────────────────────────────────┐ ║
-║   │                          DATABASE LAYER (PostgreSQL)                              │ ║
-║   │  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐                 │ ║
-║   │  │   users    │  │  projects  │  │ resources  │  │cost_estim. │                 │ ║
-║   │  │    PK      │◄─│    FK      │◄─│    FK      │  │    FK      │                 │ ║
-║   │  └────────────┘  └────────────┘  └────────────┘  └────────────┘                 │ ║
-║   └──────────────────────────────────────────────────────────────────────────────────┘ ║
-║                                                                                         ║
-╚════════════════════════════════════════════════════════════════════════════════════════╝
-```
-
----
-
-## Data Flow Architecture
-
-<p align="center">
-  <img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=600&size=24&pause=1000&color=E60000&center=true&vCenter=true&width=500&height=40&lines=Request+Lifecycle;End-to-End+Data+Flow;Async+Processing" alt="Data Flow" />
-</p>
-
-### Request Lifecycle
-
-```
-╔════════════════════════════════════════════════════════════════════════════════════════╗
-║                              REQUEST LIFECYCLE FLOW                                     ║
-╠════════════════════════════════════════════════════════════════════════════════════════╣
-║                                                                                         ║
-║  ┌─────────┐                                                               ┌─────────┐ ║
-║  │  User   │                                                               │  User   │ ║
-║  │ Browser │                                                               │ Browser │ ║
-║  └────┬────┘                                                               └────▲────┘ ║
-║       │ 1. HTTP Request                                               10. Response │   ║
-║       │    (POST /api/projects)                                          (JSON)    │   ║
-║       ▼                                                                            │   ║
-║  ┌─────────────────┐                                                               │   ║
-║  │   React App     │                                                               │   ║
-║  │  ┌───────────┐  │  2. API Call                                                  │   ║
-║  │  │ Component │──┼──────────────────────────────────────────────────────────┐    │   ║
-║  │  └───────────┘  │                                                          │    │   ║
-║  │  ┌───────────┐  │                                                          │    │   ║
-║  │  │  Zustand  │◄─┼──────────────────────────────────────────────────────────┼────┘   ║
-║  │  │   Store   │  │  9. Update State                                         │        ║
-║  │  └───────────┘  │                                                          │        ║
-║  └─────────────────┘                                                          │        ║
-║                                                                               │        ║
-║       ┌───────────────────────────────────────────────────────────────────────┘        ║
-║       │                                                                                 ║
-║       ▼                                                                                 ║
-║  ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐                   ║
-║  │   Axios Client  │────▶│    Nginx        │────▶│   FastAPI       │                   ║
-║  │  + Interceptors │     │   Reverse Proxy │     │   ASGI Server   │                   ║
-║  └─────────────────┘     └─────────────────┘     └────────┬────────┘                   ║
-║       3. Add Auth Token                                    │ 4. Validate JWT            ║
-║                                                            ▼                            ║
-║                                              ┌─────────────────────────┐               ║
-║                                              │    Route Handler        │               ║
-║                                              │  ┌─────────────────┐    │               ║
-║                                              │  │ Depends(get_db) │    │               ║
-║                                              │  │ Depends(auth)   │    │               ║
-║                                              │  └────────┬────────┘    │               ║
-║                                              └───────────┼─────────────┘               ║
-║                                                          │ 5. Execute Logic            ║
-║                                                          ▼                              ║
-║                    ┌─────────────────────────────────────────────────────────────┐     ║
-║                    │                    SERVICE LAYER                             │     ║
-║                    │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │     ║
-║                    │  │ Validation   │─▶│  Business    │─▶│  Background  │       │     ║
-║                    │  │   Logic      │  │   Logic      │  │    Tasks     │       │     ║
-║                    │  └──────────────┘  └──────────────┘  └──────────────┘       │     ║
-║                    └─────────────────────────┬───────────────────────────────────┘     ║
-║                                              │ 6. Query/Mutate                          ║
-║                                              ▼                                          ║
-║                    ┌─────────────────────────────────────────────────────────────┐     ║
-║                    │                    SQLAlchemy ORM                            │     ║
-║                    │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │     ║
-║                    │  │   Session    │─▶│    Query     │─▶│   Commit     │       │     ║
-║                    │  │   Begin      │  │   Execute    │  │   Close      │       │     ║
-║                    │  └──────────────┘  └──────────────┘  └──────────────┘       │     ║
-║                    └─────────────────────────┬───────────────────────────────────┘     ║
-║                                              │ 7. SQL                                   ║
-║                                              ▼                                          ║
-║                    ┌─────────────────────────────────────────────────────────────┐     ║
-║                    │                    PostgreSQL Database                       │     ║
-║                    │  ┌──────────────────────────────────────────────────────┐   │     ║
-║                    │  │  INSERT INTO projects (name, owner_id) VALUES (...)  │   │     ║
-║                    │  │  RETURNING id, name, created_at                      │   │     ║
-║                    │  └──────────────────────────────────────────────────────┘   │     ║
-║                    └─────────────────────────┬───────────────────────────────────┘     ║
-║                                              │ 8. Result                                ║
-║                                              ▼                                          ║
-║                    ┌─────────────────────────────────────────────────────────────┐     ║
-║                    │                 Pydantic Response Model                      │     ║
-║                    │  { "id": 1, "name": "project", "status": "created" }        │     ║
-║                    └─────────────────────────────────────────────────────────────┘     ║
-║                                                                                         ║
-╚════════════════════════════════════════════════════════════════════════════════════════╝
-```
-
----
-
-## Terraform Generation Flow
-
-<p align="center">
-  <img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=600&size=24&pause=1000&color=E60000&center=true&vCenter=true&width=500&height=40&lines=IaC+Pipeline;Visual+to+Terraform;Multi-Cloud+Support" alt="Terraform Flow" />
-</p>
-
-```
-╔════════════════════════════════════════════════════════════════════════════════════════╗
-║                           TERRAFORM GENERATION PIPELINE                                 ║
-╠════════════════════════════════════════════════════════════════════════════════════════╣
-║                                                                                         ║
-║   ┌──────────────────────────────────────────────────────────────────────────────┐     ║
-║   │                           VISUAL DESIGNER INPUT                               │     ║
-║   │                                                                               │     ║
-║   │    ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐                 │     ║
-║   │    │   VPC   │───▶│ Subnet  │───▶│   EC2   │───▶│   S3    │                 │     ║
-║   │    └─────────┘    └─────────┘    └─────────┘    └─────────┘                 │     ║
-║   │         │                              │                                      │     ║
-║   │         ▼                              ▼                                      │     ║
-║   │    ┌─────────┐                   ┌─────────┐                                 │     ║
-║   │    │   IGW   │                   │   SG    │                                 │     ║
-║   │    └─────────┘                   └─────────┘                                 │     ║
-║   │                                                                               │     ║
-║   └──────────────────────────────────────────────────────────────────────────────┘     ║
-║                                          │                                              ║
-║                                          │ 1. Extract Nodes & Edges                     ║
-║                                          ▼                                              ║
-║   ┌──────────────────────────────────────────────────────────────────────────────┐     ║
-║   │                           RESOURCE TRANSFORMER                                │     ║
-║   │                                                                               │     ║
-║   │   nodes = [                        resources = [                              │     ║
-║   │     { id: "vpc-1", type: "vpc" }      { type: "aws_vpc", name: "main" }      │     ║
-║   │     { id: "sub-1", type: "subnet" }   { type: "aws_subnet", name: "pub" }   │     ║
-║   │     { id: "ec2-1", type: "ec2" }      { type: "aws_instance", name: "web" } │     ║
-║   │   ]                                 ]                                         │     ║
-║   │                                                                               │     ║
-║   └──────────────────────────────────────────────────────────────────────────────┘     ║
-║                                          │                                              ║
-║                                          │ 2. Build Dependency Graph                    ║
-║                                          ▼                                              ║
-║   ┌──────────────────────────────────────────────────────────────────────────────┐     ║
-║   │                           DEPENDENCY RESOLVER                                 │     ║
-║   │                                                                               │     ║
-║   │   aws_vpc.main                                                                │     ║
-║   │        │                                                                      │     ║
-║   │        ├──────────────────────┐                                               │     ║
-║   │        ▼                      ▼                                               │     ║
-║   │   aws_subnet.public    aws_internet_gateway.main                             │     ║
-║   │        │                      │                                               │     ║
-║   │        ▼                      │                                               │     ║
-║   │   aws_instance.web ◄──────────┘                                               │     ║
-║   │        │                                                                      │     ║
-║   │        ▼                                                                      │     ║
-║   │   aws_security_group.web                                                      │     ║
-║   │                                                                               │     ║
-║   └──────────────────────────────────────────────────────────────────────────────┘     ║
-║                                          │                                              ║
-║                                          │ 3. Generate HCL                              ║
-║                                          ▼                                              ║
-║   ┌──────────────────────────────────────────────────────────────────────────────┐     ║
-║   │                            HCL CODE GENERATOR                                 │     ║
-║   │                                                                               │     ║
-║   │   terraform {                                                                 │     ║
-║   │     required_providers {                                                      │     ║
-║   │       aws = { source = "hashicorp/aws" }                                     │     ║
-║   │     }                                                                         │     ║
-║   │   }                                                                           │     ║
-║   │                                                                               │     ║
-║   │   resource "aws_vpc" "main" {                                                │     ║
-║   │     cidr_block = "10.0.0.0/16"                                               │     ║
-║   │     tags = { Name = "main-vpc" }                                             │     ║
-║   │   }                                                                           │     ║
-║   │                                                                               │     ║
-║   │   resource "aws_subnet" "public" {                                           │     ║
-║   │     vpc_id     = aws_vpc.main.id                                             │     ║
-║   │     cidr_block = "10.0.1.0/24"                                               │     ║
-║   │   }                                                                           │     ║
-║   │                                                                               │     ║
-║   └──────────────────────────────────────────────────────────────────────────────┘     ║
-║                                          │                                              ║
-║            ┌─────────────────────────────┼─────────────────────────────┐               ║
-║            │                             │                             │               ║
-║            ▼                             ▼                             ▼               ║
-║   ┌────────────────┐          ┌────────────────┐          ┌────────────────┐          ║
-║   │    TFSec       │          │   Terrascan    │          │   Infracost    │          ║
-║   │  Security Scan │          │  Policy Check  │          │  Cost Estimate │          ║
-║   ├────────────────┤          ├────────────────┤          ├────────────────┤          ║
-║   │ ✓ No Criticals │          │ ✓ Compliant    │          │ $70.88/month   │          ║
-║   │ ⚠ 2 Warnings   │          │ ⚠ 1 Advisory   │          │ 5 Resources    │          ║
-║   └────────────────┘          └────────────────┘          └────────────────┘          ║
-║                                          │                                              ║
-║                                          │ 4. Store Results                             ║
-║                                          ▼                                              ║
-║   ┌──────────────────────────────────────────────────────────────────────────────┐     ║
-║   │                              DATABASE STORAGE                                 │     ║
-║   │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │     ║
-║   │  │  tf_config   │  │ security_    │  │  policy_     │  │   cost_      │     │     ║
-║   │  │  (HCL Code)  │  │   results    │  │   results    │  │  estimates   │     │     ║
-║   │  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘     │     ║
-║   └──────────────────────────────────────────────────────────────────────────────┘     ║
-║                                                                                         ║
-╚════════════════════════════════════════════════════════════════════════════════════════╝
-```
-
----
-
-## Security Architecture
-
-<p align="center">
-  <img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=600&size=24&pause=1000&color=E60000&center=true&vCenter=true&width=500&height=40&lines=Defense+in+Depth;Zero+Trust+Design;Compliance+Ready" alt="Security Architecture" />
-</p>
-
-```
-╔════════════════════════════════════════════════════════════════════════════════════════╗
-║                              SECURITY ARCHITECTURE                                      ║
-╠════════════════════════════════════════════════════════════════════════════════════════╣
-║                                                                                         ║
-║   ┌──────────────────────────────────────────────────────────────────────────────────┐ ║
-║   │                          PERIMETER SECURITY                                       │ ║
-║   │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐                   │ ║
-║   │  │   Nginx WAF     │  │  Rate Limiting  │  │   CORS Policy   │                   │ ║
-║   │  │  • SQL Inject   │  │  • 100 req/min  │  │  • Origin Check │                   │ ║
-║   │  │  • XSS Filter   │  │  • Burst: 20    │  │  • Credentials  │                   │ ║
-║   │  │  • CSRF Protect │  │  • IP Blocking  │  │  • Methods      │                   │ ║
-║   │  └─────────────────┘  └─────────────────┘  └─────────────────┘                   │ ║
-║   └──────────────────────────────────────────────────────────────────────────────────┘ ║
-║                                          │                                              ║
-║                                          ▼                                              ║
-║   ┌──────────────────────────────────────────────────────────────────────────────────┐ ║
-║   │                        AUTHENTICATION LAYER                                       │ ║
-║   │                                                                                   │ ║
-║   │   ┌─────────────────────────────────────────────────────────────────────────┐   │ ║
-║   │   │                         JWT Token Flow                                   │   │ ║
-║   │   │                                                                          │   │ ║
-║   │   │   Login Request ──▶ Validate Creds ──▶ Generate JWT ──▶ Return Token    │   │ ║
-║   │   │                                            │                             │   │ ║
-║   │   │                                            ▼                             │   │ ║
-║   │   │                                   ┌─────────────────┐                    │   │ ║
-║   │   │                                   │ JWT Payload     │                    │   │ ║
-║   │   │                                   │ • sub: user_id  │                    │   │ ║
-║   │   │                                   │ • exp: timestamp│                    │   │ ║
-║   │   │                                   │ • iat: issued   │                    │   │ ║
-║   │   │                                   └─────────────────┘                    │   │ ║
-║   │   │                                                                          │   │ ║
-║   │   │   API Request ──▶ Extract Token ──▶ Verify Signature ──▶ Check Expiry   │   │ ║
-║   │   │                                                               │          │   │ ║
-║   │   │                                                               ▼          │   │ ║
-║   │   │                                                        Grant/Deny Access │   │ ║
-║   │   └─────────────────────────────────────────────────────────────────────────┘   │ ║
-║   │                                                                                   │ ║
-║   │   Password Security:  bcrypt with salt rounds = 12                               │ ║
-║   │   Token Expiry:       24 hours (configurable)                                    │ ║
-║   │   Algorithm:          HS256 (HMAC-SHA256)                                        │ ║
-║   │                                                                                   │ ║
-║   └──────────────────────────────────────────────────────────────────────────────────┘ ║
-║                                          │                                              ║
-║                                          ▼                                              ║
-║   ┌──────────────────────────────────────────────────────────────────────────────────┐ ║
-║   │                        AUTHORIZATION LAYER                                        │ ║
-║   │                                                                                   │ ║
-║   │   ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐             │ ║
-║   │   │  Route Guards   │    │ Resource RBAC   │    │  Data Filtering │             │ ║
-║   │   ├─────────────────┤    ├─────────────────┤    ├─────────────────┤             │ ║
-║   │   │ • Public routes │    │ • Owner check   │    │ • Query scoping │             │ ║
-║   │   │ • Auth required │    │ • Team access   │    │ • Join filters  │             │ ║
-║   │   │ • Admin only    │    │ • Project perms │    │ • Row-level sec │             │ ║
-║   │   └─────────────────┘    └─────────────────┘    └─────────────────┘             │ ║
-║   │                                                                                   │ ║
-║   └──────────────────────────────────────────────────────────────────────────────────┘ ║
-║                                          │                                              ║
-║                                          ▼                                              ║
-║   ┌──────────────────────────────────────────────────────────────────────────────────┐ ║
-║   │                       INFRASTRUCTURE SECURITY                                     │ ║
-║   │                                                                                   │ ║
-║   │   ┌──────────────────┐   ┌──────────────────┐   ┌──────────────────┐            │ ║
-║   │   │     TFSec        │   │    Terrascan     │   │      OPA         │            │ ║
-║   │   │  Static Analysis │   │  Policy Engine   │   │   Rego Policies  │            │ ║
-║   │   ├──────────────────┤   ├──────────────────┤   ├──────────────────┤            │ ║
-║   │   │ • AWS checks     │   │ • CIS benchmarks │   │ • Custom rules   │            │ ║
-║   │   │ • Azure checks   │   │ • SOC2 controls  │   │ • Org standards  │            │ ║
-║   │   │ • GCP checks     │   │ • HIPAA mapping  │   │ • Auto-remediate │            │ ║
-║   │   │ • Best practices │   │ • PCI-DSS rules  │   │ • Audit logging  │            │ ║
-║   │   └──────────────────┘   └──────────────────┘   └──────────────────┘            │ ║
-║   │                                                                                   │ ║
-║   └──────────────────────────────────────────────────────────────────────────────────┘ ║
-║                                                                                         ║
-╚════════════════════════════════════════════════════════════════════════════════════════╝
-```
-
----
-
-## Deployment Architecture
-
-<p align="center">
-  <img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=600&size=24&pause=1000&color=E60000&center=true&vCenter=true&width=500&height=40&lines=Container+Orchestration;Docker+Compose;Production+Ready" alt="Deployment Architecture" />
-</p>
-
-```
-╔════════════════════════════════════════════════════════════════════════════════════════╗
-║                            DEPLOYMENT ARCHITECTURE                                      ║
-╠════════════════════════════════════════════════════════════════════════════════════════╣
-║                                                                                         ║
-║   ┌──────────────────────────────────────────────────────────────────────────────────┐ ║
-║   │                          DOCKER COMPOSE STACK                                     │ ║
-║   │                                                                                   │ ║
-║   │   ┌─────────────────────────────────────────────────────────────────────────┐   │ ║
-║   │   │                         NETWORK: cloudforge_net                          │   │ ║
-║   │   │                                                                          │   │ ║
-║   │   │   ┌──────────────┐    ┌──────────────┐    ┌──────────────┐              │   │ ║
-║   │   │   │   Frontend   │    │   Backend    │    │   Database   │              │   │ ║
-║   │   │   │   Container  │    │  Container   │    │  Container   │              │   │ ║
-║   │   │   ├──────────────┤    ├──────────────┤    ├──────────────┤              │   │ ║
-║   │   │   │ Image: node  │    │ Image: python│    │Image: postgres│              │   │ ║
-║   │   │   │ Port: 5173   │    │ Port: 8000   │    │ Port: 5432   │              │   │ ║
-║   │   │   │ Vol: /app    │    │ Vol: /app    │    │ Vol: pg_data │              │   │ ║
-║   │   │   │ Mem: 512MB   │    │ Mem: 1GB     │    │ Mem: 512MB   │              │   │ ║
-║   │   │   └──────┬───────┘    └──────┬───────┘    └──────┬───────┘              │   │ ║
-║   │   │          │                   │                   │                       │   │ ║
-║   │   │          │                   │                   │                       │   │ ║
-║   │   │   ┌──────▼───────┐    ┌──────▼───────┐    ┌──────▼───────┐              │   │ ║
-║   │   │   │  LocalStack  │    │    TFSec     │    │  Terrascan   │              │   │ ║
-║   │   │   │  Container   │    │  (on-demand) │    │  (on-demand) │              │   │ ║
-║   │   │   ├──────────────┤    ├──────────────┤    ├──────────────┤              │   │ ║
-║   │   │   │ Port: 4566   │    │ Binary exec  │    │ Binary exec  │              │   │ ║
-║   │   │   │ Services:    │    │ from backend │    │ from backend │              │   │ ║
-║   │   │   │ • S3         │    │              │    │              │              │   │ ║
-║   │   │   │ • DynamoDB   │    │              │    │              │              │   │ ║
-║   │   │   │ • Lambda     │    │              │    │              │              │   │ ║
-║   │   │   │ • EC2        │    │              │    │              │              │   │ ║
-║   │   │   └──────────────┘    └──────────────┘    └──────────────┘              │   │ ║
-║   │   │                                                                          │   │ ║
-║   │   └─────────────────────────────────────────────────────────────────────────┘   │ ║
-║   │                                                                                   │ ║
-║   │   ┌─────────────────────────────────────────────────────────────────────────┐   │ ║
-║   │   │                            VOLUMES                                       │   │ ║
-║   │   │  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐        │   │ ║
-║   │   │  │  pg_data   │  │ backend_   │  │ frontend_  │  │ localstack │        │   │ ║
-║   │   │  │  (persist) │  │   logs     │  │   build    │  │   data     │        │   │ ║
-║   │   │  └────────────┘  └────────────┘  └────────────┘  └────────────┘        │   │ ║
-║   │   └─────────────────────────────────────────────────────────────────────────┘   │ ║
-║   │                                                                                   │ ║
-║   └──────────────────────────────────────────────────────────────────────────────────┘ ║
-║                                                                                         ║
-║   ┌──────────────────────────────────────────────────────────────────────────────────┐ ║
-║   │                         SERVICE DEPENDENCIES                                      │ ║
-║   │                                                                                   │ ║
-║   │        frontend ─────────────────▶ backend                                       │ ║
-║   │             │                          │                                          │ ║
-║   │             │                          ├─────────────────▶ db                     │ ║
-║   │             │                          │                                          │ ║
-║   │             │                          ├─────────────────▶ localstack             │ ║
-║   │             │                          │                                          │ ║
-║   │             │                          └─────────────────▶ infracost (external)   │ ║
-║   │             │                                                                     │ ║
-║   │             └─────────────────────────────────────────────▶ (hot reload)          │ ║
-║   │                                                                                   │ ║
-║   └──────────────────────────────────────────────────────────────────────────────────┘ ║
-║                                                                                         ║
-║   ┌──────────────────────────────────────────────────────────────────────────────────┐ ║
-║   │                          STARTUP SEQUENCE                                         │ ║
-║   │                                                                                   │ ║
-║   │   1. db ──────────▶ 2. localstack ──────────▶ 3. backend ──────────▶ 4. frontend │ ║
-║   │      │                    │                        │                       │      │ ║
-║   │      ▼                    ▼                        ▼                       ▼      │ ║
-║   │   Init DB             Start AWS              Run migrations           Dev server  │ ║
-║   │   Create user         services               Start Uvicorn            Vite HMR    │ ║
-║   │                                                                                   │ ║
-║   └──────────────────────────────────────────────────────────────────────────────────┘ ║
-║                                                                                         ║
-╚════════════════════════════════════════════════════════════════════════════════════════╝
-```
-
----
-
-## API Reference
-
-### Authentication
-
-```http
-POST /api/auth/login
-Content-Type: application/x-www-form-urlencoded
-
-username=admin&password=admin123
-```
-
-```json
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIs...",
-  "token_type": "bearer"
-}
-```
-
-### Projects API
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/projects/` | List all projects |
-| `POST` | `/api/projects/` | Create new project |
-| `GET` | `/api/projects/{id}` | Get project details |
-| `PUT` | `/api/projects/{id}` | Update project |
-| `DELETE` | `/api/projects/{id}` | Delete project |
-
-### Terraform API
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/terraform/generate/{id}` | Generate Terraform |
-| `POST` | `/api/terraform/validate/{id}` | Validate config |
-| `POST` | `/api/terraform/plan/{id}` | Run terraform plan |
-| `POST` | `/api/terraform/apply/{id}` | Apply infrastructure |
-| `POST` | `/api/terraform/tfsec/{id}` | Security scan |
-| `POST` | `/api/terraform/terrascan/{id}` | Policy scan |
-| `POST` | `/api/terraform/infracost/{id}` | Cost estimate |
-
-### Dashboard API
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/dashboard/stats` | Get summary stats |
-| `GET` | `/api/dashboard/analytics` | Detailed analytics |
-
----
-
-## Database Schema
-
-```sql
-┌─────────────────────────────────────────────────────────────────────┐
-│                           DATABASE SCHEMA                            │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  ┌──────────────┐       ┌──────────────┐       ┌──────────────┐    │
-│  │    users     │       │   projects   │       │  resources   │    │
-│  ├──────────────┤       ├──────────────┤       ├──────────────┤    │
-│  │ id           │◄──────│ owner_id     │       │ id           │    │
-│  │ username     │       │ id           │◄──────│ project_id   │    │
-│  │ email        │       │ name         │       │ type         │    │
-│  │ hashed_pass  │       │ description  │       │ name         │    │
-│  │ is_active    │       │ cloud_prov   │       │ config       │    │
-│  │ created_at   │       │ diagram_data │       │ created_at   │    │
-│  └──────────────┘       │ tf_config    │       └──────────────┘    │
-│                         │ created_at   │                            │
-│                         └──────────────┘                            │
-│                                │                                     │
-│                                ▼                                     │
-│                    ┌────────────────────┐                           │
-│                    │   cost_estimates   │                           │
-│                    ├────────────────────┤                           │
-│                    │ id                 │                           │
-│                    │ project_id         │                           │
-│                    │ monthly_cost       │                           │
-│                    │ currency           │                           │
-│                    │ resources_count    │                           │
-│                    │ cost_breakdown     │                           │
-│                    │ created_at         │                           │
-│                    └────────────────────┘                           │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Quick Start
-
-### Prerequisites
-
-```bash
-# Required software
-Docker          >= 24.0
-Docker Compose  >= 2.20
-Node.js         >= 18.0   (for local development)
-Python          >= 3.11   (for local development)
-```
-
-### Installation
-
-```bash
-# 1. Clone repository
-git clone https://github.com/vodafone/cloudforge.git
-cd cloudforge
-
-# 2. Start with Docker Compose
-docker-compose up -d
-
-# 3. Access application
-open http://localhost:5173
-```
-
-### Default Credentials
-
-```yaml
-Username: admin
-Password: admin123
-```
+| Layer | Choice | Why |
+|---|---|---|
+| API | FastAPI + uvicorn | Async, auto OpenAPI, Pydantic v2 validation |
+| ORM | SQLAlchemy 2.0 + Alembic | Stable, mature, migrations first-class |
+| DB | PostgreSQL 15 | JSONB for `diagram_data`, wide provider support |
+| Cache / broker | Redis 7 | Celery broker + session + rate-limit store |
+| Workers | Celery | Long scans + cost estimation off the request path |
+| Frontend | React 18 + TypeScript 5.6 + Vite 6 | Fast HMR, strict types |
+| State | Zustand | No Redux boilerplate, good DX for React Flow state |
+| Canvas | React Flow | Best-in-class DAG editor |
+| Styling | Tailwind 3.4 | Consistent design tokens, no runtime cost |
+| Auth | JWT (HS256) + bcrypt | Simple, stateless, no external IdP required |
+| IaC tooling | Terraform 1.6, TFSec, Terrascan, Infracost | Industry standard, all CLI-invoked from the backend |
+| Dev emulation | LocalStack Pro | AWS APIs locally for the "apply" path |
 
 ---
 
 ## Project Structure
 
 ```
-cloudforge/
-├── backend/
+CloudForge/
+├── backend/                         FastAPI service + Terraform generators
 │   ├── app/
-│   │   ├── api/
-│   │   │   └── endpoints/
-│   │   │       ├── auth.py          # Authentication
-│   │   │       ├── projects.py      # Project management
-│   │   │       ├── terraform.py     # IaC generation
-│   │   │       └── dashboard.py     # Analytics
-│   │   ├── models/
-│   │   │   ├── user.py              # User model
-│   │   │   ├── project.py           # Project model
-│   │   │   └── terraform.py         # Resource & Cost models
-│   │   ├── core/
-│   │   │   ├── config.py            # App configuration
-│   │   │   ├── database.py          # DB connection
-│   │   │   └── security.py          # JWT & hashing
-│   │   ├── services/
-│   │   │   └── terraform_generator.py
-│   │   └── main.py                  # FastAPI app
-│   ├── Dockerfile
-│   └── requirements.txt
+│   │   ├── api/endpoints/           auth, projects, terraform, catalog, ...
+│   │   ├── core/                    config, database, security, celery
+│   │   ├── models/                  SQLAlchemy ORM
+│   │   ├── schemas/                 Pydantic request/response
+│   │   └── services/terraform/      factory + per-provider generators
+│   ├── src/terraform/               TypeScript HCL helper (called as subprocess)
+│   ├── alembic/                     DB migrations
+│   └── tests/                       unit / integration / contract / load
 │
-├── frontend/
-│   ├── src/
-│   │   ├── features/
-│   │   │   ├── dashboard/           # Dashboard views
-│   │   │   ├── designer/            # Visual designer
-│   │   │   ├── analytics/           # Cost analytics
-│   │   │   └── auth/                # Authentication
-│   │   ├── components/
-│   │   │   ├── DesignerToolbar.tsx  # Designer tools
-│   │   │   ├── InspectorPanel.tsx   # Resource config
-│   │   │   └── MetricsCard.tsx      # Dashboard cards
-│   │   ├── lib/
-│   │   │   ├── api/                 # API client
-│   │   │   ├── store/               # Zustand stores
-│   │   │   └── resources/           # Resource configs
-│   │   └── App.tsx
-│   ├── Dockerfile
-│   └── package.json
+├── frontend/                        React + Vite SPA
+│   ├── src/features/                dashboard, designer, analytics, ...
+│   ├── src/components/              reusable UI
+│   └── src/lib/                     api client, stores, resource catalog client
 │
-├── docker-compose.yaml
-└── README.md
-```
-
----
-
-## Cloud Resources
-
-### AWS Resources
-
-| Resource | Terraform Type | Icon |
-|----------|---------------|------|
-| VPC | `aws_vpc` | |
-| Subnet | `aws_subnet` | |
-| EC2 Instance | `aws_instance` | |
-| Security Group | `aws_security_group` | |
-| Internet Gateway | `aws_internet_gateway` | |
-| S3 Bucket | `aws_s3_bucket` | |
-| RDS Database | `aws_db_instance` | |
-| Lambda Function | `aws_lambda_function` | |
-| EKS Cluster | `aws_eks_cluster` | |
-| Load Balancer | `aws_lb` | |
-
-### Azure Resources
-
-| Resource | Terraform Type |
-|----------|---------------|
-| Resource Group | `azurerm_resource_group` |
-| Virtual Network | `azurerm_virtual_network` |
-| Virtual Machine | `azurerm_linux_virtual_machine` |
-| Storage Account | `azurerm_storage_account` |
-| App Service | `azurerm_app_service` |
-| AKS Cluster | `azurerm_kubernetes_cluster` |
-
-### GCP Resources
-
-| Resource | Terraform Type |
-|----------|---------------|
-| VPC Network | `google_compute_network` |
-| Compute Instance | `google_compute_instance` |
-| Cloud Storage | `google_storage_bucket` |
-| Cloud SQL | `google_sql_database_instance` |
-| GKE Cluster | `google_container_cluster` |
-
----
-
-## Security Features
-
-### TFSec Integration
-
-```bash
-# Automatic security scanning on code generation
-POST /api/terraform/tfsec/{project_id}
-```
-
-```json
-{
-  "results": [
-    {
-      "rule_id": "AWS002",
-      "severity": "WARNING",
-      "description": "S3 bucket does not have logging enabled",
-      "location": {
-        "filename": "main.tf",
-        "line": 45
-      }
-    }
-  ],
-  "summary": {
-    "critical": 0,
-    "high": 1,
-    "medium": 3,
-    "low": 5
-  }
-}
-```
-
-### Terrascan Policies
-
-```bash
-# Policy-as-code validation
-POST /api/terraform/terrascan/{project_id}
-```
-
----
-
-## Cost Management
-
-### Automatic Cost Estimation
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    INFRACOST INTEGRATION                        │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   Resource Added ──▶ Background Task ──▶ Cost Calculation       │
-│                           │                                      │
-│                           ▼                                      │
-│                    ┌─────────────┐                               │
-│                    │ cost_       │                               │
-│                    │ estimates   │──▶ Dashboard Update           │
-│                    │ table       │                               │
-│                    └─────────────┘                               │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Cost Breakdown
-
-```json
-{
-  "totalMonthlyCost": "70.88",
-  "currency": "USD",
-  "projects": [
-    {
-      "name": "production",
-      "breakdown": {
-        "resources": [
-          {
-            "name": "aws_instance.nginx",
-            "resourceType": "aws_instance",
-            "monthlyCost": "70.88",
-            "hourlyCost": "0.0971"
-          }
-        ]
-      }
-    }
-  ]
-}
-```
-
----
-
-## Environment Variables
-
-### Backend Configuration
-
-```bash
-# backend/.env
-DATABASE_URL=postgresql://postgres:postgres@db:5432/cloudforge
-SECRET_KEY=your-super-secret-key-change-in-production
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=1440
-
-# LocalStack
-AWS_ENDPOINT_URL=http://localstack:4566
-AWS_ACCESS_KEY_ID=test
-AWS_SECRET_ACCESS_KEY=test
-AWS_DEFAULT_REGION=us-east-1
-
-# Security Tools
-INFRACOST_API_KEY=your-infracost-api-key
-```
-
-### Frontend Configuration
-
-```bash
-# frontend/.env
-VITE_API_URL=http://localhost:8000
-VITE_APP_NAME=CloudForge
+├── shared/resource-catalog/         TypeScript source of truth for resources
+│   └── src/{aws,azure,gcp}/         per-provider resource definitions
+│
+├── Cloud_Services/                  AWS/Azure/GCP service icons (mounted read-only)
+├── specs/                           speckit specs (branch name ↔ folder)
+├── scripts/                         test runners + first-run bootstrap
+├── docs/                            architecture, ERD, examples
+└── docker-compose.yaml              full local stack
 ```
 
 ---
 
 ## Development
 
-### Backend Development
+Full command reference: [`CLAUDE.md`](./CLAUDE.md).
+
+### Run the stack
+
+```bash
+docker compose up -d                 # full stack (postgres, redis, backend, celery, frontend, localstack)
+docker compose logs -f backend       # tail backend logs
+docker compose restart backend       # after backend code changes
+```
+
+### Work on the backend
 
 ```bash
 cd backend
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-.\venv\Scripts\activate   # Windows
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run development server
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+pytest tests/unit -v                 # unit tests
+pytest -m "not slow" -v              # skip slow
+alembic upgrade head                 # apply DB migrations
+black app/ && flake8 app/            # format + lint
 ```
 
-### Frontend Development
+### Work on the frontend
 
 ```bash
 cd frontend
-
-# Install dependencies
-npm install
-
-# Run development server
-npm run dev
-
-# Build for production
-npm run build
+npm run dev                          # Vite dev server w/ HMR
+npm run build                        # production build (tsc first — fails on type errors)
+npm run lint                         # ESLint (--max-warnings 0)
+npm run test                         # Vitest
 ```
 
-### Docker Development
+### Add a new cloud resource
 
-```bash
-# Build and start all services
-docker-compose up --build
+The [`shared/resource-catalog/`](./shared/resource-catalog/) package is the single source of truth. Steps:
 
-# View logs
-docker-compose logs -f backend frontend
+1. Create `shared/resource-catalog/src/<provider>/<category>/<resource>.ts`
+2. Export it from the category + provider `index.ts`
+3. `cd shared/resource-catalog && npm run build`
+4. `docker compose restart backend`
 
-# Restart specific service
-docker-compose restart backend
-
-# Stop all services
-docker-compose down
-```
+The backend auto-discovers the new resource via `schema_loader.py`; no backend code change needed.
 
 ---
 
 ## Testing
 
-```bash
-# Backend tests
-cd backend
-pytest tests/ -v --cov=app
+| Layer | Command | Tool |
+|---|---|---|
+| Everything | `./scripts/test-all.sh` | orchestrator |
+| Backend unit | `./scripts/test-backend.sh --unit` | pytest |
+| Frontend unit | `./scripts/test-frontend.sh` | Vitest |
+| E2E | `./scripts/test-e2e.sh` | Playwright |
+| Accessibility | `./scripts/test-a11y.sh` | pa11y-ci |
+| Load | `./scripts/load-test.sh` | Locust |
+| Security | `./scripts/security-scan.sh` | pip-audit + npm audit + TFSec |
 
-# Frontend tests
-cd frontend
-npm run test
-
-# E2E tests
-npm run test:e2e
-```
+**Coverage gate: 80% minimum on both backend and frontend.** Full guide in [`TESTING.md`](./TESTING.md).
 
 ---
 
 ## Deployment
 
-### Production Checklist
+CloudForge is designed to run on a split deployment:
 
-```
-[x] Change SECRET_KEY to strong random value
-[x] Configure proper DATABASE_URL
-[x] Set up SSL/TLS certificates
-[x] Configure CORS for production domain
-[x] Set up proper logging
-[x] Configure backup strategy
-[x] Set up monitoring (Prometheus/Grafana)
-[x] Configure rate limiting
-[x] Set up CI/CD pipeline
-```
+- **Frontend** → [Vercel](https://vercel.com/) (Vite SPA, per-PR preview URLs)
+- **Backend + Postgres + Redis + Celery worker** → [Railway](https://railway.com/) (runs the existing `backend/Dockerfile`)
 
-### Docker Production
+The frontend reads `VITE_API_URL` at build time, so swapping backends is one env-var change.
 
-```yaml
-# docker-compose.prod.yaml
-version: '3.8'
-services:
-  backend:
-    image: cloudforge-backend:latest
-    environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - SECRET_KEY=${SECRET_KEY}
-    deploy:
-      replicas: 3
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-```
+Self-host alternatives: any Docker-capable host works since the repo ships a production-ready `docker-compose.yaml`. For one-box deploys, Render, Fly.io, and DigitalOcean App Platform also run the stack as-is.
+
+---
+
+## API Reference
+
+Interactive OpenAPI docs at `http://localhost:8000/docs` (disabled in production).
+
+| Group | Endpoint | Purpose |
+|---|---|---|
+| Auth | `POST /api/auth/login` | Form-encoded login → JWT |
+| Auth | `POST /api/auth/register` | Create user |
+| Projects | `GET/POST/PUT/DELETE /api/projects/` | CRUD |
+| Catalog | `GET /api/catalog/?provider=aws` | Resource definitions |
+| Catalog | `GET /api/catalog/{terraform_resource}` | Single resource schema |
+| Terraform | `POST /api/terraform/generate/{id}` | Diagram → HCL |
+| Terraform | `POST /api/terraform/validate/{id}` | `terraform validate` |
+| Terraform | `POST /api/terraform/plan/{id}` | `terraform plan` |
+| Security | `POST /api/terraform/tfsec/{id}` | TFSec scan |
+| Security | `POST /api/terraform/terrascan/{id}` | Policy scan |
+| Cost | `POST /api/terraform/infracost/{id}` | Cost estimate (async) |
+| Dashboard | `GET /api/dashboard/stats` | Aggregates for the homepage |
+| Assistant | `POST /api/assistant/chat` | Claude-powered design suggestions |
+| Health | `GET /api/health` | Liveness + dependency check |
 
 ---
 
 ## Roadmap
 
-```
-Q1 2025                    Q2 2025                    Q3 2025
-   │                          │                          │
-   ▼                          ▼                          ▼
-┌──────────┐              ┌──────────┐              ┌──────────┐
-│ Multi-   │              │ GitOps   │              │ AI-      │
-│ Cloud    │──────────────│ Integr.  │──────────────│ Powered  │
-│ Support  │              │ + CI/CD  │              │ Assist   │
-└──────────┘              └──────────┘              └──────────┘
-```
+- [ ] GitOps: open a PR with generated Terraform into a target repo
+- [ ] Drift detection: compare deployed state to the stored diagram
+- [ ] Import existing Terraform back into a visual diagram
+- [ ] Compliance report bundles (SOC2, HIPAA, PCI-DSS PDF exports)
+- [ ] Team spaces + role-based access
+- [ ] Reusable module library (your own Terraform modules shown as catalog entries)
 
-### Upcoming Features
-
-- [ ] **GitOps Integration** - Automatic PR creation
-- [ ] **Drift Detection** - Compare deployed vs defined
-- [ ] **Cost Forecasting** - ML-based predictions
-- [ ] **Compliance Reports** - SOC2, HIPAA, PCI-DSS
-- [ ] **Team Collaboration** - Real-time editing
-- [ ] **Custom Modules** - Reusable components
-- [ ] **Approval Workflows** - Change management
+Open an [issue](https://github.com/MohamedGouda99/CloudForge/issues) with the `feature` template to suggest more.
 
 ---
 
 ## Contributing
 
-```bash
-# Fork the repository
-git clone https://github.com/yourusername/cloudforge.git
+Contributions are welcome — feature work, new cloud resources, bug fixes, docs. Start with [`CONTRIBUTING.md`](./CONTRIBUTING.md) for setup, branch conventions, and the PR checklist.
 
-# Create feature branch
-git checkout -b feature/amazing-feature
+For non-trivial changes, CloudForge uses [speckit](https://github.com/github/spec-kit) — feature branches follow `NNN-<kebab-name>` and map 1:1 to folders under `specs/`. Read the spec/plan/tasks there before touching code.
 
-# Commit changes
-git commit -m 'feat: add amazing feature'
+---
 
-# Push to branch
-git push origin feature/amazing-feature
+## Security
 
-# Open Pull Request
-```
+Found a vulnerability? **Please don't open a public issue.** See [`SECURITY.md`](./SECURITY.md) for the private-disclosure process (GitHub security advisory).
 
 ---
 
 ## License
 
-```
-Copyright (c) 2024 Vodafone Group
+[MIT](./LICENSE) © 2026 Mohamed Gouda
 
-This software is proprietary and confidential.
-Unauthorized copying, modification, distribution, or use
-of this software, via any medium, is strictly prohibited.
+You're free to use, modify, distribute, and sublicense this software, subject to the conditions in the LICENSE file.
 
-Enterprise License Agreement required for usage.
-```
+---
+
+## Acknowledgments
+
+- [Terraform](https://www.terraform.io/) — HCL, providers, the whole ecosystem
+- [Aqua Security TFSec](https://github.com/aquasecurity/tfsec) & [Tenable Terrascan](https://github.com/tenable/terrascan) — security scanning
+- [Infracost](https://www.infracost.io/) — cost estimation API
+- [LocalStack](https://www.localstack.cloud/) — AWS emulation for local dev
+- [React Flow](https://reactflow.dev/) — the canvas that makes the designer possible
+- [FastAPI](https://fastapi.tiangolo.com/) — the backend framework
 
 ---
 
 <p align="center">
-  <img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=600&size=20&pause=1000&color=E60000&center=true&vCenter=true&width=600&height=50&lines=Built+with+%E2%9D%A4%EF%B8%8F+by+Vodafone+Engineering;Empowering+Cloud+Infrastructure+Teams" alt="Footer" />
-</p>
-
-<p align="center">
-  <sub>CloudForge Enterprise IaC Platform v2.0.0</sub>
+  <sub>Built with care. Star the repo if it helps you ship infra faster.</sub>
 </p>
