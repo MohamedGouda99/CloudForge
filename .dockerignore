@@ -1,7 +1,8 @@
 # Node modules
-frontend/node_modules
+**/node_modules
 frontend/dist
 frontend/.vite
+shared/resource-catalog/dist
 
 # Python cache
 backend/__pycache__

@@ -1,0 +1,17 @@
+# Files NOT uploaded to Railway's builder (separate from .gitignore)
+node_modules/
+**/node_modules/
+__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+coverage/
+generated_terraform/
+*.log
+logs/
+.env
+.env.local
+tests/
+.mypy_cache/
