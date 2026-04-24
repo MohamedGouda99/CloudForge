@@ -6,7 +6,6 @@ __pycache__/
 .Python
 build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
@@ -31,20 +30,24 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-dist/
-build/
 .next/
 out/
+
+# Frontend / shared-catalog builds — regenerate with `npm run build`
+frontend/dist/
+shared/resource-catalog/dist/
 
 # IDEs
 .vscode/
 .idea/
+.cursor/
 *.swp
 *.swo
 *~
 .DS_Store
+Thumbs.db
 
-# Environment
+# Environment — never commit real values
 .env
 .env.local
 .env.*.local
@@ -77,10 +80,19 @@ htmlcov/
 # Docker
 docker-compose.override.yml
 
-# Generated files
+# Generated / runtime files
 generated_terraform/
 temp/
 tmp/
-.claude/
 drawio/
 image/
+
+# AI assistant state (personal, not project)
+.claude/
+.remember/
+
+# Windows crash dumps
+*.stackdump
+
+# Repo-prep tooling (downloaded locally, not for commit)
+.gitscrub/

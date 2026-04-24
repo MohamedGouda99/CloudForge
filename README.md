@@ -43,6 +43,31 @@
 
 ---
 
+## Quick Start
+
+```bash
+git clone https://github.com/MohamedGouda99/CloudForge.git
+cd CloudForge
+cp .env.example .env                    # optional: add INFRACOST_API_KEY, ANTHROPIC_API_KEY
+./scripts/first-run.sh                  # brings up the full stack and waits for health
+```
+
+Then open:
+
+- **Frontend:** http://localhost:3000
+- **Backend API docs:** http://localhost:8000/docs
+- **Default login:** `admin` / `admin123`
+
+> **⚠️ Security — change the default admin password immediately if you run this beyond localhost.** The bootstrap creates `admin`/`admin123` for zero-friction onboarding. Rotate it via the Settings page or by deleting the user and setting `INITIAL_ADMIN_PASSWORD` in your `.env` before first boot.
+
+**Prerequisites:** Docker 24+, Docker Compose v2, Node.js 18+ (only needed if you build the shared catalog locally), Python 3.11+ (only for backend work outside Docker).
+
+**Runs everywhere Docker runs** — tested on Windows 11 + WSL2, macOS 14, and Ubuntu 22.04.
+
+Full contributor guide: [CONTRIBUTING.md](./CONTRIBUTING.md). Architecture + commands reference: [CLAUDE.md](./CLAUDE.md). Test suite reference: [TESTING.md](./TESTING.md). Vulnerability reporting: [SECURITY.md](./SECURITY.md).
+
+---
+
 ## Tech Stack
 
 <table>

@@ -41,7 +41,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: dev_secret_key_change_in_production
       ENVIRONMENT: development
-      INFRACOST_API_KEY: ***REDACTED_INFRACOST_KEY***
+      INFRACOST_API_KEY: ${INFRACOST_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
       NODE_ENV: development
@@ -110,7 +110,7 @@ services:
     image: localstack/localstack-pro
     container_name: localstack
     environment:
-      LOCALSTACK_AUTH_TOKEN: ***REDACTED_LOCALSTACK_TOKEN***
+      LOCALSTACK_AUTH_TOKEN: ${LOCALSTACK_AUTH_TOKEN:-}
       PERSISTENCE: 1
     ports:
       - "4566:4566"

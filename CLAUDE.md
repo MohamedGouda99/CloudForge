@@ -39,8 +39,18 @@ cd backend
 # Run development server (with auto-reload)
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
-# Run tests
+# Run tests (pytest.ini defines markers: unit, integration, contract, load, slow)
 pytest tests/ -v --cov=app
+pytest tests/unit -v                    # Unit tests only
+pytest tests/integration -v             # Integration (requires PostgreSQL)
+pytest tests/contract -v                # Terraform generator output contracts
+pytest -m "not slow" -v                 # Skip slow tests
+pytest tests/unit/test_foo.py::TestClass::test_method -v   # Single test
+
+# Alembic database migrations (run from backend/)
+alembic upgrade head                    # Apply all migrations
+alembic revision --autogenerate -m "desc"  # Generate new migration from model changes
+alembic downgrade -1                    # Roll back one revision
 
 # Code formatting and linting
 black app/
@@ -48,16 +58,42 @@ flake8 app/
 mypy app/
 ```
 
+### Top-level Test Orchestration
+
+Test scripts under `scripts/` are the canonical way to run cross-stack test suites. See `TESTING.md` for full details.
+
+```bash
+./scripts/test-all.sh                   # Backend + frontend + contract
+./scripts/test-all.sh --coverage        # With coverage reports
+./scripts/test-backend.sh --unit        # Backend unit tests only
+./scripts/test-frontend.sh              # Vitest unit tests
+./scripts/test-e2e.sh                   # Playwright E2E
+./scripts/test-a11y.sh                  # pa11y-ci accessibility
+./scripts/load-test.sh                  # Locust load tests
+./scripts/security-scan.sh              # pip-audit + npm audit + TFSec
+./scripts/smoke-test.sh                 # Post-deploy smoke checks
+```
+
+Coverage gate is **80% minimum** for both backend and frontend (enforced in CI).
+
 ### Frontend Development
 
 ```bash
 cd frontend
 
 npm install
-npm run dev           # Development server with HMR
-npm run build         # Production build (runs tsc first)
-npm run lint          # ESLint
-npx tsc --noEmit      # Type check only
+npm run dev                  # Vite dev server with HMR (port 3000 in Docker, 5173 locally)
+npm run build                # Production build (runs tsc first — fails on type errors)
+npm run lint                 # ESLint (--max-warnings 0, so warnings fail)
+npx tsc --noEmit             # Type check only
+
+npm run test                 # Vitest (watch mode)
+npm run test:run             # Vitest single run
+npm run test:coverage        # With c8 coverage
+npm run test:e2e             # Playwright E2E
+npm run test:e2e:ui          # Playwright UI mode (interactive)
+npm run test:a11y            # pa11y-ci accessibility scan
+npm run audit                # npm audit --audit-level=high
 ```
 
 ### TypeScript Terraform Generator
@@ -199,6 +235,33 @@ Located at `backend/src/terraform/`, this is a separate TypeScript module called
 - Redis: `6379` (internal only)
 - LocalStack: `4566`
 
+### Celery Background Workers
+
+`docker-compose.yaml` runs a `cloudforge-celery` container alongside the backend. It shares the backend image and mounts `./backend:/app`, so code changes propagate on restart (no auto-reload). Broker and result backend are both Redis (`redis://redis:6379/0`).
+
+- Entry point: `celery -A app.core.celery worker --loglevel=info`
+- Configuration: `backend/app/core/celery.py`
+- Use for: Infracost cost estimation (long-running), security scans, anything that would block the request cycle.
+- Restart after task-module changes: `wsl.exe -d Ubuntu docker restart cloudforge-celery`
+
+### Background Tasks vs. Sync Endpoints
+
+`POST /api/terraform/generate/{id}` generates HCL **synchronously** (it's fast). Scans (`tfsec`, `terrascan`, `infracost`) should be dispatched through Celery when they run on large projects — check `backend/app/api/endpoints/terraform.py` for the current pattern before adding new long-running work to the request path.
+
+### Spec-Driven Development (speckit)
+
+This repository uses **GitHub Spec Kit**. Feature specs live in `specs/NNN-feature-name/` and are the source of truth for multi-step work. The current working branch name (e.g. `002-production-readiness-testing`) maps 1:1 to a folder in `specs/`.
+
+Workflow (invoke via the speckit skills):
+1. `/speckit.specify` — write the feature spec
+2. `/speckit.clarify` — resolve ambiguous requirements
+3. `/speckit.plan` — produce an implementation plan
+4. `/speckit.tasks` — generate a dependency-ordered task list
+5. `/speckit.implement` — execute tasks
+6. `/speckit.analyze` — cross-artifact consistency check
+
+Before starting non-trivial work on an existing branch, read `specs/<branch-name>/` first — the spec, plan, and tasks there override assumptions from code alone.
+
 ### Cloud Service Icons
 
 Icons stored in `Cloud_Services/` directory, mounted read-only at `/app/Cloud_Services` in containers.
@@ -275,8 +338,16 @@ import { isContainerNode, getValidChildTypes, validateContainment } from './node
 
 1. **Catalog:** Create resource definition in `shared/resource-catalog/src/aws/{category}/{resource}.ts`
 2. **Export:** Add to category's `index.ts` and main `aws/index.ts`
-3. **Build:** Run `npm run build` in `shared/resource-catalog/`
-4. **Backend:** The schema_loader auto-discovers resources from the built catalog
+3. **Build:** Run `npm run build` in `shared/resource-catalog/` — this is **required**; the backend reads the compiled `dist/` output, not `src/`.
+4. **Backend:** `backend/app/services/terraform/schema_loader.py` auto-discovers resources from the built catalog. No backend code change needed for a new resource.
+5. **Icon:** Place the AWS service icon under `Cloud_Services/` (mounted read-only at `/app/Cloud_Services` in containers) and reference it from `icons.ts`.
+
+The catalog is mounted into the backend container as `/shared/resource-catalog:ro` (see `docker-compose.yaml`). A rebuild of the shared catalog does **not** require a backend container rebuild — only `cloudforge-backend` restart to pick up schema changes:
+
+```bash
+cd shared/resource-catalog && npm run build
+wsl.exe -d Ubuntu docker restart cloudforge-backend
+```
 
 ## Common Development Patterns
 
