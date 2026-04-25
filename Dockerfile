@@ -66,7 +66,7 @@ COPY backend/ /app/
 COPY shared/resource-catalog/ /shared/resource-catalog/
 RUN cd /shared/resource-catalog \
     && npm install --no-audit --no-fund \
-    && npm run build \
+    && npm run build:all \
     && npm prune --omit=dev
 
 # Runtime dirs
