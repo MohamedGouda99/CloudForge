@@ -65,8 +65,9 @@ COPY backend/ /app/
 # (which is five levels up from /app/app/services/terraform/).
 COPY shared/resource-catalog/ /shared/resource-catalog/
 RUN cd /shared/resource-catalog \
-    && npm install --omit=dev --no-audit --no-fund \
-    && npm run build
+    && npm install --no-audit --no-fund \
+    && npm run build \
+    && npm prune --omit=dev
 
 # Runtime dirs
 RUN mkdir -p /app/generated_terraform

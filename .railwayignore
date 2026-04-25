@@ -1,0 +1,48 @@
+# Railway uploads the entire working dir before building.
+# This file trims it from ~1.4 GB to ~10 MB. Patterns are gitignore-style.
+
+# Dependencies — Docker build installs them fresh
+**/node_modules
+**/.venv
+**/__pycache__
+**/*.pyc
+
+# Git history — not needed for build
+.git
+
+# Build outputs — Docker rebuilds these
+frontend/dist
+frontend/.vite
+shared/resource-catalog/dist
+backend/src/terraform/dist
+
+# Local-only state
+.remember
+.claude
+.cursor
+.specify
+.gitscrub
+
+# Test/scan artifacts
+backend/htmlcov
+backend/.pytest_cache
+backend/.coverage
+frontend/coverage
+**/playwright-report
+**/test-results
+
+# Docs (built into image but kept on GitHub for browse)
+specs
+docs
+postman
+
+# Editor/OS junk
+.vscode
+.idea
+*.swp
+*.stackdump
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
